@@ -1,0 +1,1932 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="عيادات الحياة">
+<meta name="theme-color" content="#0A0D14" id="theme-color-meta">
+<title>عيادات الحياة للتجميل</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap');
+:root{
+  --bg-primary:#0A0D14;--bg-secondary:#0F1420;
+  --bg-card:rgba(255,255,255,.04);--bg-card-hover:rgba(255,255,255,.07);
+  --glass:rgba(255,255,255,.06);--glass-border:rgba(255,255,255,.10);
+  --sidebar-bg:linear-gradient(180deg,#0D1525,#0A0D14);
+  --topbar-bg:rgba(10,13,20,.88);--modal-bg:#0F1825;--input-bg:rgba(255,255,255,.06);
+  --gold:#C4A882;--gold-light:#D4B896;--teal:#2DD4BF;--teal-dark:#14B8A6;
+  --purple:#8B5CF6;--rose:#F43F5E;--emerald:#10B981;--amber:#F59E0B;--blue:#3B82F6;
+  --text-primary:#F1F5F9;--text-secondary:#94A3B8;--text-muted:#475569;
+  --shadow:0 8px 32px rgba(0,0,0,.5);--sidebar-w:262px;--radius:16px;--radius-sm:10px;
+}
+html.light{
+  --bg-primary:#F0F4F8;--bg-secondary:#E8EEF5;
+  --bg-card:rgba(255,255,255,.9);--bg-card-hover:#fff;
+  --glass:rgba(255,255,255,.75);--glass-border:rgba(0,0,0,.09);
+  --sidebar-bg:linear-gradient(180deg,#fff,#F0F4F8);
+  --topbar-bg:rgba(240,244,248,.92);--modal-bg:#fff;--input-bg:rgba(0,0,0,.04);
+  --gold:#7A5C38;--gold-light:#5E4428;--teal:#0D9488;--teal-dark:#0F766E;
+  --purple:#6D28D9;--rose:#BE123C;--emerald:#047857;--amber:#B45309;--blue:#1D4ED8;
+  --text-primary:#0F172A;--text-secondary:#1E293B;--text-muted:#64748B;
+  --shadow:0 4px 20px rgba(0,0,0,.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'Tajawal',sans-serif;background:var(--bg-primary);color:var(--text-primary);font-size:14px;transition:background .3s,color .3s;}
+.sidebar{position:fixed;top:0;right:0;width:var(--sidebar-w);height:100vh;background:var(--sidebar-bg);border-left:1px solid var(--glass-border);z-index:200;display:flex;flex-direction:column;overflow:hidden;transition:transform .3s cubic-bezier(.4,0,.2,1);}
+.sidebar-logo{padding:18px 16px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:10px;}
+.logo-icon{width:42px;height:42px;background:linear-gradient(135deg,var(--gold),var(--teal));border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.logo-text h1{font-size:13px;font-weight:800;background:linear-gradient(135deg,var(--gold-light),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.3;}
+.logo-text span{font-size:10px;color:var(--text-muted);}
+.conn-bar{display:flex;align-items:center;gap:6px;padding:6px 16px;font-size:10.5px;color:var(--text-muted);border-bottom:1px solid var(--glass-border);}
+.conn-dot{width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0;transition:background .3s;}
+.sidebar-search{padding:10px 12px;border-bottom:1px solid var(--glass-border);}
+.sidebar-search input{width:100%;padding:7px 10px;background:var(--input-bg);border:1px solid var(--glass-border);border-radius:8px;color:var(--text-primary);font-family:'Tajawal',sans-serif;font-size:12.5px;outline:none;direction:rtl;}
+.sidebar-search input::placeholder{color:var(--text-muted);}
+.sidebar-nav{flex:1;overflow-y:auto;padding:6px 0;scrollbar-width:thin;scrollbar-color:var(--glass-border) transparent;}
+.nav-label{font-size:9.5px;font-weight:800;letter-spacing:1.5px;color:var(--text-muted);text-transform:uppercase;padding:10px 18px 3px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 14px;margin:1px 7px;border-radius:var(--radius-sm);cursor:pointer;transition:all .18s;color:var(--text-secondary);position:relative;border:1px solid transparent;}
+.nav-item:hover{background:var(--glass);color:var(--text-primary);}
+.nav-item.active{background:linear-gradient(135deg,rgba(196,168,130,.13),rgba(45,212,191,.08));color:var(--gold-light);border-color:rgba(196,168,130,.18);}
+.nav-item.active::before{content:'';position:absolute;right:-7px;top:50%;transform:translateY(-50%);width:3px;height:22px;background:linear-gradient(var(--gold),var(--teal));border-radius:2px;}
+.nav-icon{font-size:17px;width:20px;text-align:center;flex-shrink:0;}
+.nav-text{flex:1;font-size:13px;font-weight:500;}
+.nb{font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px;min-width:18px;text-align:center;}
+.nb-rose{background:var(--rose);color:#fff;}
+.nb-teal{background:var(--teal);color:var(--bg-primary);}
+.nb-amber{background:var(--amber);color:var(--bg-primary);}
+.nb-green{background:var(--emerald);color:#fff;}
+.sidebar-footer{padding:10px 12px;border-top:1px solid var(--glass-border);}
+.user-card{display:flex;align-items:center;gap:9px;padding:9px 11px;background:var(--glass);border-radius:var(--radius-sm);cursor:pointer;}
+.user-ava{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--teal));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.user-info p{font-size:12.5px;font-weight:700;}
+.user-info span{font-size:10.5px;color:var(--text-muted);}
+.online-dot{width:7px;height:7px;border-radius:50%;background:var(--emerald);margin-right:auto;box-shadow:0 0 6px var(--emerald);}
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);z-index:199;}
+.sb-overlay.open{display:block;}
+.topbar{position:fixed;top:0;left:0;right:var(--sidebar-w);height:60px;background:var(--topbar-bg);backdrop-filter:blur(20px);border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:12px;padding:0 20px;z-index:100;}
+.hamburger{display:none;width:36px;height:36px;border-radius:9px;background:var(--glass);border:1px solid var(--glass-border);align-items:center;justify-content:center;cursor:pointer;font-size:19px;flex-shrink:0;}
+.topbar-title{font-size:15px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.topbar-date{font-size:11.5px;color:var(--text-muted);font-weight:400;margin-right:8px;}
+.topbar-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.icon-btn{width:36px;height:36px;border-radius:9px;background:var(--glass);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:var(--text-secondary);transition:all .2s;position:relative;flex-shrink:0;}
+.icon-btn:hover{background:var(--bg-card-hover);color:var(--text-primary);}
+.ndot{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--rose);border:2px solid var(--bg-primary);}
+.theme-btn{width:36px;height:36px;border-radius:9px;background:var(--glass);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px;transition:all .25s;flex-shrink:0;}
+.theme-btn:hover{transform:rotate(20deg);}
+.sync-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:9px;background:var(--glass);border:1px solid var(--glass-border);font-size:11.5px;font-weight:600;color:var(--text-secondary);cursor:pointer;transition:all .2s;white-space:nowrap;}
+.sync-btn:hover{background:rgba(45,212,191,.12);color:var(--teal);border-color:rgba(45,212,191,.3);}
+@keyframes spin{to{transform:rotate(360deg);}}
+.spin{animation:spin 1s linear infinite;}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:9px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .18s;white-space:nowrap;}
+.btn-primary{background:linear-gradient(135deg,var(--gold),#9A7050);color:#fff;box-shadow:0 3px 14px rgba(196,168,130,.3);}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 5px 20px rgba(196,168,130,.4);}
+.btn-ghost{background:var(--glass);color:var(--text-secondary);border:1px solid var(--glass-border);}
+.btn-ghost:hover{background:var(--bg-card-hover);color:var(--text-primary);}
+.btn-teal{background:linear-gradient(135deg,var(--teal),var(--teal-dark));color:var(--bg-primary);}
+.btn-danger{background:linear-gradient(135deg,var(--rose),#BE123C);color:#fff;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.btn-xs{padding:3px 9px;font-size:11px;}
+.main{position:fixed;top:60px;left:0;right:var(--sidebar-w);bottom:0;overflow-y:auto;padding:22px;scrollbar-width:thin;scrollbar-color:var(--glass-border) transparent;}
+.screen{display:none;animation:fadeUp .28s ease;}
+.screen.active{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+.card{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px;transition:background .2s;}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.card-title{font-size:14.5px;font-weight:700;}
+.card-sub{font-size:11.5px;color:var(--text-muted);}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:20px;}
+.kpi-card{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden;transition:all .22s;}
+.kpi-card:hover{background:var(--bg-card-hover);transform:translateY(-2px);}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.kc-gold::before{background:linear-gradient(90deg,var(--gold),var(--gold-light));}
+.kc-teal::before{background:linear-gradient(90deg,var(--teal),#67E8F9);}
+.kc-purple::before{background:linear-gradient(90deg,var(--purple),#A78BFA);}
+.kc-rose::before{background:linear-gradient(90deg,var(--rose),#FB7185);}
+.kc-emerald::before{background:linear-gradient(90deg,var(--emerald),#34D399);}
+.kc-amber::before{background:linear-gradient(90deg,var(--amber),#FCD34D);}
+.kpi-icon{font-size:24px;margin-bottom:10px;display:inline-block;}
+.kpi-value{font-size:26px;font-weight:900;line-height:1;margin-bottom:3px;}
+.kpi-label{font-size:12px;color:var(--text-muted);}
+.kpi-chg{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;margin-top:7px;padding:2px 7px;border-radius:5px;}
+.kpi-up{background:rgba(16,185,129,.12);color:var(--emerald);}
+.kpi-dn{background:rgba(244,63,94,.12);color:var(--rose);}
+.g2{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:18px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:18px;}
+.g2c{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.chart-bar{display:flex;align-items:flex-end;gap:7px;height:110px;padding-top:8px;}
+.bar{flex:1;border-radius:5px 5px 0 0;transition:height .5s ease;cursor:pointer;}
+.bar:hover{opacity:.75;}
+.blbl{font-size:10px;color:var(--text-muted);text-align:center;margin-top:5px;}
+.clbls{display:flex;gap:7px;margin-top:2px;}
+.appt-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--glass-border);}
+.appt-item:last-child{border-bottom:none;}
+.appt-time{font-size:11.5px;font-weight:700;color:var(--gold-light);width:44px;text-align:center;flex-shrink:0;}
+.appt-ava{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.appt-info p{font-size:13px;font-weight:600;}
+.appt-info span{font-size:11.5px;color:var(--text-muted);}
+.ast{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+.sc{background:rgba(16,185,129,.13);color:var(--emerald);}
+.sp{background:rgba(245,158,11,.13);color:var(--amber);}
+.sw{background:rgba(59,130,246,.13);color:var(--blue);}
+.sd{background:rgba(148,163,184,.1);color:var(--text-secondary);}
+.sx{background:rgba(244,63,94,.13);color:var(--rose);}
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+thead th{background:rgba(255,255,255,.03);padding:11px 13px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--glass-border);white-space:nowrap;}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.03);transition:background .13s;}
+tbody tr:hover{background:rgba(255,255,255,.025);}
+tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
+.tdava{width:33px;height:33px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+.sbox{display:flex;align-items:center;gap:7px;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:8px 12px;flex:1;min-width:180px;}
+.sbox input{background:none;border:none;outline:none;color:var(--text-primary);font-family:'Tajawal',sans-serif;font-size:13px;flex:1;direction:rtl;}
+.sbox input::placeholder{color:var(--text-muted);}
+.selbox{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text-primary);font-family:'Tajawal',sans-serif;font-size:13px;outline:none;cursor:pointer;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);z-index:300;display:none;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--modal-bg);border:1px solid var(--glass-border);border-radius:20px;width:100%;max-width:680px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;animation:mIn .28s ease;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+@keyframes mIn{from{opacity:0;transform:scale(.95);}to{opacity:1;transform:scale(1);}}
+.mhdr{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--glass-border);}
+.mtitle{font-size:16px;font-weight:700;}
+.mclose{width:32px;height:32px;border-radius:8px;background:var(--glass);border:none;color:var(--text-secondary);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.mclose:hover{background:rgba(244,63,94,.15);color:var(--rose);}
+.mbody{padding:22px;overflow-y:auto;flex:1;}
+.mfoot{padding:14px 22px;border-top:1px solid var(--glass-border);display:flex;gap:9px;justify-content:flex-end;}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.fgrp{display:flex;flex-direction:column;gap:5px;}
+.fgrp.full{grid-column:1/-1;}
+.flbl{font-size:12px;font-weight:600;color:var(--text-secondary);}
+.fctl{background:var(--input-bg);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:9px 12px;color:var(--text-primary);font-family:'Tajawal',sans-serif;font-size:13px;outline:none;transition:border .18s;direction:rtl;width:100%;}
+.fctl:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(196,168,130,.12);}
+.fctl.ta{min-height:80px;resize:vertical;}
+.fdivider{grid-column:1/-1;border:none;border-top:1px solid var(--glass-border);margin:2px 0;}
+.fsec{grid-column:1/-1;font-size:12.5px;font-weight:700;color:var(--gold-light);padding-top:2px;}
+.tabs{display:flex;gap:3px;padding:3px;background:var(--glass);border-radius:var(--radius-sm);margin-bottom:18px;border:1px solid var(--glass-border);width:fit-content;overflow-x:auto;max-width:100%;}
+.tab{padding:7px 16px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--text-muted);transition:all .18s;white-space:nowrap;flex-shrink:0;}
+.tab.active{background:var(--bg-secondary);color:var(--text-primary);box-shadow:0 2px 8px rgba(0,0,0,.25);}
+.cal-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.cal-nav{background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:6px 11px;cursor:pointer;color:var(--text-secondary);font-size:15px;}
+.cal-nav:hover{background:var(--bg-card-hover);color:var(--text-primary);}
+.cal-mn{font-size:17px;font-weight:700;flex:1;text-align:center;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-dh{text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);padding:7px;}
+.cal-d{aspect-ratio:1;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:5px;cursor:pointer;transition:all .18s;border:1px solid transparent;font-size:12.5px;}
+.cal-d:hover{background:var(--glass);}
+.cal-d.other{color:var(--text-muted);opacity:.4;}
+.cal-d.today{border-color:var(--gold);background:rgba(196,168,130,.08);color:var(--gold-light);font-weight:700;}
+.cal-d.selected{background:linear-gradient(135deg,rgba(196,168,130,.18),rgba(45,212,191,.1));border-color:var(--teal);}
+.cal-d.has-ev::after{content:'';width:5px;height:5px;border-radius:50%;background:var(--teal);margin-top:2px;}
+.prog{height:6px;background:var(--glass);border-radius:3px;overflow:hidden;margin-top:4px;}
+.prog-f{height:100%;border-radius:3px;transition:width .5s ease;}
+.tag{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid;}
+.tg-gold{background:rgba(196,168,130,.12);border-color:rgba(196,168,130,.28);color:var(--gold-light);}
+.tg-teal{background:rgba(45,212,191,.09);border-color:rgba(45,212,191,.24);color:var(--teal);}
+.tg-purple{background:rgba(139,92,246,.09);border-color:rgba(139,92,246,.24);color:var(--purple);}
+.tg-green{background:rgba(16,185,129,.09);border-color:rgba(16,185,129,.24);color:var(--emerald);}
+.stk{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;}
+.stk-ok{background:rgba(16,185,129,.13);color:var(--emerald);}
+.stk-low{background:rgba(245,158,11,.13);color:var(--amber);}
+.stk-out{background:rgba(244,63,94,.13);color:var(--rose);}
+.pay-g{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:14px;}
+.pay-m{padding:11px 8px;border-radius:var(--radius-sm);border:2px solid var(--glass-border);text-align:center;cursor:pointer;transition:all .2s;font-size:12.5px;font-weight:600;}
+.pay-m:hover{border-color:var(--gold);}
+.pay-m.sel{border-color:var(--teal);background:rgba(45,212,191,.08);color:var(--teal);}
+.pay-ic{font-size:22px;margin-bottom:3px;}
+.phero{background:linear-gradient(135deg,rgba(139,92,246,.09),rgba(45,212,191,.07));border:1px solid var(--glass-border);border-radius:var(--radius);padding:22px;margin-bottom:18px;display:flex;align-items:center;gap:18px;}
+.pphoto{width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--teal));display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;border:3px solid rgba(255,255,255,.12);}
+.pdetails h2{font-size:19px;font-weight:800;}
+.pdetails p{font-size:12.5px;color:var(--text-muted);margin-top:2px;}
+.ptags{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap;}
+.pstats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+.sbox2{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:13px 14px;text-align:center;}
+.sval{font-size:20px;font-weight:800;}
+.slbl{font-size:11.5px;color:var(--text-muted);}
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start;}
+.kcol{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius);padding:13px;}
+.kcol-t{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:11px;display:flex;justify-content:space-between;align-items:center;}
+.lcard{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:11px;margin-bottom:7px;cursor:pointer;transition:all .18s;}
+.lcard:hover{background:var(--bg-card-hover);transform:translateY(-1px);}
+.lname{font-size:12.5px;font-weight:600;}
+.lsvc{font-size:11.5px;color:var(--text-muted);margin-top:3px;}
+.ltime{font-size:10.5px;color:var(--text-muted);margin-top:5px;}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;}
+.rcard{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:10px;cursor:pointer;transition:all .22s;}
+.rcard:hover{background:var(--bg-card-hover);transform:translateY(-2px);}
+.bgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
+.bcard{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px;transition:all .22s;}
+.bcard:hover{transform:translateY(-2px);border-color:rgba(196,168,130,.28);}
+.drow{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--glass-border);}
+.drow:last-child{border-bottom:none;}
+.drank{font-size:13px;font-weight:800;color:var(--gold-light);width:22px;}
+.dava{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;}
+.ali{display:flex;align-items:flex-start;gap:11px;padding:11px;margin-bottom:7px;border-radius:var(--radius-sm);border:1px solid;}
+.ali-w{background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.2);}
+.ali-d{background:rgba(244,63,94,.07);border-color:rgba(244,63,94,.2);}
+.ali-i{background:rgba(59,130,246,.07);border-color:rgba(59,130,246,.2);}
+.ai-ico{font-size:18px;}
+.ai-txt p{font-size:12.5px;font-weight:600;}
+.ai-txt span{font-size:11.5px;color:var(--text-muted);}
+.toast-c{position:fixed;bottom:20px;left:20px;z-index:400;display:flex;flex-direction:column;gap:9px;}
+.toast{background:var(--modal-bg);border:1px solid var(--glass-border);border-radius:12px;padding:13px 16px;display:flex;align-items:center;gap:11px;min-width:270px;max-width:340px;box-shadow:var(--shadow);animation:tIn .3s ease;}
+@keyframes tIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.toast.success{border-right:3px solid var(--emerald);}
+.toast.error{border-right:3px solid var(--rose);}
+.toast.info{border-right:3px solid var(--blue);}
+.toast.warning{border-right:3px solid var(--amber);}
+.ticon{font-size:19px;}
+.ttxt p{font-size:13px;font-weight:600;}
+.ttxt span{font-size:11.5px;color:var(--text-muted);}
+.tclose{cursor:pointer;color:var(--text-muted);padding:0 3px;font-size:15px;margin-right:auto;}
+.setup{display:none;position:fixed;inset:0;background:var(--bg-primary);z-index:500;align-items:center;justify-content:center;padding:20px;}
+.setup.show{display:flex;}
+.setup-box{background:var(--modal-bg);border:1px solid var(--glass-border);border-radius:24px;padding:32px;width:100%;max-width:540px;box-shadow:var(--shadow);}
+.step{display:flex;gap:12px;align-items:flex-start;padding:11px 13px;background:var(--glass);border-radius:var(--radius-sm);border:1px solid var(--glass-border);margin-bottom:10px;}
+.snum{width:25px;height:25px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--teal));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--bg-primary);flex-shrink:0;}
+.stxt{font-size:12.5px;line-height:1.6;color:var(--text-secondary);}
+.stxt strong{color:var(--text-primary);}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--glass-border);border-radius:3px;}
+@media(max-width:900px){
+  .sidebar{transform:translateX(110%);box-shadow:none;}
+  .sidebar.open{transform:translateX(0);box-shadow:-6px 0 30px rgba(0,0,0,.45);}
+  .hamburger{display:flex;}
+  .main{right:0;padding:12px;}
+  .topbar{right:0;padding:0 12px;}
+  .topbar-date{display:none;}
+  .sync-btn span{display:none;}
+  .g2,.g3,.g2c{grid-template-columns:1fr;}
+  .kanban{grid-template-columns:1fr;}
+  .fg,.fg3{grid-template-columns:1fr;}
+  .kpi-grid{grid-template-columns:repeat(2,1fr);}
+  .pstats{grid-template-columns:repeat(2,1fr);}
+  .rgrid{grid-template-columns:repeat(2,1fr);}
+  .bgrid{grid-template-columns:1fr;}
+  .pay-g{grid-template-columns:repeat(2,1fr);}
+  .btn-primary.hm{display:none;}
+  .modal{max-width:100%!important;max-height:90vh;margin:auto 0 0;border-radius:20px 20px 0 0;}
+  .modal-overlay{align-items:flex-end;padding:0;}
+}
+@media(max-width:480px){
+  .kpi-grid{grid-template-columns:1fr 1fr;gap:9px;}
+  .kpi-value{font-size:20px;}
+  .main{padding:10px;}
+  .phero{flex-direction:column;text-align:center;}
+  .ptags{justify-content:center;}
+}
+</style>
+</head>
+<body>
+<!-- FIREBASE SETUP -->
+<div class="setup" id="setup-screen">
+  <div class="setup-box">
+    <div style="font-size:44px;margin-bottom:14px">🔥</div>
+    <div style="font-size:20px;font-weight:800;margin-bottom:6px;background:linear-gradient(135deg,var(--gold-light),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">ربط Firebase للمزامنة السحابية</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;line-height:1.7;">لتزامن البيانات بين الكمبيوتر والموبايل تلقائياً، اربط النظام بـ Firebase مجاناً.</div>
+    <div class="step"><div class="snum">1</div><div class="stxt">اذهب إلى <strong>console.firebase.google.com</strong> وسجل دخول بـ Google</div></div>
+    <div class="step"><div class="snum">2</div><div class="stxt">اضغط <strong>Add project</strong> → اكتب الاسم → Create</div></div>
+    <div class="step"><div class="snum">3</div><div class="stxt">اضغط أيقونة <strong>Web &lt;/&gt;</strong> → Register → انسخ firebaseConfig</div></div>
+    <div class="step"><div class="snum">4</div><div class="stxt">اذهب لـ <strong>Firestore Database</strong> → Create database → Test mode</div></div>
+    <div class="step"><div class="snum">5</div><div class="stxt">افتح الإعدادات ⚙️ في البرنامج → تبويب Firebase → الصق البيانات</div></div>
+    <div style="display:flex;gap:10px;margin-top:18px;">
+      <button class="btn btn-primary" style="flex:1" onclick="document.getElementById('setup-screen').classList.remove('show')">✅ فهمت</button>
+      <a href="https://console.firebase.google.com" target="_blank" class="btn btn-ghost" style="text-decoration:none">🔥 Firebase</a>
+    </div>
+    <div style="text-align:center;margin-top:12px;">
+      <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="document.getElementById('setup-screen').classList.remove('show')">💾 متابعة بالتخزين المحلي</button>
+    </div>
+  </div>
+</div>
+
+<!-- SIDEBAR OVERLAY -->
+<div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">💎</div>
+    <div class="logo-text"><h1>عيادات الحياة<br>للتجميل</h1><span>نظام الإدارة المتكامل</span></div>
+  </div>
+  <div class="conn-bar">
+    <div class="conn-dot" id="conn-dot"></div>
+    <span id="conn-txt">وضع محلي 💾</span>
+    <span style="margin-right:auto;cursor:pointer;font-size:11px;color:var(--teal)" onclick="document.getElementById('setup-screen').classList.add('show')">إعداد ☁️</span>
+  </div>
+  <div class="sidebar-search"><input type="text" placeholder="🔍 بحث سريع..." oninput="globalSearch(this.value)"></div>
+  <div class="sidebar-nav">
+    <div class="nav-label">الرئيسية</div>
+    <div class="nav-item active" onclick="showScreen('dashboard')"><span class="nav-icon">🏠</span><span class="nav-text">لوحة التحكم</span></div>
+    <div class="nav-label">العملاء</div>
+    <div class="nav-item" onclick="showScreen('patients')"><span class="nav-icon">👥</span><span class="nav-text">قائمة العملاء</span><span class="nb nb-teal" id="badge-patients">0</span></div>
+    <div class="nav-item" onclick="showScreen('photos')"><span class="nav-icon">📸</span><span class="nav-text">الصور قبل/بعد</span></div>
+    <div class="nav-label">المواعيد</div>
+    <div class="nav-item" onclick="showScreen('calendar')"><span class="nav-icon">📅</span><span class="nav-text">التقويم</span><span class="nb nb-rose" id="badge-appts">0</span></div>
+    <div class="nav-item" onclick="showScreen('appointments')"><span class="nav-icon">🕐</span><span class="nav-text">قائمة المواعيد</span></div>
+    <div class="nav-item" onclick="showScreen('waitlist')"><span class="nav-icon">⏳</span><span class="nav-text">قائمة الانتظار</span></div>
+    <div class="nav-label">الجلسات والخدمات</div>
+    <div class="nav-item" onclick="showScreen('sessions')"><span class="nav-icon">✨</span><span class="nav-text">الجلسات العلاجية</span></div>
+    <div class="nav-item" onclick="showScreen('services')"><span class="nav-icon">💅</span><span class="nav-text">الخدمات والأسعار</span></div>
+    <div class="nav-item" onclick="showScreen('packages')"><span class="nav-icon">🎁</span><span class="nav-text">الباقات العلاجية</span></div>
+    <div class="nav-label">الفريق الطبي</div>
+    <div class="nav-item" onclick="showScreen('doctors')"><span class="nav-icon">👨‍⚕️</span><span class="nav-text">الأطباء</span></div>
+    <div class="nav-item" onclick="showScreen('staff')"><span class="nav-icon">👩‍💼</span><span class="nav-text">الموظفون</span></div>
+    <div class="nav-label">المالية</div>
+    <div class="nav-item" onclick="showScreen('invoices')"><span class="nav-icon">🧾</span><span class="nav-text">الفواتير</span></div>
+    <div class="nav-item" onclick="showScreen('payments')"><span class="nav-icon">💳</span><span class="nav-text">المدفوعات</span></div>
+    <div class="nav-item" onclick="showScreen('installments')"><span class="nav-icon">📆</span><span class="nav-text">الأقساط</span><span class="nb nb-amber" id="badge-inst">0</span></div>
+    <div class="nav-item" onclick="showScreen('expenses')"><span class="nav-icon">💸</span><span class="nav-text">المصروفات</span></div>
+    <div class="nav-item" onclick="showScreen('treasury')"><span class="nav-icon">🏦</span><span class="nav-text">الخزينة</span></div>
+    <div class="nav-item" onclick="showScreen('accounts')"><span class="nav-icon">📊</span><span class="nav-text">الحسابات</span></div>
+    <div class="nav-label">المخزون</div>
+    <div class="nav-item" onclick="showScreen('inventory')"><span class="nav-icon">📦</span><span class="nav-text">المنتجات</span><span class="nb nb-rose" id="badge-stock">0</span></div>
+    <div class="nav-item" onclick="showScreen('suppliers')"><span class="nav-icon">🚚</span><span class="nav-text">الموردون</span></div>
+    <div class="nav-item" onclick="showScreen('purchases')"><span class="nav-icon">🛒</span><span class="nav-text">المشتريات</span></div>
+    <div class="nav-item" onclick="showScreen('transfers')"><span class="nav-icon">🔄</span><span class="nav-text">تحويل المخزون</span></div>
+    <div class="nav-label">التسويق</div>
+    <div class="nav-item" onclick="showScreen('leads')"><span class="nav-icon">🎯</span><span class="nav-text">العملاء المحتملون</span><span class="nb nb-rose" id="badge-leads">0</span></div>
+    <div class="nav-item" onclick="showScreen('campaigns')"><span class="nav-icon">📣</span><span class="nav-text">الحملات</span></div>
+    <div class="nav-item" onclick="showScreen('whatsapp')"><span class="nav-icon">💬</span><span class="nav-text">واتساب</span></div>
+    <div class="nav-label">إدارة</div>
+    <div class="nav-item" onclick="showScreen('branches')"><span class="nav-icon">🏢</span><span class="nav-text">الفروع</span></div>
+    <div class="nav-item" onclick="showScreen('reports')"><span class="nav-icon">📈</span><span class="nav-text">التقارير</span></div>
+    <div class="nav-item" onclick="showScreen('ai')"><span class="nav-icon">🤖</span><span class="nav-text">المساعد الذكي</span></div>
+    <div class="nav-item" onclick="showScreen('settings')"><span class="nav-icon">⚙️</span><span class="nav-text">الإعدادات</span></div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="user-ava">👩‍⚕️</div>
+      <div class="user-info"><p id="user-name">د. سارة محمد</p><span id="user-role">مدير النظام</span></div>
+      <div class="online-dot"></div>
+    </div>
+  </div>
+</nav>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="hamburger" onclick="toggleSidebar()">☰</div>
+  <div class="topbar-title" id="topbar-title">لوحة التحكم <span class="topbar-date" id="topbar-date"></span></div>
+  <div class="topbar-actions">
+    <div class="sync-btn" onclick="syncData()"><span id="sync-icon">☁️</span><span>مزامنة</span></div>
+    <div class="icon-btn" onclick="showScreen('whatsapp')">💬<div class="ndot"></div></div>
+    <div class="icon-btn">🔔<div class="ndot"></div></div>
+    <div class="theme-btn" id="theme-btn" onclick="toggleTheme()">🌙</div>
+    <div class="icon-btn" onclick="showScreen('settings')">⚙️</div>
+    <button class="btn btn-primary hm" onclick="openModal('appt-modal')">+ موعد جديد</button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="main" id="main-area">
+
+<!-- DASHBOARD -->
+<div class="screen active" id="screen-dashboard">
+  <div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+    <div><h2 style="font-size:22px;font-weight:800;">مرحباً 👋 <span id="dash-uname">د. سارة</span></h2><p style="color:var(--text-muted);font-size:13px;margin-top:3px;" id="dash-sub"></p></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <select class="selbox"><option>كل الفروع</option><option>مدينة نصر</option><option>المهندسين</option></select>
+      <button class="btn btn-primary" onclick="openModal('appt-modal')">+ موعد جديد</button>
+    </div>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card kc-gold"><div class="kpi-icon">👥</div><div class="kpi-value" id="kpi-pat">0</div><div class="kpi-label">إجمالي العملاء</div><div class="kpi-chg kpi-up">↑ 12% هذا الشهر</div></div>
+    <div class="kpi-card kc-teal"><div class="kpi-icon">📅</div><div class="kpi-value" id="kpi-appt">0</div><div class="kpi-label">مواعيد اليوم</div><div class="kpi-chg kpi-up">↑ 8% عن أمس</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">💰</div><div class="kpi-value" id="kpi-rev">0</div><div class="kpi-label">إيرادات اليوم (ج)</div><div class="kpi-chg kpi-up">↑ 23% عن أمس</div></div>
+    <div class="kpi-card kc-purple"><div class="kpi-icon">📊</div><div class="kpi-value" id="kpi-mrev">312,800</div><div class="kpi-label">إيرادات الشهر (ج)</div><div class="kpi-chg kpi-up">↑ 15% الشهر الماضي</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">⚠️</div><div class="kpi-value" id="kpi-stk">0</div><div class="kpi-label">منتجات ناقصة</div><div class="kpi-chg kpi-dn">تحتاج إعادة طلب</div></div>
+    <div class="kpi-card kc-amber"><div class="kpi-icon">💸</div><div class="kpi-value" id="kpi-pend">0</div><div class="kpi-label">مدفوعات معلقة (ج)</div><div class="kpi-chg kpi-dn">أقساط متأخرة</div></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-hdr"><div><div class="card-title">📈 الإيرادات الشهرية</div><div class="card-sub">آخر 7 أشهر</div></div></div>
+      <div class="chart-bar" id="revenue-chart"></div>
+      <div class="clbls" id="revenue-labels"></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">📅 مواعيد اليوم</div><button class="btn btn-ghost btn-sm" onclick="showScreen('calendar')">الكل</button></div>
+      <div id="today-appts"></div>
+    </div>
+  </div>
+  <div class="g3">
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">🏆 أفضل الأطباء</div><span class="card-sub">هذا الشهر</span></div>
+      <div class="drow"><div class="drank">🥇</div><div class="dava" style="background:linear-gradient(135deg,#8B5CF6,#3B82F6)">👩‍⚕️</div><div style="flex:1;font-size:13px;font-weight:600">د. منى سامي</div><div style="color:var(--teal);font-weight:700;font-size:12.5px">48,200 ج</div></div>
+      <div class="drow"><div class="drank">🥈</div><div class="dava" style="background:linear-gradient(135deg,#10B981,#2DD4BF)">👨‍⚕️</div><div style="flex:1;font-size:13px;font-weight:600">د. أحمد رضا</div><div style="color:var(--teal);font-weight:700;font-size:12.5px">41,500 ج</div></div>
+      <div class="drow"><div class="drank">🥉</div><div class="dava" style="background:linear-gradient(135deg,#F59E0B,#EF4444)">👩‍⚕️</div><div style="flex:1;font-size:13px;font-weight:600">د. لمياء حسن</div><div style="color:var(--teal);font-weight:700;font-size:12.5px">36,900 ج</div></div>
+      <div class="drow"><div class="drank">4️⃣</div><div class="dava" style="background:linear-gradient(135deg,#C4A882,#8B5CF6)">👨‍⚕️</div><div style="flex:1;font-size:13px;font-weight:600">د. كريم طارق</div><div style="color:var(--teal);font-weight:700;font-size:12.5px">29,300 ج</div></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">🔔 تنبيهات</div></div>
+      <div class="ali ali-w"><div class="ai-ico">📦</div><div class="ai-txt"><p>سيروم C: مخزون منخفض</p><span>متبقي 3 وحدات</span></div></div>
+      <div class="ali ali-d"><div class="ai-ico">💳</div><div class="ai-txt"><p>قسط متأخر: نادية عمر</p><span>1,500 ج منذ 5 أيام</span></div></div>
+      <div class="ali ali-i"><div class="ai-ico">📅</div><div class="ai-txt"><p>8 مواعيد غداً بلا تذكير</p><span>اضغط لإرسال</span></div></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">📊 توزيع الخدمات</div></div>
+      <div style="display:flex;flex-direction:column;gap:9px;">
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>ليزر شعر</span><span style="color:var(--teal);font-weight:700">34%</span></div><div class="prog"><div class="prog-f" style="width:34%;background:var(--teal)"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>هيدرافيشل</span><span style="color:var(--purple);font-weight:700">22%</span></div><div class="prog"><div class="prog-f" style="width:22%;background:var(--purple)"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>بوتكس وفيلر</span><span style="color:var(--gold-light);font-weight:700">18%</span></div><div class="prog"><div class="prog-f" style="width:18%;background:var(--gold)"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>جلسات شعر</span><span style="color:var(--rose);font-weight:700">14%</span></div><div class="prog"><div class="prog-f" style="width:14%;background:var(--rose)"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>أخرى</span><span style="color:var(--amber);font-weight:700">12%</span></div><div class="prog"><div class="prog-f" style="width:12%;background:var(--amber)"></div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PATIENTS -->
+<div class="screen" id="screen-patients">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث بالاسم أو الهاتف..." oninput="filterPat(this.value)"></div>
+    <select class="selbox"><option>كل الفروع</option><option>مدينة نصر</option><option>المهندسين</option></select>
+    <select class="selbox" onchange="filterPatSt(this.value)"><option value="">كل العملاء</option><option value="نشط">نشط</option><option value="قسط">قسط</option><option value="غير نشط">غير نشط</option></select>
+    <button class="btn btn-primary" onclick="openModal('patient-modal')">+ عميل جديد</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportPat()">📊 تصدير</button>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">قائمة العملاء</div><span class="card-sub" id="pat-count-lbl">0 عميل</span></div>
+    <div class="table-wrap"><table><thead><tr><th>العميل</th><th>الهاتف</th><th>نوع البشرة</th><th>آخر زيارة</th><th>الجلسات</th><th>الرصيد</th><th>الحالة</th><th></th></tr></thead><tbody id="pat-tbody"></tbody></table></div>
+  </div>
+</div>
+
+<!-- PATIENT PROFILE -->
+<div class="screen" id="screen-patient-profile">
+  <div style="display:flex;gap:9px;margin-bottom:18px;flex-wrap:wrap;">
+    <button class="btn btn-ghost btn-sm" onclick="showScreen('patients')">← رجوع</button>
+    <button class="btn btn-primary btn-sm" onclick="openModal('appt-modal')">+ موعد</button>
+    <button class="btn btn-ghost btn-sm">📸 صور</button>
+    <button class="btn btn-ghost btn-sm">💬 واتساب</button>
+    <button class="btn btn-ghost btn-sm" onclick="printProfile()">🖨️ طباعة</button>
+    <button class="btn btn-danger btn-sm" onclick="deleteCurrentPat()">🗑️ حذف</button>
+  </div>
+  <div class="phero">
+    <div class="pphoto">👩</div>
+    <div class="pdetails">
+      <h2 id="pp-name">—</h2>
+      <p id="pp-contact">—</p>
+      <p id="pp-meta" style="margin-top:4px;font-size:12px;"></p>
+      <div class="ptags" id="pp-tags"></div>
+    </div>
+  </div>
+  <div class="pstats">
+    <div class="sbox2"><div class="sval" id="pp-sessions" style="color:var(--teal)">0</div><div class="slbl">الجلسات</div></div>
+    <div class="sbox2"><div class="sval" id="pp-spent" style="color:var(--gold-light)">0</div><div class="slbl">إجمالي الإنفاق</div></div>
+    <div class="sbox2"><div class="sval" id="pp-balance" style="color:var(--emerald)">0</div><div class="slbl">المديونية</div></div>
+    <div class="sbox2"><div class="sval" id="pp-plans" style="color:var(--purple)">0</div><div class="slbl">خطط علاجية</div></div>
+  </div>
+  <div class="tabs" id="ptabs">
+    <div class="tab active" onclick="stab(this,'ptabs','t-med')">الملف الطبي</div>
+    <div class="tab" onclick="stab(this,'ptabs','t-ses')">الجلسات</div>
+    <div class="tab" onclick="stab(this,'ptabs','t-inv')">الفواتير</div>
+    <div class="tab" onclick="stab(this,'ptabs','t-ph')">الصور</div>
+    <div class="tab" onclick="stab(this,'ptabs','t-hist')">السجل</div>
+  </div>
+  <div id="t-med">
+    <div class="g2c">
+      <div class="card"><div class="card-hdr"><div class="card-title">💆 البشرة</div></div><div id="med-skin" style="display:flex;flex-direction:column;gap:8px;font-size:13px;"></div></div>
+      <div class="card"><div class="card-hdr"><div class="card-title">💇 الشعر</div></div><div id="med-hair" style="display:flex;flex-direction:column;gap:8px;font-size:13px;"></div></div>
+    </div>
+  </div>
+  <div id="t-ses" style="display:none"><div class="card"><div class="card-hdr"><div class="card-title">✨ خطط العلاج</div><button class="btn btn-ghost btn-sm">+ خطة</button></div>
+    <div style="background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.2);border-radius:var(--radius-sm);padding:14px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;"><span style="font-weight:700">باقة ليزر 8 جلسات</span><span style="color:var(--teal);font-weight:700">5/8</span></div><div class="prog"><div class="prog-f" style="width:62.5%;background:var(--teal)"></div></div><div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;">
+      <span style="font-size:11.5px;padding:3px 9px;border-radius:20px;background:rgba(16,185,129,.13);color:var(--emerald)">✅ جلسة 1</span>
+      <span style="font-size:11.5px;padding:3px 9px;border-radius:20px;background:rgba(16,185,129,.13);color:var(--emerald)">✅ جلسة 2</span>
+      <span style="font-size:11.5px;padding:3px 9px;border-radius:20px;background:rgba(16,185,129,.13);color:var(--emerald)">✅ جلسة 3</span>
+      <span style="font-size:11.5px;padding:3px 9px;border-radius:20px;background:rgba(16,185,129,.13);color:var(--emerald)">✅ جلسة 4</span>
+      <span style="font-size:11.5px;padding:3px 9px;border-radius:20px;background:rgba(16,185,129,.13);color:var(--emerald)">✅ جلسة 5</span>
+      <span style="font-size:11.5px;padding:3px 9px;border-radius:20px;background:rgba(245,158,11,.13);color:var(--amber)">⏳ جلسة 6</span>
+      <span style="font-size:11.5px;padding:3px 9px;border-radius:20px;background:rgba(148,163,184,.1);color:var(--text-muted)">○ جلسة 7</span>
+      <span style="font-size:11.5px;padding:3px 9px;border-radius:20px;background:rgba(148,163,184,.1);color:var(--text-muted)">○ جلسة 8</span>
+    </div></div></div></div>
+  <div id="t-inv" style="display:none"><div class="card"><div class="card-hdr"><div class="card-title">🧾 الفواتير</div></div><div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الخدمة</th><th>المبلغ</th><th>طريقة الدفع</th><th>الحالة</th></tr></thead><tbody id="p-inv-tbody"></tbody></table></div></div></div>
+  <div id="t-ph" style="display:none"><div class="card"><div class="card-hdr"><div class="card-title">📸 الصور</div><button class="btn btn-teal btn-sm">+ رفع</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;"><div style="border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--glass-border);"><div style="background:linear-gradient(135deg,#1a1a2e,#16213e);height:120px;display:flex;align-items:center;justify-content:center;font-size:36px;">📷</div><div style="padding:7px;font-size:12px;"><div style="font-weight:600">قبل - يناير 2025</div><div style="color:var(--text-muted)">ليزر جلسة 1</div></div></div><div style="border-radius:var(--radius-sm);overflow:hidden;border:1px solid rgba(45,212,191,.3);"><div style="background:linear-gradient(135deg,#0d2137,#0d3340);height:120px;display:flex;align-items:center;justify-content:center;font-size:36px;">📸</div><div style="padding:7px;font-size:12px;"><div style="font-weight:600;color:var(--teal)">بعد - مارس 2025</div><div style="color:var(--text-muted)">ليزر جلسة 5</div></div></div></div></div></div>
+  <div id="t-hist" style="display:none"><div class="card"><div class="card-hdr"><div class="card-title">📋 السجل</div></div><div style="display:flex;flex-direction:column;gap:10px;" id="hist-list"></div></div></div>
+</div>
+
+<!-- CALENDAR -->
+<div class="screen" id="screen-calendar">
+  <div style="display:grid;grid-template-columns:1fr 300px;gap:18px;align-items:start;">
+    <div class="card">
+      <div class="cal-hdr">
+        <button class="cal-nav" id="cal-prev">◀</button>
+        <div class="cal-mn" id="cal-mn">—</div>
+        <button class="cal-nav" id="cal-next">▶</button>
+        <div class="tabs" style="margin-bottom:0;margin-right:auto;"><div class="tab active">شهري</div><div class="tab">أسبوعي</div><div class="tab">يومي</div></div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title" id="cal-sel-date">اليوم</div><button class="btn btn-primary btn-sm" onclick="openModal('appt-modal')">+</button></div>
+      <div id="cal-day-appts"></div>
+    </div>
+  </div>
+</div>
+
+<!-- APPOINTMENTS -->
+<div class="screen" id="screen-appointments">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث..." oninput="filterAppts(this.value)"></div>
+    <select class="selbox" onchange="filterApptSt(this.value)"><option value="">كل الحالات</option><option value="مؤكد">مؤكد</option><option value="انتظار">انتظار</option><option value="في العيادة">في العيادة</option><option value="مكتمل">مكتمل</option><option value="ملغي">ملغي</option></select>
+    <input type="date" class="selbox" onchange="filterApptDate(this.value)">
+    <button class="btn btn-primary" onclick="openModal('appt-modal')">+ موعد جديد</button>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>العميل</th><th>التاريخ</th><th>الوقت</th><th>الخدمة</th><th>الطبيب</th><th>الفرع</th><th>الحالة</th><th></th></tr></thead><tbody id="appts-tbody"></tbody></table></div></div>
+</div>
+
+<!-- SERVICES -->
+<div class="screen" id="screen-services">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث عن خدمة..."></div>
+    <select class="selbox"><option>كل الأقسام</option><option>البشرة</option><option>الشعر</option><option>الليزر</option><option>حقن</option></select>
+    <button class="btn btn-primary" onclick="openModal('service-modal')">+ خدمة جديدة</button>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>الخدمة</th><th>القسم</th><th>السعر</th><th>المدة</th><th>التكلفة</th><th>الربح</th><th>الطبيب</th><th></th></tr></thead><tbody id="svc-tbody"></tbody></table></div></div>
+</div>
+
+<!-- INVENTORY -->
+<div class="screen" id="screen-inventory">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث عن منتج..." oninput="filterInv(this.value)"></div>
+    <select class="selbox" onchange="filterInvSt(this.value)"><option value="">الكل</option><option value="متوفر">متوفر</option><option value="منخفض">منخفض</option><option value="نفذ">نفذ</option></select>
+    <button class="btn btn-primary" onclick="openModal('product-modal')">+ منتج جديد</button>
+  </div>
+  <div class="kpi-grid" style="margin-bottom:14px;">
+    <div class="kpi-card kc-teal"><div class="kpi-icon">📦</div><div class="kpi-value" id="inv-total">0</div><div class="kpi-label">إجمالي المنتجات</div></div>
+    <div class="kpi-card kc-amber"><div class="kpi-icon">⚠️</div><div class="kpi-value" id="inv-low">0</div><div class="kpi-label">مخزون منخفض</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">🚫</div><div class="kpi-value" id="inv-out">0</div><div class="kpi-label">نفذ من المخزون</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">💰</div><div class="kpi-value" id="inv-val">0</div><div class="kpi-label">قيمة المخزون (ج)</div></div>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>المنتج</th><th>الكمية</th><th>حد إعادة الطلب</th><th>الصلاحية</th><th>سعر البيع</th><th>الحالة</th><th></th></tr></thead><tbody id="inv-tbody"></tbody></table></div></div>
+</div>
+
+<!-- INVOICES -->
+<div class="screen" id="screen-invoices">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث..." oninput="filterInvs(this.value)"></div>
+    <select class="selbox" onchange="filterInvsSt(this.value)"><option value="">كل الحالات</option><option value="مدفوع">مدفوع</option><option value="معلق">معلق</option><option value="جزئي">جزئي</option></select>
+    <button class="btn btn-primary" onclick="openModal('invoice-modal')">+ فاتورة جديدة</button>
+    <button class="btn btn-ghost btn-sm" onclick="showToast('info','📊 جارٍ التصدير...')">📊 تصدير</button>
+  </div>
+  <div class="kpi-grid" style="margin-bottom:14px;">
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">✅</div><div class="kpi-value" id="inv-paid">0</div><div class="kpi-label">مدفوع (ج)</div></div>
+    <div class="kpi-card kc-amber"><div class="kpi-icon">⏳</div><div class="kpi-value" id="inv-pend2">0</div><div class="kpi-label">معلق (ج)</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">🔢</div><div class="kpi-value" id="inv-cnt">0</div><div class="kpi-label">عدد الفواتير</div></div>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>#</th><th>العميل</th><th>التاريخ</th><th>الخدمة</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th></th></tr></thead><tbody id="invs-tbody"></tbody></table></div></div>
+</div>
+
+<!-- LEADS -->
+<div class="screen" id="screen-leads">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+    <div><h2 style="font-size:17px;font-weight:800;">العملاء المحتملون</h2><p style="font-size:12.5px;color:var(--text-muted)" id="leads-lbl">0 lead</p></div>
+    <button class="btn btn-primary" onclick="openModal('lead-modal')">+ Lead جديد</button>
+  </div>
+  <div class="kanban" id="leads-kanban"></div>
+</div>
+
+<!-- AI -->
+<div class="screen" id="screen-ai">
+  <div style="max-width:750px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:24px;"><div style="font-size:44px;margin-bottom:10px;">🤖</div>
+      <h2 style="font-size:20px;font-weight:800;background:linear-gradient(135deg,var(--gold-light),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">المساعد الذكي</h2>
+      <p style="color:var(--text-muted);margin-top:5px;font-size:13px;">تحليل البيانات، اقتراح العلاج، توقع المخزون</p></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;">
+      <div class="card" style="cursor:pointer;" onclick="askAI('حلل إيرادات هذا الشهر وقدم توصيات')"><div style="font-size:18px;margin-bottom:5px;">📊</div><div style="font-size:13px;font-weight:600;">تحليل الإيرادات</div><div style="font-size:11.5px;color:var(--text-muted);">أداء المبيعات</div></div>
+      <div class="card" style="cursor:pointer;" onclick="askAI('اقترح خطة علاج لعميلة بشرة دهنية وحب شباب')"><div style="font-size:18px;margin-bottom:5px;">💆</div><div style="font-size:13px;font-weight:600;">خطة علاج</div><div style="font-size:11.5px;color:var(--text-muted);">بناءً على الملف الطبي</div></div>
+      <div class="card" style="cursor:pointer;" onclick="askAI('توقع احتياجات المخزون للشهر القادم')"><div style="font-size:18px;margin-bottom:5px;">📦</div><div style="font-size:13px;font-weight:600;">توقع المخزون</div><div style="font-size:11.5px;color:var(--text-muted);">الاحتياجات القادمة</div></div>
+      <div class="card" style="cursor:pointer;" onclick="askAI('ما أفضل أوقات المواعيد وكيف نزيد الحجوزات؟')"><div style="font-size:18px;margin-bottom:5px;">⏰</div><div style="font-size:13px;font-weight:600;">تحسين المواعيد</div><div style="font-size:11.5px;color:var(--text-muted);">تحليل أوقات الذروة</div></div>
+    </div>
+    <div id="ai-chat" style="min-height:180px;max-height:360px;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius);padding:16px;margin-bottom:14px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;">
+      <div style="text-align:center;color:var(--text-muted);font-size:13px;margin:auto;">اختر سؤالاً أو اكتب استفساراً 💬</div>
+    </div>
+    <div style="display:flex;gap:9px;">
+      <div class="sbox" style="flex:1;"><span>💬</span><input type="text" id="ai-inp" placeholder="اكتب سؤالك..." onkeydown="if(event.key==='Enter')askAI(this.value)"></div>
+      <button class="btn btn-primary" onclick="askAI(document.getElementById('ai-inp').value)">إرسال</button>
+    </div>
+  </div>
+</div>
+
+<!-- REPORTS -->
+<div class="screen" id="screen-reports">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+    <h2 style="font-size:17px;font-weight:800;">التقارير والإحصاءات</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <select class="selbox"><option>يونيو 2025</option><option>مايو 2025</option></select>
+      <button class="btn btn-ghost btn-sm" onclick="showToast('info','📊 جارٍ التصدير...')">📊 Excel</button>
+      <button class="btn btn-ghost btn-sm" onclick="showToast('info','📄 جارٍ إنشاء PDF...')">📄 PDF</button>
+    </div>
+  </div>
+  <div class="rgrid">
+    <div class="rcard"><div style="font-size:30px;">👥</div><div style="font-weight:700;font-size:13.5px;">تقرير العملاء</div><div style="font-size:12px;color:var(--text-muted);">جدد، نشطين، غيابات</div><button class="btn btn-ghost btn-sm" style="width:fit-content;">عرض</button></div>
+    <div class="rcard"><div style="font-size:30px;">💰</div><div style="font-weight:700;font-size:13.5px;">تقرير الإيرادات</div><div style="font-size:12px;color:var(--text-muted);">المبيعات والأرباح</div><button class="btn btn-ghost btn-sm" style="width:fit-content;">عرض</button></div>
+    <div class="rcard"><div style="font-size:30px;">👨‍⚕️</div><div style="font-weight:700;font-size:13.5px;">تقرير الأطباء</div><div style="font-size:12px;color:var(--text-muted);">الأداء والعمولات</div><button class="btn btn-ghost btn-sm" style="width:fit-content;">عرض</button></div>
+    <div class="rcard"><div style="font-size:30px;">✨</div><div style="font-weight:700;font-size:13.5px;">تقرير الجلسات</div><div style="font-size:12px;color:var(--text-muted);">خطط العلاج</div><button class="btn btn-ghost btn-sm" style="width:fit-content;">عرض</button></div>
+    <div class="rcard"><div style="font-size:30px;">📦</div><div style="font-weight:700;font-size:13.5px;">تقرير المخزون</div><div style="font-size:12px;color:var(--text-muted);">المنتجات والمبيعات</div><button class="btn btn-ghost btn-sm" style="width:fit-content;">عرض</button></div>
+    <div class="rcard"><div style="font-size:30px;">🏢</div><div style="font-weight:700;font-size:13.5px;">تقرير الفروع</div><div style="font-size:12px;color:var(--text-muted);">مقارنة الأداء</div><button class="btn btn-ghost btn-sm" style="width:fit-content;">عرض</button></div>
+    <div class="rcard"><div style="font-size:30px;">📣</div><div style="font-weight:700;font-size:13.5px;">تقرير التسويق</div><div style="font-size:12px;color:var(--text-muted);">الحملات والـ Leads</div><button class="btn btn-ghost btn-sm" style="width:fit-content;">عرض</button></div>
+    <div class="rcard"><div style="font-size:30px;">📊</div><div style="font-weight:700;font-size:13.5px;">الأرباح والخسائر</div><div style="font-size:12px;color:var(--text-muted);">الميزانية الكاملة</div><button class="btn btn-ghost btn-sm" style="width:fit-content;">عرض</button></div>
+  </div>
+</div>
+
+<!-- BRANCHES -->
+<div class="screen" id="screen-branches">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+    <h2 style="font-size:17px;font-weight:800;">إدارة الفروع</h2>
+    <button class="btn btn-primary">+ فرع جديد</button>
+  </div>
+  <div class="bgrid">
+    <div class="bcard"><div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;"><div><div style="font-size:15px;font-weight:800;">فرع مدينة نصر</div><div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">📍 شارع عباس العقاد</div></div><span class="ast sc">نشط</span></div><div class="g2c" style="gap:8px;margin-bottom:11px;"><div style="background:var(--glass);border-radius:8px;padding:9px;text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--teal)">124</div><div style="font-size:11px;color:var(--text-muted)">عملاء</div></div><div style="background:var(--glass);border-radius:8px;padding:9px;text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--gold-light)">180K</div><div style="font-size:11px;color:var(--text-muted)">إيرادات</div></div></div><div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">4 أطباء · 8 موظفين</div><div style="display:flex;gap:7px;"><button class="btn btn-ghost btn-sm" style="flex:1">تقرير</button><button class="btn btn-ghost btn-sm" style="flex:1">إدارة</button></div></div>
+    <div class="bcard"><div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;"><div><div style="font-size:15px;font-weight:800;">فرع المهندسين</div><div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">📍 شارع البطل أحمد عبد العزيز</div></div><span class="ast sc">نشط</span></div><div class="g2c" style="gap:8px;margin-bottom:11px;"><div style="background:var(--glass);border-radius:8px;padding:9px;text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--teal)">89</div><div style="font-size:11px;color:var(--text-muted)">عملاء</div></div><div style="background:var(--glass);border-radius:8px;padding:9px;text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--gold-light)">132K</div><div style="font-size:11px;color:var(--text-muted)">إيرادات</div></div></div><div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">3 أطباء · 6 موظفين</div><div style="display:flex;gap:7px;"><button class="btn btn-ghost btn-sm" style="flex:1">تقرير</button><button class="btn btn-ghost btn-sm" style="flex:1">إدارة</button></div></div>
+    <div class="bcard" style="border-style:dashed;opacity:.5;cursor:pointer;"><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:150px;gap:9px;"><div style="font-size:36px;">🏢</div><div style="font-size:13.5px;font-weight:600;color:var(--text-muted)">إضافة فرع جديد</div></div></div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="screen" id="screen-settings">
+  <div class="tabs" id="settabs">
+    <div class="tab active" onclick="stab(this,'settabs','se-gen')">عام</div>
+    <div class="tab" onclick="stab(this,'settabs','se-fb')">Firebase ☁️</div>
+    <div class="tab" onclick="stab(this,'settabs','se-perm')">الصلاحيات</div>
+    <div class="tab" onclick="stab(this,'settabs','se-notif')">الإشعارات</div>
+    <div class="tab" onclick="stab(this,'settabs','se-data')">البيانات</div>
+  </div>
+  <div id="se-gen">
+    <div class="g2c">
+      <div class="card"><div class="card-hdr"><div class="card-title">⚙️ إعدادات العيادة</div></div>
+        <div class="fg" style="gap:12px;">
+          <div class="fgrp"><label class="flbl">اسم العيادة</label><input class="fctl" id="s-cname" value="عيادات الحياة للتجميل"></div>
+          <div class="fgrp"><label class="flbl">الهاتف</label><input class="fctl" id="s-cphone" value="0100-000-0000"></div>
+          <div class="fgrp"><label class="flbl">اسم المدير</label><input class="fctl" id="s-mname" value="د. سارة محمد"></div>
+          <div class="fgrp"><label class="flbl">الدور</label><input class="fctl" id="s-mrole" value="مدير النظام"></div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:14px;" onclick="saveSettings()">💾 حفظ</button>
+      </div>
+      <div class="card"><div class="card-hdr"><div class="card-title">🎨 المظهر</div></div>
+        <div style="display:flex;flex-direction:column;gap:11px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">الثيم الحالي</div><div style="font-size:12px;color:var(--text-muted)" id="theme-lbl">داكن 🌙</div></div><button class="btn btn-ghost btn-sm" onclick="toggleTheme()">تبديل</button></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">ثيم الجهاز تلقائي</div><div style="font-size:12px;color:var(--text-muted)">يتابع إعداد الجهاز</div></div><button class="btn btn-ghost btn-sm" onclick="useSysTheme()">تفعيل</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="se-fb" style="display:none;">
+    <div class="card"><div class="card-hdr"><div class="card-title">🔥 إعداد Firebase</div></div>
+      <div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-sm);padding:13px;margin-bottom:14px;font-size:13px;color:var(--amber);">⚡ بعد الإعداد، البيانات تُزامَن فوراً بين كل الأجهزة</div>
+      <div class="fg" style="gap:12px;">
+        <div class="fgrp full"><label class="flbl">API Key</label><input class="fctl" id="fb-key" placeholder="AIzaSy..."></div>
+        <div class="fgrp"><label class="flbl">Auth Domain</label><input class="fctl" id="fb-auth" placeholder="project.firebaseapp.com"></div>
+        <div class="fgrp"><label class="flbl">Project ID</label><input class="fctl" id="fb-proj" placeholder="my-clinic"></div>
+        <div class="fgrp"><label class="flbl">Storage Bucket</label><input class="fctl" id="fb-stor" placeholder="project.appspot.com"></div>
+        <div class="fgrp"><label class="flbl">Messaging Sender ID</label><input class="fctl" id="fb-send" placeholder="123456789"></div>
+        <div class="fgrp"><label class="flbl">App ID</label><input class="fctl" id="fb-app" placeholder="1:123:web:abc..."></div>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:14px;">
+        <button class="btn btn-primary" onclick="saveFB()">💾 حفظ وتفعيل</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('setup-screen').classList.add('show')">📖 شرح الخطوات</button>
+        <button class="btn btn-ghost btn-sm" onclick="showToast('info','🧪 جارٍ اختبار الاتصال...')">🧪 اختبار</button>
+      </div>
+    </div>
+  </div>
+  <div id="se-perm" style="display:none;">
+    <div class="card"><div class="card-hdr"><div class="card-title">👥 الصلاحيات</div></div>
+      <div class="table-wrap"><table><thead><tr><th>الدور</th><th>العملاء</th><th>المالية</th><th>المخزون</th><th>التقارير</th><th>الإعدادات</th></tr></thead><tbody>
+        <tr><td><strong>مدير النظام</strong></td><td>✅ كامل</td><td>✅ كامل</td><td>✅ كامل</td><td>✅ كامل</td><td>✅ كامل</td></tr>
+        <tr><td><strong>مدير فرع</strong></td><td>✅ كامل</td><td>👁️ عرض</td><td>✅ كامل</td><td>✅ فرعه</td><td>❌</td></tr>
+        <tr><td><strong>طبيب</strong></td><td>✅ مرضاه</td><td>❌</td><td>❌</td><td>✅ جلساته</td><td>❌</td></tr>
+        <tr><td><strong>استقبال</strong></td><td>✅ إضافة</td><td>✅ فواتير</td><td>❌</td><td>❌</td><td>❌</td></tr>
+      </tbody></table></div>
+    </div>
+  </div>
+  <div id="se-notif" style="display:none;">
+    <div class="card"><div class="card-hdr"><div class="card-title">🔔 الإشعارات</div></div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">تذكير المواعيد (واتساب)</div><div style="font-size:12px;color:var(--text-muted)">قبل 24 ساعة</div></div><div onclick="toggleSw(this)" style="width:42px;height:23px;background:var(--teal);border-radius:12px;cursor:pointer;position:relative;"><div style="width:19px;height:19px;background:#fff;border-radius:50%;position:absolute;top:2px;right:2px;transition:.2s;"></div></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">تنبيه مخزون منخفض</div><div style="font-size:12px;color:var(--text-muted)">عند حد إعادة الطلب</div></div><div onclick="toggleSw(this)" style="width:42px;height:23px;background:var(--teal);border-radius:12px;cursor:pointer;position:relative;"><div style="width:19px;height:19px;background:#fff;border-radius:50%;position:absolute;top:2px;right:2px;transition:.2s;"></div></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">تنبيه الأقساط المتأخرة</div><div style="font-size:12px;color:var(--text-muted)">عند تأخر القسط</div></div><div onclick="toggleSw(this)" style="width:42px;height:23px;background:var(--glass-border);border-radius:12px;cursor:pointer;position:relative;"><div style="width:19px;height:19px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:.2s;"></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div id="se-data" style="display:none;">
+    <div class="card"><div class="card-hdr"><div class="card-title">💾 إدارة البيانات</div></div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:13px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">تصدير كل البيانات</div><div style="font-size:12px;color:var(--text-muted)">نسخة احتياطية JSON</div></div><button class="btn btn-ghost btn-sm" onclick="exportAll()">📥 تصدير</button></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:13px;background:rgba(244,63,94,.06);border:1px solid rgba(244,63,94,.15);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;color:var(--rose);">حذف كل البيانات</div><div style="font-size:12px;color:var(--text-muted)">لا يمكن التراجع!</div></div><button class="btn btn-danger btn-sm" onclick="clearAll()">🗑️ مسح</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WHATSAPP -->
+<div class="screen" id="screen-whatsapp">
+  <div style="display:grid;grid-template-columns:280px 1fr;gap:14px;height:calc(100vh - 100px);">
+    <div class="card" style="overflow:hidden;display:flex;flex-direction:column;padding:0;">
+      <div style="padding:14px;border-bottom:1px solid var(--glass-border);"><div style="font-size:14px;font-weight:700;margin-bottom:9px;">💬 المحادثات</div><div class="sbox"><span>🔍</span><input type="text" placeholder="بحث..."></div></div>
+      <div style="flex:1;overflow-y:auto;" id="wa-contacts"></div>
+    </div>
+    <div class="card" style="overflow:hidden;display:flex;flex-direction:column;padding:0;">
+      <div style="padding:14px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:11px;"><div class="appt-ava" style="background:linear-gradient(135deg,#8B5CF6,#3B82F6)">👩</div><div><div style="font-weight:700;font-size:13.5px;">نورا أحمد</div><div style="font-size:11.5px;color:var(--emerald)">متصل الآن</div></div><div style="margin-right:auto;display:flex;gap:7px;"><button class="btn btn-ghost btn-sm">📤 قالب</button><button class="btn btn-ghost btn-sm">📅 تذكير</button></div></div>
+      <div style="flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:9px;">
+        <div style="display:flex;justify-content:flex-start;"><div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px 12px 12px 2px;padding:10px 13px;max-width:78%;font-size:13px;line-height:1.6;">مرحباً، موعدك غداً الساعة 10 صباحاً للجلسة السادسة من ليزر الشعر مؤكد 💎</div></div>
+        <div style="display:flex;justify-content:flex-end;"><div style="background:linear-gradient(135deg,rgba(196,168,130,.18),rgba(45,212,191,.12));border-radius:12px 12px 2px 12px;padding:10px 13px;max-width:78%;font-size:13px;line-height:1.6;">تمام جداً، شكراً ❤️</div></div>
+      </div>
+      <div style="padding:14px;border-top:1px solid var(--glass-border);display:flex;gap:9px;"><div class="sbox" style="flex:1"><input type="text" id="wa-inp" placeholder="اكتب رسالة..." onkeydown="if(event.key==='Enter'){showToast('success','✅ تم إرسال الرسالة');this.value='';}"></div><button class="btn btn-teal" onclick="showToast('success','✅ تم إرسال الرسالة');document.getElementById('wa-inp').value=''">إرسال</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- PLACEHOLDERS -->
+<div class="screen" id="screen-waitlist"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">⏳</div><h3>قائمة الانتظار</h3></div></div>
+<div class="screen" id="screen-sessions"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">✨</div><h3>الجلسات العلاجية</h3></div></div>
+<div class="screen" id="screen-packages"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">🎁</div><h3>الباقات العلاجية</h3></div></div>
+<div class="screen" id="screen-doctors"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">👨‍⚕️</div><h3>الأطباء</h3></div></div>
+<div class="screen" id="screen-staff"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">👩‍💼</div><h3>الموظفون</h3></div></div>
+<div class="screen" id="screen-payments"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">💳</div><h3>المدفوعات</h3></div></div>
+<div class="screen" id="screen-installments"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">📆</div><h3>الأقساط</h3></div></div>
+<div class="screen" id="screen-expenses"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">💸</div><h3>المصروفات</h3></div></div>
+<div class="screen" id="screen-treasury"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">🏦</div><h3>الخزينة</h3></div></div>
+<div class="screen" id="screen-accounts"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">📊</div><h3>الحسابات الكاملة</h3></div></div>
+<div class="screen" id="screen-suppliers"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">🚚</div><h3>الموردون</h3></div></div>
+<div class="screen" id="screen-purchases"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">🛒</div><h3>المشتريات</h3></div></div>
+<div class="screen" id="screen-transfers"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">🔄</div><h3>تحويل المخزون</h3></div></div>
+<div class="screen" id="screen-campaigns"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">📣</div><h3>الحملات الإعلانية</h3></div></div>
+<div class="screen" id="screen-photos"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">📸</div><h3>الصور الطبية</h3><p style="color:var(--text-muted)">قبل وبعد · مقارنة · أرشفة</p></div></div>
+
+</main>
+<!-- MODALS -->
+<div class="modal-overlay" id="appt-modal">
+  <div class="modal"><div class="mhdr"><div class="mtitle">📅 موعد جديد</div><button class="mclose" onclick="closeModal('appt-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <div class="fgrp full"><label class="flbl">العميل *</label><select class="fctl" id="am-pat"><option value="">-- اختر عميل --</option></select></div>
+    <div class="fgrp"><label class="flbl">نوع الموعد</label><select class="fctl" id="am-type"><option>كشف</option><option>جلسة</option><option>متابعة</option><option>ليزر</option><option>بوتكس</option></select></div>
+    <div class="fgrp"><label class="flbl">الطبيب</label><select class="fctl" id="am-doc"><option>د. منى سامي</option><option>د. أحمد رضا</option><option>د. لمياء حسن</option></select></div>
+    <div class="fgrp"><label class="flbl">التاريخ *</label><input class="fctl" type="date" id="am-date"></div>
+    <div class="fgrp"><label class="flbl">الوقت *</label><input class="fctl" type="time" id="am-time"></div>
+    <div class="fgrp"><label class="flbl">الخدمة</label><select class="fctl" id="am-svc"><option>هيدرافيشل</option><option>ليزر إزالة شعر</option><option>بوتكس</option><option>بلازما</option><option>تنظيف بشرة</option></select></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="am-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="am-notes" placeholder="أي ملاحظات..."></textarea></div>
+    <div class="fgrp full"><label class="flbl">تذكير بـ</label><div style="display:flex;gap:14px;"><label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" checked> واتساب</label><label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox"> SMS</label><label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox"> إيميل</label></div></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('appt-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveAppt()">📅 حجز الموعد</button></div></div>
+</div>
+
+<div class="modal-overlay" id="patient-modal">
+  <div class="modal" style="max-width:740px"><div class="mhdr"><div class="mtitle">👥 عميل جديد</div><button class="mclose" onclick="closeModal('patient-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <div class="fsec">البيانات الشخصية</div>
+    <div class="fgrp"><label class="flbl">الاسم الكامل *</label><input class="fctl" id="pm-name" placeholder="الاسم بالكامل"></div>
+    <div class="fgrp"><label class="flbl">رقم الهاتف *</label><input class="fctl" id="pm-phone" placeholder="01X-XXX-XXXX"></div>
+    <div class="fgrp"><label class="flbl">واتساب</label><input class="fctl" id="pm-wa" placeholder="01X-XXX-XXXX"></div>
+    <div class="fgrp"><label class="flbl">البريد الإلكتروني</label><input class="fctl" id="pm-email" placeholder="email@example.com"></div>
+    <div class="fgrp"><label class="flbl">تاريخ الميلاد</label><input class="fctl" type="date" id="pm-dob"></div>
+    <div class="fgrp"><label class="flbl">الجنس</label><select class="fctl" id="pm-gender"><option>أنثى</option><option>ذكر</option></select></div>
+    <div class="fgrp"><label class="flbl">المهنة</label><input class="fctl" id="pm-job" placeholder="المهنة"></div>
+    <div class="fgrp"><label class="flbl">مصدر العميل</label><select class="fctl" id="pm-src"><option>فيسبوك</option><option>إنستجرام</option><option>صديق</option><option>إعلان</option><option>أخرى</option></select></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="pm-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="pm-status"><option value="نشط">نشط</option><option value="غير نشط">غير نشط</option></select></div>
+    <hr class="fdivider">
+    <div class="fsec">الملف الطبي</div>
+    <div class="fgrp"><label class="flbl">نوع البشرة</label><select class="fctl" id="pm-skin"><option>عادية</option><option>دهنية</option><option>جافة</option><option>مختلطة</option><option>حساسة</option></select></div>
+    <div class="fgrp"><label class="flbl">نوع الشعر</label><select class="fctl" id="pm-hair"><option>عادي</option><option>دهني</option><option>جاف</option><option>كيرلي</option><option>ناعم</option></select></div>
+    <div class="fgrp full"><label class="flbl">مشاكل البشرة</label><input class="fctl" id="pm-skinp" placeholder="حب شباب، بقع، تجاعيد..."></div>
+    <div class="fgrp full"><label class="flbl">مشاكل الشعر</label><input class="fctl" id="pm-hairp" placeholder="تساقط، جفاف..."></div>
+    <div class="fgrp full"><label class="flbl">الحساسية والأمراض المزمنة</label><textarea class="fctl ta" id="pm-allergy" placeholder="اكتب أي حساسية أو أمراض مزمنة..."></textarea></div>
+    <div class="fgrp"><label class="flbl">الحمل أو الرضاعة</label><select class="fctl" id="pm-preg"><option>لا</option><option>حامل</option><option>مرضعة</option></select></div>
+    <div class="fgrp"><label class="flbl">الأدوية الحالية</label><input class="fctl" id="pm-meds" placeholder="إن وجدت..."></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('patient-modal')">إلغاء</button><button class="btn btn-primary" onclick="savePat()">💾 حفظ العميل</button></div></div>
+</div>
+
+<div class="modal-overlay" id="invoice-modal">
+  <div class="modal"><div class="mhdr"><div class="mtitle">🧾 فاتورة جديدة</div><button class="mclose" onclick="closeModal('invoice-modal')">✕</button></div>
+  <div class="mbody">
+    <div class="fg">
+      <div class="fgrp"><label class="flbl">العميل *</label><select class="fctl" id="im-pat"><option value="">-- اختر عميل --</option></select></div>
+      <div class="fgrp"><label class="flbl">التاريخ</label><input class="fctl" type="date" id="im-date"></div>
+      <div class="fgrp full"><label class="flbl">الخدمة</label><select class="fctl" id="im-svc" onchange="updInvTotal()"><option value="800">هيدرافيشل - 800 ج</option><option value="1200">ليزر شعر - 1,200 ج</option><option value="3500">بوتكس - 3,500 ج</option><option value="2000">بلازما - 2,000 ج</option><option value="500">تنظيف بشرة - 500 ج</option></select></div>
+      <div class="fgrp"><label class="flbl">السعر (ج)</label><input class="fctl" type="number" id="im-price" value="800" oninput="updInvTotal()"></div>
+      <div class="fgrp"><label class="flbl">الخصم (ج)</label><input class="fctl" type="number" id="im-disc" value="0" oninput="updInvTotal()"></div>
+    </div>
+    <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:13px;margin:14px 0;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:13px;"><span style="color:var(--text-muted)">الإجمالي:</span><span id="ig">800 ج</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:13px;"><span style="color:var(--text-muted)">الخصم:</span><span style="color:var(--rose)" id="id2">0 ج</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;border-top:1px solid var(--glass-border);padding-top:6px;"><span>الصافي:</span><span style="color:var(--gold-light)" id="in2">800 ج</span></div>
+    </div>
+    <label class="flbl" style="margin-bottom:9px;display:block;">طريقة الدفع</label>
+    <div class="pay-g">
+      <div class="pay-m sel" onclick="selPay(this)"><div class="pay-ic">💵</div>كاش</div>
+      <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">💳</div>فيزا</div>
+      <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">📱</div>إنستاباي</div>
+      <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">📱</div>فودافون</div>
+      <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">🏦</div>تحويل</div>
+      <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">📆</div>أقساط</div>
+    </div>
+  </div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('invoice-modal')">إلغاء</button><button class="btn btn-ghost btn-sm">💾 مسودة</button><button class="btn btn-primary" onclick="saveInv()">✅ إصدار الفاتورة</button></div></div>
+</div>
+
+<div class="modal-overlay" id="product-modal">
+  <div class="modal" style="max-width:500px"><div class="mhdr"><div class="mtitle">📦 منتج جديد</div><button class="mclose" onclick="closeModal('product-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <div class="fgrp full"><label class="flbl">اسم المنتج *</label><input class="fctl" id="prod-name" placeholder="اسم المنتج"></div>
+    <div class="fgrp"><label class="flbl">الفئة</label><select class="fctl" id="prod-cat"><option>بشرة</option><option>شعر</option><option>أدوية</option><option>مستلزمات</option></select></div>
+    <div class="fgrp"><label class="flbl">الكمية</label><input class="fctl" type="number" id="prod-qty" placeholder="0"></div>
+    <div class="fgrp"><label class="flbl">حد إعادة الطلب</label><input class="fctl" type="number" id="prod-reord" placeholder="5"></div>
+    <div class="fgrp"><label class="flbl">سعر البيع (ج)</label><input class="fctl" type="number" id="prod-price" placeholder="0"></div>
+    <div class="fgrp"><label class="flbl">تاريخ الانتهاء</label><input class="fctl" type="date" id="prod-exp"></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('product-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveProd()">💾 حفظ</button></div></div>
+</div>
+
+<div class="modal-overlay" id="service-modal">
+  <div class="modal" style="max-width:500px"><div class="mhdr"><div class="mtitle">💅 خدمة جديدة</div><button class="mclose" onclick="closeModal('service-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <div class="fgrp full"><label class="flbl">اسم الخدمة *</label><input class="fctl" id="sv-name" placeholder="اسم الخدمة"></div>
+    <div class="fgrp"><label class="flbl">القسم</label><select class="fctl" id="sv-cat"><option>البشرة</option><option>الشعر</option><option>الليزر</option><option>حقن</option></select></div>
+    <div class="fgrp"><label class="flbl">الطبيب</label><select class="fctl" id="sv-doc"><option>د. منى سامي</option><option>د. أحمد رضا</option></select></div>
+    <div class="fgrp"><label class="flbl">السعر (ج)</label><input class="fctl" type="number" id="sv-price" placeholder="0"></div>
+    <div class="fgrp"><label class="flbl">التكلفة (ج)</label><input class="fctl" type="number" id="sv-cost" placeholder="0"></div>
+    <div class="fgrp"><label class="flbl">المدة (دقيقة)</label><input class="fctl" type="number" id="sv-dur" placeholder="60"></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('service-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveSvc()">💾 حفظ</button></div></div>
+</div>
+
+<div class="modal-overlay" id="lead-modal">
+  <div class="modal" style="max-width:480px"><div class="mhdr"><div class="mtitle">🎯 Lead جديد</div><button class="mclose" onclick="closeModal('lead-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <div class="fgrp"><label class="flbl">الاسم *</label><input class="fctl" id="ld-name" placeholder="الاسم"></div>
+    <div class="fgrp"><label class="flbl">الهاتف</label><input class="fctl" id="ld-phone" placeholder="01X-XXX-XXXX"></div>
+    <div class="fgrp"><label class="flbl">الخدمة</label><select class="fctl" id="ld-svc"><option>ليزر شعر</option><option>هيدرافيشل</option><option>بوتكس</option><option>بلازما</option></select></div>
+    <div class="fgrp"><label class="flbl">المصدر</label><select class="fctl" id="ld-src"><option>فيسبوك</option><option>إنستجرام</option><option>واتساب</option><option>مكالمة</option></select></div>
+    <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="ld-notes" placeholder="أي تفاصيل..."></textarea></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('lead-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveLead()">إضافة</button></div></div>
+</div>
+
+<div class="toast-c" id="toast-c"></div>
+
+<script>
+const DB={
+  get(k){try{return JSON.parse(localStorage.getItem('ha_'+k))||[];}catch{return [];}},
+  obj(k){try{return JSON.parse(localStorage.getItem('ha_'+k))||{};}catch{return {};}},
+  set(k,v){localStorage.setItem('ha_'+k,JSON.stringify(v));},
+  push(k,o){const a=DB.get(k);o.id=o.id||Date.now()+'';a.push(o);DB.set(k,a);return o;},
+  upd(k,id,d){const a=DB.get(k),i=a.findIndex(x=>x.id==id);if(i>=0){a[i]={...a[i],...d};DB.set(k,a);}},
+  del(k,id){DB.set(k,DB.get(k).filter(x=>x.id!=id));}
+};
+if(!localStorage.getItem('ha_seeded')){
+  const today=new Date().toISOString().split('T')[0];
+  DB.set('patients',[
+    {id:'1',name:'نورا أحمد سعيد',phone:'01112345678',email:'noura@email.com',skin:'مختلطة',hair:'كيرلي',skinProbs:'حب شباب - بقع',hairProbs:'تساقط',allergies:'لا حساسية',pregnancy:'لا',balance:0,sessions:8,spent:12400,status:'نشط',source:'إنستجرام',branch:'مدينة نصر',dob:'1992-03-15'},
+    {id:'2',name:'مي إبراهيم حسن',phone:'01009876543',email:'',skin:'دهنية',hair:'دهني',skinProbs:'حب شباب',hairProbs:'',allergies:'',pregnancy:'لا',balance:1500,sessions:3,spent:2400,status:'قسط',source:'فيسبوك',branch:'مدينة نصر',dob:'1995-07-20'},
+    {id:'3',name:'سلمى خالد رمضان',phone:'01223456789',email:'',skin:'جافة',hair:'جاف',skinProbs:'تجاعيد',hairProbs:'جفاف',allergies:'حساسية للنيكل',pregnancy:'لا',balance:0,sessions:15,spent:28500,status:'نشط',source:'صديق',branch:'المهندسين',dob:'1988-11-05'},
+    {id:'4',name:'هنا محمود عبدالله',phone:'01554567890',email:'',skin:'عادية',hair:'عادي',skinProbs:'بقع',hairProbs:'',allergies:'',pregnancy:'لا',balance:0,sessions:6,spent:9000,status:'غير نشط',source:'إعلان',branch:'مدينة نصر',dob:'1990-05-12'}
+  ]);
+  DB.set('appointments',[
+    {id:'a1',patient:'نورا أحمد سعيد',service:'هيدرافيشل',type:'جلسة',doctor:'د. منى سامي',time:'09:00',date:today,status:'مؤكد',branch:'مدينة نصر'},
+    {id:'a2',patient:'مي إبراهيم حسن',service:'ليزر إزالة شعر',type:'ليزر',doctor:'د. أحمد رضا',time:'10:30',date:today,status:'انتظار',branch:'مدينة نصر'},
+    {id:'a3',patient:'سلمى خالد رمضان',service:'بلازما',type:'جلسة',doctor:'د. لمياء حسن',time:'11:00',date:today,status:'في العيادة',branch:'المهندسين'},
+    {id:'a4',patient:'هنا محمود عبدالله',service:'بوتكس',type:'بوتكس',doctor:'د. منى سامي',time:'14:00',date:today,status:'مؤكد',branch:'مدينة نصر'}
+  ]);
+  DB.set('inventory',[
+    {id:'i1',name:'سيروم فيتامين C',cat:'بشرة',qty:3,reorder:10,price:250,expiry:'2025-06-30',status:'منخفض'},
+    {id:'i2',name:'كريم ترطيب SPF50',cat:'بشرة',qty:24,reorder:10,price:180,expiry:'2025-12-01',status:'متوفر'},
+    {id:'i3',name:'شامبو بروتين',cat:'شعر',qty:0,reorder:5,price:120,expiry:'',status:'نفذ'},
+    {id:'i4',name:'سيروم نمو الشعر',cat:'شعر',qty:8,reorder:5,price:320,expiry:'2026-03-01',status:'متوفر'}
+  ]);
+  DB.set('invoices',[
+    {id:'v1',patient:'نورا أحمد سعيد',service:'هيدرافيشل',total:800,paid:800,remaining:0,status:'مدفوع',method:'كاش',date:today},
+    {id:'v2',patient:'مي إبراهيم حسن',service:'ليزر شعر',total:1200,paid:600,remaining:600,status:'جزئي',method:'فيزا',date:today}
+  ]);
+  DB.set('services',[
+    {id:'s1',name:'هيدرافيشل',cat:'البشرة',price:800,cost:200,duration:60,doctor:'د. منى سامي'},
+    {id:'s2',name:'ليزر إزالة شعر',cat:'ليزر',price:1200,cost:300,duration:45,doctor:'د. أحمد رضا'},
+    {id:'s3',name:'بوتكس',cat:'حقن',price:3500,cost:800,duration:30,doctor:'د. منى سامي'},
+    {id:'s4',name:'بلازما',cat:'البشرة',price:2000,cost:400,duration:50,doctor:'د. لمياء حسن'}
+  ]);
+  DB.set('leads',[
+    {id:'l1',name:'رانيا مصطفى',phone:'01011111111',service:'ليزر شعر',source:'إنستجرام',status:'جديد',notes:''},
+    {id:'l2',name:'دينا علي',phone:'01022222222',service:'هيدرافيشل',source:'فيسبوك',status:'جديد',notes:''},
+    {id:'l3',name:'هبة رشاد',phone:'01033333333',service:'بوتكس',source:'واتساب',status:'تم التواصل',notes:''},
+    {id:'l4',name:'إيمان طه',phone:'01044444444',service:'ليزر شعر',source:'فيسبوك',status:'مهتم',notes:'محتمل 4800'},
+    {id:'l5',name:'لمياء سعد',phone:'01055555555',service:'هيدرافيشل',source:'صديق',status:'تم التحويل',notes:''}
+  ]);
+  DB.set('settings',{clinicName:'عيادات الحياة للتجميل',phone:'0100-000-0000',managerName:'د. سارة محمد',managerRole:'مدير النظام'});
+  localStorage.setItem('ha_seeded','1');
+}
+
+// THEME
+function applyTheme(t){
+  const html=document.documentElement,btn=document.getElementById('theme-btn'),meta=document.getElementById('theme-color-meta'),lbl=document.getElementById('theme-lbl');
+  if(t==='light'){html.classList.add('light');if(btn)btn.textContent='☀️';if(meta)meta.content='#F0F4F8';if(lbl)lbl.textContent='فاتح ☀️';}
+  else{html.classList.remove('light');if(btn)btn.textContent='🌙';if(meta)meta.content='#0A0D14';if(lbl)lbl.textContent='داكن 🌙';}
+  localStorage.setItem('ha_theme',t);
+}
+function toggleTheme(){applyTheme(localStorage.getItem('ha_theme')==='light'?'dark':'light');}
+function useSysTheme(){localStorage.removeItem('ha_theme');applyTheme(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');showToast('info','🎨 سيتابع ثيم الجهاز تلقائياً');}
+(function(){const s=localStorage.getItem('ha_theme');applyTheme(s||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'));})();
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',e=>{if(!localStorage.getItem('ha_theme'))applyTheme(e.matches?'dark':'light');});
+
+// NAVIGATION
+const TITLES={dashboard:'لوحة التحكم',patients:'قائمة العملاء','patient-profile':'ملف العميل',calendar:'التقويم',appointments:'المواعيد',waitlist:'قائمة الانتظار',sessions:'الجلسات',services:'الخدمات',packages:'الباقات',doctors:'الأطباء',staff:'الموظفون',invoices:'الفواتير',payments:'المدفوعات',installments:'الأقساط',expenses:'المصروفات',treasury:'الخزينة',accounts:'الحسابات',inventory:'المخزون',suppliers:'الموردون',purchases:'المشتريات',transfers:'تحويل المخزون',leads:'العملاء المحتملون',campaigns:'الحملات',whatsapp:'واتساب',branches:'الفروع',reports:'التقارير',ai:'المساعد الذكي',settings:'الإعدادات',photos:'الصور'};
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const el=document.getElementById('screen-'+id);
+  if(el)el.classList.add('active');
+  const t=document.getElementById('topbar-title');
+  if(t){t.innerHTML=(TITLES[id]||id)+' <span class="topbar-date" id="topbar-date"></span>';setDate();}
+  document.querySelectorAll('.nav-item').forEach(n=>{if(n.getAttribute('onclick')?.includes("'"+id+"'"))n.classList.add('active');});
+  closeSidebar();
+  document.getElementById('main-area')?.scrollTo(0,0);
+  if(id==='patients')renderPat();
+  if(id==='appointments')renderAppts();
+  if(id==='inventory')renderInv();
+  if(id==='invoices')renderInvs();
+  if(id==='services')renderSvcs();
+  if(id==='leads')renderLeads();
+  if(id==='calendar')buildCal();
+  if(id==='whatsapp')renderWA();
+}
+
+// MOBILE SIDEBAR
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sb-overlay').classList.toggle('open');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sb-overlay').classList.remove('open');}
+let _tx=0;
+document.addEventListener('touchstart',e=>_tx=e.touches[0].clientX,{passive:true});
+document.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-_tx;if(dx<-55)closeSidebar();if(dx>55&&_tx<30)toggleSidebar();},{passive:true});
+
+// MODAL
+function openModal(id){document.getElementById(id)?.classList.add('open');fillPatDropdowns();}
+function closeModal(id){document.getElementById(id)?.classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function fillPatDropdowns(){
+  const pats=DB.get('patients');
+  ['am-pat','im-pat'].forEach(did=>{const sel=document.getElementById(did);if(!sel)return;const cur=sel.value;sel.innerHTML='<option value="">-- اختر عميل --</option>'+pats.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');if(cur)sel.value=cur;});
+}
+
+// TABS
+const ALL_TABS=['t-med','t-ses','t-inv','t-ph','t-hist','se-gen','se-fb','se-perm','se-notif','se-data'];
+function stab(el,gid,tid){
+  document.getElementById(gid)?.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ALL_TABS.forEach(i=>{const e=document.getElementById(i);if(e)e.style.display='none';});
+  const t=document.getElementById(tid);if(t)t.style.display='block';
+}
+
+// TOAST
+function showToast(type,msg,sub=''){
+  const IC={success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'};
+  const tc=document.getElementById('toast-c');
+  const t=document.createElement('div');
+  t.className=`toast ${type}`;
+  t.innerHTML=`<div class="ticon">${IC[type]||'ℹ️'}</div><div class="ttxt"><p>${msg}</p>${sub?`<span>${sub}</span>`:''}</div><div class="tclose" onclick="this.parentElement.remove()">✕</div>`;
+  tc.appendChild(t);
+  setTimeout(()=>{t.style.transition='all .3s';t.style.opacity='0';t.style.transform='translateY(8px)';setTimeout(()=>t.remove(),300);},4000);
+}
+
+// PATIENTS
+const AVA=['linear-gradient(135deg,#8B5CF6,#3B82F6)','linear-gradient(135deg,#10B981,#2DD4BF)','linear-gradient(135deg,#F59E0B,#EF4444)','linear-gradient(135deg,#C4A882,#8B5CF6)','linear-gradient(135deg,#F43F5E,#8B5CF6)'];
+let _pf='',_ps='';
+function filterPat(q){_pf=q;renderPat();}
+function filterPatSt(s){_ps=s;renderPat();}
+function renderPat(){
+  const pats=DB.get('patients').filter(p=>(!_pf||(p.name.includes(_pf)||p.phone.includes(_pf)))&&(!_ps||p.status===_ps));
+  const tb=document.getElementById('pat-tbody');if(!tb)return;
+  const lbl=document.getElementById('pat-count-lbl');if(lbl)lbl.textContent=`${pats.length} عميل`;
+  tb.innerHTML=pats.map((p,i)=>`<tr onclick="viewPat('${p.id}')" style="cursor:pointer"><td><div style="display:flex;align-items:center;gap:9px;"><div class="tdava" style="background:${AVA[i%AVA.length]}">👩</div><div><div style="font-weight:600">${p.name}</div><div style="font-size:11px;color:var(--text-muted)">#C${String(i+1).padStart(3,'0')}</div></div></div></td><td>${p.phone}</td><td><span class="tag tg-gold">${p.skin}</span></td><td style="color:var(--text-muted);font-size:12px">اليوم</td><td><span style="font-weight:700;color:var(--teal)">${p.sessions||0}</span></td><td style="color:${(p.balance||0)>0?'var(--rose)':'var(--emerald)'};font-weight:700">${(p.balance||0).toLocaleString()} ج</td><td><span class="ast ${p.status==='نشط'?'sc':p.status==='قسط'?'sp':'sd'}">${p.status}</span></td><td><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();viewPat('${p.id}')">عرض</button> <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();delPat('${p.id}')">🗑</button></td></tr>`).join('');
+  txt('badge-patients',DB.get('patients').length);txt('kpi-pat',DB.get('patients').length);
+}
+function viewPat(id){
+  const p=DB.get('patients').find(x=>x.id==id);if(!p)return;
+  window._curPat=id;
+  txt('pp-name',p.name);txt('pp-contact',`📞 ${p.phone}${p.email?' · 📧 '+p.email:''}`);
+  txt('pp-meta',`مصدر: ${p.source||'—'} · فرع: ${p.branch||'—'}${p.dob?' · '+age(p.dob)+' سنة':''}`);
+  txt('pp-sessions',p.sessions||0);txt('pp-spent',(p.spent||0).toLocaleString()+' ج');
+  const balEl=document.getElementById('pp-balance');if(balEl){balEl.textContent=(p.balance||0).toLocaleString()+' ج';balEl.style.color=(p.balance||0)>0?'var(--rose)':'var(--emerald)';}
+  txt('pp-plans','1');
+  const tg=document.getElementById('pp-tags');
+  if(tg)tg.innerHTML=`<span class="tag tg-gold">${p.skin}</span><span class="tag tg-teal">${p.hair}</span>${p.allergies&&p.allergies!=='لا حساسية'?'<span class="tag tg-purple">⚠️ حساسية</span>':'<span class="tag tg-green">✅ لا حساسية</span>'}`;
+  const sk=document.getElementById('med-skin');
+  if(sk)sk.innerHTML=`<div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">النوع:</span><span class="tag tg-gold">${p.skin}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">المشاكل:</span><span>${p.skinProbs||'—'}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">الحساسية:</span><span>${p.allergies||'—'}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">الحمل:</span><span>${p.pregnancy||'—'}</span></div>`;
+  const hr=document.getElementById('med-hair');
+  if(hr)hr.innerHTML=`<div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">النوع:</span><span class="tag tg-teal">${p.hair}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">المشاكل:</span><span>${p.hairProbs||'—'}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">الأدوية:</span><span>${p.meds||'لا يوجد'}</span></div>`;
+  const pinv=DB.get('invoices').filter(i=>i.patient===p.name);
+  const pitb=document.getElementById('p-inv-tbody');
+  if(pitb)pitb.innerHTML=pinv.map(i=>`<tr><td style="font-size:12px">${i.date}</td><td>${i.service}</td><td style="font-weight:700">${i.total} ج</td><td>${i.method}</td><td><span class="ast ${i.status==='مدفوع'?'sc':'sp'}">${i.status}</span></td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد فواتير</td></tr>';
+  showScreen('patient-profile');
+}
+function age(d){return d?Math.floor((Date.now()-new Date(d))/(365.25*24*3600*1000)):0;}
+function delPat(id){if(confirm('حذف العميل؟')){DB.del('patients',id);renderPat();showToast('info','🗑️ تم حذف العميل');}}
+function deleteCurrentPat(){if(window._curPat){delPat(window._curPat);showScreen('patients');}}
+function exportPat(){showToast('info','📊 جارٍ تصدير قائمة العملاء...');}
+function printProfile(){showToast('info','🖨️ جارٍ إعداد الملف للطباعة...');}
+
+// SAVE PATIENT
+function gv(id){return document.getElementById(id)?.value||'';}
+function savePat(){
+  const name=gv('pm-name').trim(),phone=gv('pm-phone').trim();
+  if(!name||!phone){showToast('warning','⚠️ الاسم والهاتف مطلوبان');return;}
+  DB.push('patients',{name,phone,email:gv('pm-email'),skin:gv('pm-skin'),hair:gv('pm-hair'),skinProbs:gv('pm-skinp'),hairProbs:gv('pm-hairp'),allergies:gv('pm-allergy'),pregnancy:gv('pm-preg'),meds:gv('pm-meds'),source:gv('pm-src'),branch:gv('pm-branch'),status:gv('pm-status'),dob:gv('pm-dob'),job:gv('pm-job'),whatsapp:gv('pm-wa'),sessions:0,spent:0,balance:0});
+  closeModal('patient-modal');showToast('success',`✅ تم إضافة ${name}`,`فرع: ${gv('pm-branch')}`);renderPat();
+  ['pm-name','pm-phone','pm-email','pm-skinp','pm-hairp','pm-allergy','pm-meds','pm-job','pm-wa','pm-dob'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
+}
+
+// APPOINTMENTS
+let _af='',_as='',_ad='';
+function filterAppts(q){_af=q;renderAppts();}
+function filterApptSt(s){_as=s;renderAppts();}
+function filterApptDate(d){_ad=d;renderAppts();}
+const ASC={'مؤكد':'sc','انتظار':'sp','في العيادة':'sw','مكتمل':'sd','ملغي':'sx'};
+function renderAppts(){
+  const appts=DB.get('appointments').filter(a=>(!_af||a.patient.includes(_af))&&(!_as||a.status===_as)&&(!_ad||a.date===_ad));
+  const tb=document.getElementById('appts-tbody');if(!tb)return;
+  tb.innerHTML=appts.map(a=>`<tr><td style="font-weight:600">${a.patient}</td><td style="font-size:12px">${a.date}</td><td style="font-weight:700;color:var(--teal)">${a.time}</td><td>${a.service}</td><td>${a.doctor||'—'}</td><td style="font-size:12px">${a.branch||'—'}</td><td><span class="ast ${ASC[a.status]||'sd'}">${a.status}</span></td><td style="display:flex;gap:5px;"><button class="btn btn-ghost btn-xs" onclick="updAppt('${a.id}','مكتمل')">✅</button><button class="btn btn-danger btn-xs" onclick="delAppt('${a.id}')">🗑</button></td></tr>`).join('');
+  renderTodayAppts();
+}
+function updAppt(id,st){DB.upd('appointments',id,{status:st});renderAppts();showToast('success','✅ تم تحديث حالة الموعد');}
+function delAppt(id){if(confirm('حذف الموعد؟')){DB.del('appointments',id);renderAppts();buildCal();}}
+function saveAppt(){
+  const pid=gv('am-pat'),date=gv('am-date'),time=gv('am-time');
+  if(!pid||!date||!time){showToast('warning','⚠️ اختر العميل والتاريخ والوقت');return;}
+  const pat=DB.get('patients').find(p=>p.id==pid);
+  DB.push('appointments',{patient:pat?.name||pid,service:gv('am-svc'),type:gv('am-type'),doctor:gv('am-doc'),date,time,status:'مؤكد',branch:gv('am-branch'),notes:gv('am-notes')});
+  closeModal('appt-modal');showToast('success','📅 تم حجز الموعد بنجاح',`${pat?.name} - ${date} ${time}`);
+  renderAppts();buildCal();renderTodayAppts();
+  const e=document.getElementById('am-notes');if(e)e.value='';
+}
+function renderTodayAppts(){
+  const today=new Date().toISOString().split('T')[0];
+  const ta=DB.get('appointments').filter(a=>a.date===today);
+  const el=document.getElementById('today-appts');if(!el)return;
+  el.innerHTML=ta.slice(0,5).map((a,i)=>`<div class="appt-item"><div class="appt-time">${a.time}</div><div class="appt-ava" style="background:${AVA[i%AVA.length]}">👩</div><div class="appt-info"><p>${a.patient}</p><span>${a.service}</span></div><span class="ast ${ASC[a.status]||'sd'}">${a.status}</span></div>`).join('')||'<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">لا توجد مواعيد اليوم</div>';
+  txt('kpi-appt',ta.length);txt('badge-appts',ta.length);
+}
+
+// CALENDAR
+let _cy=new Date().getFullYear(),_cm=new Date().getMonth();
+const MN=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+function buildCal(){
+  const grid=document.getElementById('cal-grid'),mn=document.getElementById('cal-mn');if(!grid)return;
+  if(mn)mn.textContent=`${MN[_cm]} ${_cy}`;
+  const DAYS=['أح','إث','ثل','أر','خم','جم','سب'];
+  let html=DAYS.map(d=>`<div class="cal-dh">${d}</div>`).join('');
+  const fd=new Date(_cy,_cm,1).getDay(),dim=new Date(_cy,_cm+1,0).getDate(),pd=new Date(_cy,_cm,0).getDate();
+  const today=new Date(),tY=today.getFullYear(),tM=today.getMonth(),tD=today.getDate();
+  const appts=DB.get('appointments');
+  for(let i=fd-1;i>=0;i--)html+=`<div class="cal-d other">${pd-i}</div>`;
+  for(let d=1;d<=dim;d++){
+    const ds=`${_cy}-${String(_cm+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const hasEv=appts.some(a=>a.date===ds);
+    const isT=_cy===tY&&_cm===tM&&d===tD;
+    html+=`<div class="cal-d${isT?' today':''} ${hasEv?'has-ev':''}" onclick="calSel(this,'${ds}')">${d}</div>`;
+  }
+  let nx=1;while((fd+dim+nx-1)%7!==0)html+=`<div class="cal-d other">${nx++}</div>`;
+  grid.innerHTML=html;
+  calSel(null,new Date().toISOString().split('T')[0]);
+}
+function calSel(el,ds){
+  document.querySelectorAll('.cal-d').forEach(x=>x.classList.remove('selected'));
+  if(el)el.classList.add('selected');
+  const lbl=document.getElementById('cal-sel-date');if(lbl)lbl.textContent=ds;
+  const da=DB.get('appointments').filter(a=>a.date===ds);
+  const el2=document.getElementById('cal-day-appts');
+  if(el2)el2.innerHTML=da.map(a=>`<div class="appt-item"><div class="appt-time">${a.time}</div><div class="appt-ava" style="background:linear-gradient(135deg,#8B5CF6,#3B82F6);font-size:13px">👩</div><div class="appt-info"><p style="font-size:12.5px">${a.patient}</p><span style="font-size:11px">${a.service}</span></div><span class="ast ${ASC[a.status]||'sd'}" style="font-size:10px">${a.status}</span></div>`).join('')||'<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:12.5px">لا توجد مواعيد</div>';
+}
+document.getElementById('cal-prev')?.addEventListener('click',()=>{_cm--;if(_cm<0){_cm=11;_cy--;}buildCal();});
+document.getElementById('cal-next')?.addEventListener('click',()=>{_cm++;if(_cm>11){_cm=0;_cy++;}buildCal();});
+
+// INVENTORY
+let _if='',_is='';
+function filterInv(q){_if=q;renderInv();}
+function filterInvSt(s){_is=s;renderInv();}
+function renderInv(){
+  const items=DB.get('inventory').filter(i=>(!_if||i.name.includes(_if))&&(!_is||i.status===_is));
+  const tb=document.getElementById('inv-tbody');if(!tb)return;
+  tb.innerHTML=items.map(i=>`<tr><td style="font-weight:600">${i.name}</td><td style="font-weight:700;color:${i.qty===0?'var(--rose)':i.qty<=i.reorder?'var(--amber)':'var(--emerald)'}">${i.qty}</td><td>${i.reorder}</td><td style="font-size:12px;color:${i.expiry&&new Date(i.expiry)<new Date()?'var(--rose)':'var(--text-muted)'}">${i.expiry||'—'}</td><td>${i.price} ج</td><td><span class="stk ${i.status==='متوفر'?'stk-ok':i.status==='منخفض'?'stk-low':'stk-out'}">${i.status}</span></td><td><button class="btn btn-danger btn-xs" onclick="delInv('${i.id}')">🗑</button></td></tr>`).join('');
+  const all=DB.get('inventory');
+  const low=all.filter(i=>i.status==='منخفض').length,out=all.filter(i=>i.status==='نفذ').length;
+  txt('inv-total',all.length);txt('inv-low',low);txt('inv-out',out);
+  txt('inv-val',all.reduce((s,i)=>s+(i.qty*i.price),0).toLocaleString()+' ج');
+  txt('badge-stock',low+out);txt('kpi-stk',low+out);
+}
+function delInv(id){if(confirm('حذف المنتج؟')){DB.del('inventory',id);renderInv();showToast('info','🗑️ تم حذف المنتج');}}
+function saveProd(){
+  const name=gv('prod-name').trim();if(!name){showToast('warning','⚠️ اسم المنتج مطلوب');return;}
+  const qty=parseInt(gv('prod-qty'))||0,reorder=parseInt(gv('prod-reord'))||5;
+  DB.push('inventory',{name,cat:gv('prod-cat'),qty,reorder,price:parseFloat(gv('prod-price'))||0,expiry:gv('prod-exp'),status:qty===0?'نفذ':qty<=reorder?'منخفض':'متوفر'});
+  closeModal('product-modal');showToast('success',`✅ تم إضافة ${name}`);renderInv();
+  ['prod-name','prod-qty','prod-reord','prod-price','prod-exp'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
+}
+
+// INVOICES
+let _vf='',_vs='';
+function filterInvs(q){_vf=q;renderInvs();}
+function filterInvsSt(s){_vs=s;renderInvs();}
+function renderInvs(){
+  const invs=DB.get('invoices').filter(i=>(!_vf||i.patient.includes(_vf))&&(!_vs||i.status===_vs));
+  const tb=document.getElementById('invs-tbody');if(!tb)return;
+  let paid=0,pend=0;
+  DB.get('invoices').forEach(i=>{if(i.status==='مدفوع')paid+=i.total;else pend+=i.remaining||0;});
+  txt('inv-paid',paid.toLocaleString()+' ج');txt('inv-pend2',pend.toLocaleString()+' ج');txt('inv-cnt',DB.get('invoices').length);
+  tb.innerHTML=invs.map((i,idx)=>`<tr><td style="font-weight:700;color:var(--gold-light);font-size:12px">#INV-${String(idx+1).padStart(3,'0')}</td><td style="font-weight:600">${i.patient}</td><td style="font-size:12px">${i.date}</td><td>${i.service}</td><td style="font-weight:700">${i.total} ج</td><td style="color:var(--emerald);font-weight:700">${i.paid} ج</td><td style="color:${i.remaining>0?'var(--rose)':'var(--emerald)'};font-weight:700">${i.remaining} ج</td><td><span class="ast ${i.status==='مدفوع'?'sc':i.status==='جزئي'?'sp':'sw'}">${i.status}</span></td><td><button class="btn btn-ghost btn-xs" onclick="showToast('info','🖨️ جارٍ الطباعة...')">🖨</button></td></tr>`).join('');
+  txt('kpi-pend',pend.toLocaleString());
+}
+function updInvTotal(){
+  const p=parseFloat(document.getElementById('im-price')?.value)||0,d=parseFloat(document.getElementById('im-disc')?.value)||0;
+  txt('ig',p+' ج');txt('id2',d+' ج');txt('in2',(p-d)+' ج');
+}
+document.getElementById('im-svc')?.addEventListener('change',function(){const e=document.getElementById('im-price');if(e){e.value=this.value;updInvTotal();}});
+function selPay(el){el.closest('.pay-g').querySelectorAll('.pay-m').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');}
+function saveInv(){
+  const pid=gv('im-pat');if(!pid){showToast('warning','⚠️ اختر العميل');return;}
+  const pat=DB.get('patients').find(p=>p.id==pid);
+  const price=parseFloat(document.getElementById('im-price')?.value)||0,disc=parseFloat(document.getElementById('im-disc')?.value)||0,net=price-disc;
+  const method=document.querySelector('#invoice-modal .pay-m.sel')?.textContent?.trim()||'كاش';
+  DB.push('invoices',{patient:pat?.name||'—',service:gv('im-svc').split(' - ')[0],total:net,paid:net,remaining:0,status:'مدفوع',method,date:gv('im-date')||new Date().toISOString().split('T')[0]});
+  if(pat)DB.upd('patients',pat.id,{spent:(pat.spent||0)+net});
+  closeModal('invoice-modal');showToast('success','✅ تم إصدار الفاتورة',`${net.toLocaleString()} ج - ${method}`);renderInvs();
+}
+
+// SERVICES
+function renderSvcs(){
+  const tb=document.getElementById('svc-tbody');if(!tb)return;
+  tb.innerHTML=DB.get('services').map(s=>{const pr=s.price-s.cost,pt=s.price?Math.round(pr/s.price*100):0;return `<tr><td style="font-weight:600">${s.name}</td><td><span class="tag tg-teal">${s.cat}</span></td><td style="color:var(--gold-light);font-weight:700">${s.price} ج</td><td>${s.duration} د</td><td>${s.cost} ج</td><td style="color:var(--emerald)">${pr} ج (${pt}%)</td><td style="font-size:12px">${s.doctor}</td><td><button class="btn btn-danger btn-xs" onclick="delSvc('${s.id}')">🗑</button></td></tr>`;}).join('');
+}
+function delSvc(id){if(confirm('حذف الخدمة؟')){DB.del('services',id);renderSvcs();}}
+function saveSvc(){
+  const name=gv('sv-name').trim();if(!name){showToast('warning','⚠️ اسم الخدمة مطلوب');return;}
+  DB.push('services',{name,cat:gv('sv-cat'),doctor:gv('sv-doc'),price:parseFloat(gv('sv-price'))||0,cost:parseFloat(gv('sv-cost'))||0,duration:parseInt(gv('sv-dur'))||60});
+  closeModal('service-modal');showToast('success',`✅ تم إضافة ${name}`);renderSvcs();
+}
+
+// LEADS KANBAN
+const LCOLS=[{k:'جديد',b:'nb-teal'},{k:'تم التواصل',b:'nb-teal'},{k:'مهتم',b:'nb-amber'},{k:'غير مهتم',b:''},{k:'تم التحويل',b:'nb-green'}];
+function renderLeads(){
+  const kb=document.getElementById('leads-kanban');if(!kb)return;
+  const leads=DB.get('leads');
+  txt('badge-leads',leads.filter(l=>l.status==='جديد').length);
+  const lbl=document.getElementById('leads-lbl');if(lbl)lbl.textContent=`${leads.length} lead`;
+  kb.innerHTML=LCOLS.map(col=>{
+    const items=leads.filter(l=>l.status===col.k);
+    return `<div class="kcol"><div class="kcol-t"><span>${col.k}</span><span class="nb ${col.b}" style="font-size:10px;padding:2px 7px;">${items.length}</span></div>${items.map(l=>`<div class="lcard" onclick="moveLead('${l.id}')"><div class="lname">${l.name}</div><div class="lsvc">${l.service}</div><div class="ltime">📞 ${l.source}${l.notes?' · '+l.notes:''}</div></div>`).join('')}</div>`;
+  }).join('');
+}
+function moveLead(id){
+  const lead=DB.get('leads').find(l=>l.id==id);if(!lead)return;
+  const idx=LCOLS.findIndex(c=>c.k===lead.status);
+  const next=LCOLS[(idx+1)%LCOLS.length];
+  DB.upd('leads',id,{status:next.k});renderLeads();showToast('info',`🎯 ${lead.name} → ${next.k}`);
+}
+function saveLead(){
+  const name=gv('ld-name').trim();if(!name){showToast('warning','⚠️ الاسم مطلوب');return;}
+  DB.push('leads',{name,phone:gv('ld-phone'),service:gv('ld-svc'),source:gv('ld-src'),notes:gv('ld-notes'),status:'جديد'});
+  closeModal('lead-modal');showToast('success',`🎯 تم إضافة ${name} كـ Lead`);renderLeads();
+  ['ld-name','ld-phone','ld-notes'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
+}
+
+// WHATSAPP DEMO
+function renderWA(){
+  const c=document.getElementById('wa-contacts');
+  if(c)c.innerHTML=DB.get('patients').slice(0,6).map((p,i)=>`<div class="appt-item" style="padding:11px 14px;cursor:pointer;"><div class="appt-ava" style="background:${AVA[i%AVA.length]};font-size:14px">👩</div><div class="appt-info" style="flex:1"><p style="font-size:13px">${p.name}</p><span style="font-size:11px">موعد قادم...</span></div><div style="font-size:10px;color:var(--text-muted)">${i===0?'الآن':'أمس'}</div></div>`).join('');
+}
+
+// CHART
+function buildChart(){
+  const chart=document.getElementById('revenue-chart'),labels=document.getElementById('revenue-labels');if(!chart)return;
+  const data=[185000,220000,198000,265000,241000,312800,280000];
+  const months=['ديس','يناير','فبراير','مارس','أبريل','مايو','يونيو'];
+  const max=Math.max(...data);
+  chart.innerHTML=data.map((v,i)=>`<div class="bar" style="background:${i===5?'var(--teal)':'var(--glass-border)'};height:${(v/max*100)}%;min-height:6px;" title="${months[i]}: ${v.toLocaleString()} ج"></div>`).join('');
+  if(labels)labels.innerHTML=months.map((m,i)=>`<div class="blbl" style="flex:1;color:${i===5?'var(--teal)':'var(--text-muted)'}">${m}</div>`).join('');
+}
+
+// AI
+async function askAI(q){
+  if(!q?.trim())return;
+  const chat=document.getElementById('ai-chat'),inp=document.getElementById('ai-inp');if(!chat)return;
+  chat.innerHTML='';
+  const ud=document.createElement('div');ud.style.cssText='display:flex;justify-content:flex-start;';
+  ud.innerHTML=`<div style="background:linear-gradient(135deg,rgba(196,168,130,.18),rgba(45,212,191,.12));border-radius:12px 12px 12px 2px;padding:10px 13px;max-width:80%;font-size:13px;line-height:1.6;">${q}</div>`;
+  chat.appendChild(ud);
+  const ld=document.createElement('div');ld.style.cssText='display:flex;justify-content:flex-end;';
+  ld.innerHTML='<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px 12px 2px 12px;padding:10px 13px;font-size:12.5px;color:var(--text-muted);">🤖 يحلل البيانات...</div>';
+  chat.appendChild(ld);chat.scrollTop=chat.scrollHeight;
+  if(inp)inp.value='';
+  const pc=DB.get('patients').length,ac=DB.get('appointments').filter(a=>a.date===new Date().toISOString().split('T')[0]).length,ic=DB.get('inventory').filter(i=>i.status==='منخفض'||i.status==='نفذ').length;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,system:'أنت مساعد ذكي لعيادة تجميل "عيادات الحياة". أجب بالعربية بشكل مهني ومختصر مع توصيات عملية. لا تذكر أنك Claude.',messages:[{role:'user',content:`بيانات: ${pc} عميل، ${ac} موعد اليوم، ${ic} منتج ناقص، إيرادات الشهر 312,800 ج.\n\nالسؤال: ${q}`}]})});
+    const data=await res.json();ld.remove();
+    const ad=document.createElement('div');ad.style.cssText='display:flex;justify-content:flex-end;';
+    ad.innerHTML=`<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px 12px 2px 12px;padding:11px 13px;max-width:87%;font-size:13px;line-height:1.75;white-space:pre-wrap;">${data.content?.[0]?.text||'عذراً، تعذر الإجابة.'}</div>`;
+    chat.appendChild(ad);
+  }catch(e){ld.innerHTML='<div style="display:flex;justify-content:flex-end;"><div style="background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.2);border-radius:12px;padding:10px 13px;font-size:12.5px;color:var(--rose);">❌ تعذر الاتصال</div></div>';}
+  chat.scrollTop=chat.scrollHeight;
+}
+
+// SETTINGS
+function saveSettings(){
+  const s={clinicName:gv('s-cname'),phone:gv('s-cphone'),managerName:gv('s-mname'),managerRole:gv('s-mrole')};
+  DB.set('settings',s);txt('user-name',s.managerName);txt('user-role',s.managerRole);txt('dash-uname',s.managerName);
+  showToast('success','✅ تم حفظ الإعدادات');
+}
+function loadSettings(){
+  const s=DB.obj('settings');
+  if(s.managerName){txt('user-name',s.managerName);txt('user-role',s.managerRole||'مدير النظام');txt('dash-uname',s.managerName);}
+  ['s-cname','s-cphone','s-mname','s-mrole'].forEach((id,i)=>{const e=document.getElementById(id);if(e)e.value=[s.clinicName,s.phone,s.managerName,s.managerRole][i]||e.value;});
+}
+function saveFB(){const k=gv('fb-key');if(!k){showToast('warning','⚠️ أدخل بيانات Firebase');return;}showToast('success','🔥 تم حفظ إعدادات Firebase','أعد تحميل الصفحة لتطبيق الإعدادات');}
+function toggleSw(el){const on=el.style.background.includes('2DD4BF')||el.style.background.includes('teal');el.style.background=on?'var(--glass-border)':'var(--teal)';const k=el.querySelector('div');if(k)k.style.cssText=`width:19px;height:19px;background:#fff;border-radius:50%;position:absolute;top:2px;transition:.2s;${on?'left:2px':'right:2px'}`;}
+function exportAll(){
+  const d={patients:DB.get('patients'),appointments:DB.get('appointments'),inventory:DB.get('inventory'),invoices:DB.get('invoices'),services:DB.get('services'),leads:DB.get('leads'),exportedAt:new Date().toISOString()};
+  const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`alhaya-backup-${new Date().toLocaleDateString('en-GB').replace(/\//g,'-')}.json`;a.click();
+  showToast('success','📥 تم تصدير البيانات بنجاح');
+}
+function clearAll(){if(confirm('⚠️ هذا سيحذف كل البيانات! متأكد؟')){['patients','appointments','inventory','invoices','services','leads'].forEach(k=>DB.set(k,[]));localStorage.removeItem('ha_seeded');showToast('warning','🗑️ تم مسح كل البيانات');init();}}
+
+// SYNC
+function syncData(){
+  const ic=document.getElementById('sync-icon');if(ic)ic.classList.add('spin');
+  setTimeout(()=>{if(ic)ic.classList.remove('spin');showToast('info','💾 البيانات محفوظة محلياً','أعد الإعداد عبر Firebase للمزامنة السحابية');},1200);
+}
+
+// GLOBAL SEARCH
+function globalSearch(q){
+  if(!q.trim())return;
+  const pats=DB.get('patients').filter(p=>p.name.includes(q)||p.phone.includes(q));
+  if(pats.length===1){closeSidebar();viewPat(pats[0].id);}
+  else if(pats.length>0){showScreen('patients');filterPat(q);}
+  else showToast('info',`🔍 "${q}" — لا نتائج`);
+}
+
+// HELPERS
+function txt(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
+function setDate(){const el=document.getElementById('topbar-date');if(el)el.textContent=new Date().toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'});}
+
+// INIT
+function init(){
+  buildChart();renderTodayAppts();loadSettings();setDate();
+  const sub=document.getElementById('dash-sub');if(sub)sub.textContent=new Date().toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' · فرع مدينة نصر';
+  const low=DB.get('inventory').filter(i=>i.status==='منخفض'||i.status==='نفذ').length;
+  txt('badge-stock',low);txt('kpi-stk',low);
+  txt('badge-patients',DB.get('patients').length);txt('kpi-pat',DB.get('patients').length);
+  txt('badge-leads',DB.get('leads').filter(l=>l.status==='جديد').length);
+  const ua=DB.get('invoices').filter(i=>i.status!=='مدفوع').reduce((s,i)=>s+(i.remaining||0),0);txt('kpi-pend',ua.toLocaleString());
+  const tr=DB.get('invoices').filter(i=>i.date===new Date().toISOString().split('T')[0]).reduce((s,i)=>s+(i.paid||0),0);txt('kpi-rev',tr.toLocaleString());
+  // conn status
+  txt('conn-txt','وضع محلي 💾');const d=document.getElementById('conn-dot');if(d)d.style.background='#F59E0B';
+  // Set today date on inputs
+  const td=new Date().toISOString().split('T')[0];
+  ['am-date','im-date'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=td;});
+  // Show setup on first visit
+  if(!localStorage.getItem('ha_setup_shown')){setTimeout(()=>{document.getElementById('setup-screen')?.classList.add('show');localStorage.setItem('ha_setup_shown','1');},800);}
+}
+init();
+</script>
+</body>
+</html>
+<!-- SESSION GUARD + AUTH ADDITIONS -->
+<script>
+// ══════════════════════════════════════════
+// 🔐 SESSION MANAGEMENT
+// ══════════════════════════════════════════
+(function checkAuth(){
+  const sess = localStorage.getItem('ha_session');
+  if(!sess){
+    window.location.href = 'login.html';
+    return;
+  }
+  try {
+    const s = JSON.parse(sess);
+    if(s.expiry < Date.now()){
+      localStorage.removeItem('ha_session');
+      window.location.href = 'login.html';
+      return;
+    }
+    // Apply user info
+    window._session = s;
+    const uName = document.getElementById('user-name');
+    const uRole = document.getElementById('user-role');
+    const dashU = document.getElementById('dash-uname');
+    const roleNames = {admin:'مدير النظام',doctor:'طبيب',receptionist:'استقبال',accountant:'محاسب',branch_manager:'مدير فرع'};
+    if(uName) uName.textContent = s.name;
+    if(uRole) uRole.textContent = roleNames[s.role] || s.role;
+    if(dashU) dashU.textContent = s.name;
+
+    // Apply permissions
+    applyPermissions(s.role, s.permissions);
+
+    // Auto-logout after expiry
+    const remaining = s.expiry - Date.now();
+    setTimeout(()=>{ doLogout(); }, remaining);
+
+    // Warn 5 min before expiry
+    if(remaining > 300000){
+      setTimeout(()=>{ showToast('warning','⚠️ سينتهي جلسة الدخول خلال 5 دقائق','اضغط لتجديد الجلسة'); }, remaining - 300000);
+    }
+  } catch(e){
+    localStorage.removeItem('ha_session');
+    window.location.href = 'login.html';
+  }
+})();
+
+function doLogout(){
+  if(confirm('هل تريد تسجيل الخروج؟')){
+    localStorage.removeItem('ha_session');
+    window.location.href = 'login.html';
+  }
+}
+
+function renewSession(){
+  const sess = localStorage.getItem('ha_session');
+  if(sess){
+    try{
+      const s = JSON.parse(sess);
+      s.expiry = Date.now() + (8 * 60 * 60 * 1000);
+      localStorage.setItem('ha_session', JSON.stringify(s));
+      showToast('success','✅ تم تجديد الجلسة لـ 8 ساعات');
+    }catch(e){}
+  }
+}
+
+function applyPermissions(role, perms){
+  // Hide financial screens from doctors/reception
+  if(role === 'doctor'){
+    document.querySelectorAll('.nav-item').forEach(n=>{
+      const text = n.querySelector('.nav-text')?.textContent;
+      if(['الفواتير','المدفوعات','الأقساط','المصروفات','الخزينة','الحسابات','الموردون','المشتريات'].includes(text)){
+        n.style.display='none';
+      }
+    });
+  }
+  if(role === 'receptionist'){
+    document.querySelectorAll('.nav-item').forEach(n=>{
+      const text = n.querySelector('.nav-text')?.textContent;
+      if(['المصروفات','الخزينة','الحسابات','الموردون','المشتريات','تحويل المخزون','التقارير'].includes(text)){
+        n.style.display='none';
+      }
+    });
+  }
+  if(role === 'accountant'){
+    document.querySelectorAll('.nav-item').forEach(n=>{
+      const text = n.querySelector('.nav-text')?.textContent;
+      if(['الجلسات العلاجية','الباقات العلاجية','الأطباء','الموظفون'].includes(text)){
+        n.style.display='none';
+      }
+    });
+  }
+}
+
+// ══════════════════════════════════════════
+// 🖨️ PRINT INVOICE (REAL PDF)
+// ══════════════════════════════════════════
+function printInvoiceReal(inv){
+  if(!inv) return;
+  const clinicName = DB.obj('settings').clinicName || 'عيادات الحياة للتجميل';
+  const clinicPhone = DB.obj('settings').phone || '';
+  const html = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>فاتورة #${inv.id}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Tajawal',sans-serif;background:#fff;color:#1a1a1a;padding:30px;font-size:14px;}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #C4A882;padding-bottom:20px;margin-bottom:20px;}
+  .logo{font-size:22px;font-weight:900;color:#C4A882;}
+  .logo-sub{font-size:12px;color:#666;margin-top:3px;}
+  .inv-num{text-align:left;font-size:13px;color:#666;}
+  .inv-num strong{font-size:18px;color:#1a1a1a;display:block;}
+  .section{margin-bottom:20px;}
+  .section-title{font-size:12px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:5px;}
+  .info-row{display:flex;justify-content:space-between;font-size:13.5px;padding:5px 0;}
+  .info-row span{color:#666;}
+  table{width:100%;border-collapse:collapse;margin-bottom:20px;}
+  thead th{background:#f8f4ef;padding:10px 12px;text-align:right;font-size:12px;font-weight:700;color:#666;border-bottom:2px solid #C4A882;}
+  tbody td{padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:13.5px;}
+  .total-box{background:#f8f4ef;border-radius:10px;padding:16px 20px;margin-bottom:20px;}
+  .total-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13.5px;}
+  .total-row.final{border-top:2px solid #C4A882;margin-top:8px;padding-top:10px;font-size:16px;font-weight:800;}
+  .status-badge{display:inline-block;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;}
+  .status-paid{background:#dcfce7;color:#166534;}
+  .status-partial{background:#fef9c3;color:#713f12;}
+  .footer{text-align:center;font-size:12px;color:#999;border-top:1px solid #eee;padding-top:16px;margin-top:20px;}
+  @media print{body{padding:15px;}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="logo">💎 ${clinicName}</div>
+    <div class="logo-sub">📞 ${clinicPhone} | فاتورة ضريبية</div>
+  </div>
+  <div class="inv-num">
+    <span>رقم الفاتورة</span>
+    <strong>#INV-${inv.id}</strong>
+    <div style="font-size:12px;color:#666;margin-top:4px">📅 ${inv.date}</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+  <div class="section">
+    <div class="section-title">بيانات العميل</div>
+    <div class="info-row"><span>الاسم:</span><strong>${inv.patient}</strong></div>
+    <div class="info-row"><span>الفرع:</span><span>${inv.branch||'مدينة نصر'}</span></div>
+  </div>
+  <div class="section">
+    <div class="section-title">بيانات الدفع</div>
+    <div class="info-row"><span>طريقة الدفع:</span><strong>${inv.method||'كاش'}</strong></div>
+    <div class="info-row"><span>الحالة:</span><span class="status-badge ${inv.status==='مدفوع'?'status-paid':'status-partial'}">${inv.status}</span></div>
+  </div>
+</div>
+
+<table>
+  <thead><tr><th>الخدمة / المنتج</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead>
+  <tbody>
+    <tr><td>${inv.service}</td><td>1</td><td>${inv.total} ج</td><td>${inv.total} ج</td></tr>
+  </tbody>
+</table>
+
+<div class="total-box">
+  <div class="total-row"><span>المجموع:</span><span>${inv.total} ج</span></div>
+  <div class="total-row"><span>الخصم:</span><span>0 ج</span></div>
+  <div class="total-row final"><span>الإجمالي المستحق:</span><strong style="color:#C4A882">${inv.total} ج</strong></div>
+  <div class="total-row"><span>المدفوع:</span><span style="color:#166534">${inv.paid} ج</span></div>
+  ${inv.remaining>0?`<div class="total-row"><span>المتبقي:</span><span style="color:#dc2626">${inv.remaining} ج</span></div>`:''}
+</div>
+
+<div class="footer">
+  شكراً لثقتكم في ${clinicName} 💎<br>
+  هذه الفاتورة صادرة إلكترونياً وسارية بدون توقيع
+</div>
+</body>
+</html>`;
+
+  const w = window.open('','_blank','width=800,height:600');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(), 500);
+}
+
+// Override the print function
+window.printInvoice = function(id){
+  const inv = DB.get('invoices').find(i=>i.id==id);
+  if(inv) printInvoiceReal(inv);
+  else showToast('error','❌ لم يتم العثور على الفاتورة');
+};
+
+// ══════════════════════════════════════════
+// 📊 REAL REPORTS FROM DATA
+// ══════════════════════════════════════════
+function generateReport(type){
+  const invoices = DB.get('invoices');
+  const patients = DB.get('patients');
+  const appointments = DB.get('appointments');
+  const inventory = DB.get('inventory');
+  const today = new Date().toISOString().split('T')[0];
+  const thisMonth = today.substring(0,7);
+
+  switch(type){
+    case 'revenue': return generateRevenueReport(invoices, thisMonth);
+    case 'patients': return generatePatientsReport(patients, appointments);
+    case 'inventory': return generateInventoryReport(inventory);
+    case 'appointments': return generateAppointmentsReport(appointments, today);
+  }
+}
+
+function generateRevenueReport(invoices, month){
+  const monthInvs = invoices.filter(i=>i.date && i.date.startsWith(month));
+  const totalRevenue = monthInvs.reduce((s,i)=>s+i.total, 0);
+  const totalPaid = monthInvs.reduce((s,i)=>s+i.paid, 0);
+  const totalPending = monthInvs.reduce((s,i)=>s+i.remaining, 0);
+  const byService = {};
+  monthInvs.forEach(i=>{ byService[i.service] = (byService[i.service]||0)+i.total; });
+  const byMethod = {};
+  monthInvs.forEach(i=>{ byMethod[i.method] = (byMethod[i.method]||0)+i.paid; });
+
+  return {
+    title: 'تقرير الإيرادات',
+    period: month,
+    summary: [
+      {label:'إجمالي الإيرادات', value:totalRevenue.toLocaleString()+' ج', color:'var(--emerald)'},
+      {label:'المحصل فعلاً', value:totalPaid.toLocaleString()+' ج', color:'var(--teal)'},
+      {label:'المتبقي', value:totalPending.toLocaleString()+' ج', color:'var(--rose)'},
+      {label:'عدد الفواتير', value:monthInvs.length, color:'var(--purple)'}
+    ],
+    byService,
+    byMethod
+  };
+}
+
+function generatePatientsReport(patients, appointments){
+  const active = patients.filter(p=>p.status==='نشط').length;
+  const withBalance = patients.filter(p=>p.balance>0).length;
+  const totalDebt = patients.reduce((s,p)=>s+(p.balance||0),0);
+  const bySource = {};
+  patients.forEach(p=>{ bySource[p.source||'غير محدد'] = (bySource[p.source||'غير محدد']||0)+1; });
+
+  return {
+    title: 'تقرير العملاء',
+    summary: [
+      {label:'إجمالي العملاء', value:patients.length, color:'var(--teal)'},
+      {label:'العملاء النشطون', value:active, color:'var(--emerald)'},
+      {label:'عملاء لديهم ديون', value:withBalance, color:'var(--amber)'},
+      {label:'إجمالي الديون', value:totalDebt.toLocaleString()+' ج', color:'var(--rose)'}
+    ],
+    bySource
+  };
+}
+
+function generateInventoryReport(inventory){
+  const lowStock = inventory.filter(i=>i.status==='منخفض');
+  const outStock = inventory.filter(i=>i.status==='نفذ');
+  const totalValue = inventory.reduce((s,i)=>s+(i.qty*i.price),0);
+  const expiringSoon = inventory.filter(i=>{
+    if(!i.expiry) return false;
+    const diff = (new Date(i.expiry)-new Date())/(1000*60*60*24);
+    return diff>0 && diff<30;
+  });
+  return {
+    title: 'تقرير المخزون',
+    summary: [
+      {label:'إجمالي المنتجات', value:inventory.length, color:'var(--teal)'},
+      {label:'مخزون منخفض', value:lowStock.length, color:'var(--amber)'},
+      {label:'نفذ من المخزون', value:outStock.length, color:'var(--rose)'},
+      {label:'قيمة المخزون', value:totalValue.toLocaleString()+' ج', color:'var(--emerald)'}
+    ],
+    lowStock,
+    expiringSoon
+  };
+}
+
+function generateAppointmentsReport(appointments, today){
+  const todayAppts = appointments.filter(a=>a.date===today);
+  const confirmed = todayAppts.filter(a=>a.status==='مؤكد').length;
+  const done = appointments.filter(a=>a.status==='مكتمل').length;
+  const cancelled = appointments.filter(a=>a.status==='ملغي').length;
+  return {
+    title: 'تقرير المواعيد',
+    summary: [
+      {label:'مواعيد اليوم', value:todayAppts.length, color:'var(--teal)'},
+      {label:'مؤكدة', value:confirmed, color:'var(--emerald)'},
+      {label:'مكتملة (الكل)', value:done, color:'var(--purple)'},
+      {label:'ملغاة', value:cancelled, color:'var(--rose)'}
+    ]
+  };
+}
+
+function showReport(type){
+  const report = generateReport(type);
+  if(!report) return;
+
+  const modal = document.createElement('div');
+  modal.className='modal-overlay open';
+  modal.style.zIndex='500';
+  const summary = report.summary.map(s=>`
+    <div style="background:var(--bg-card);border:1px solid var(--glass-border);border-radius:12px;padding:16px;text-align:center;">
+      <div style="font-size:20px;font-weight:800;color:${s.color}">${s.value}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">${s.label}</div>
+    </div>`).join('');
+
+  let extra = '';
+  if(report.byService){
+    const svcs = Object.entries(report.byService).sort((a,b)=>b[1]-a[1]);
+    extra += `<div style="margin-top:16px;"><div style="font-weight:700;font-size:14px;margin-bottom:10px;">توزيع الإيرادات حسب الخدمة</div>`;
+    svcs.forEach(([k,v])=>{
+      const pct = Math.round(v/report.summary[0].value.replace(/[^0-9]/g,'')*100)||0;
+      extra += `<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span>${k}</span><span style="font-weight:700;color:var(--teal)">${v.toLocaleString()} ج</span></div><div style="height:6px;background:var(--glass);border-radius:3px;overflow:hidden;"><div style="height:100%;background:var(--teal);width:${Math.min(pct,100)}%;border-radius:3px;"></div></div></div>`;
+    });
+    extra += '</div>';
+  }
+  if(report.bySource){
+    extra += `<div style="margin-top:16px;"><div style="font-weight:700;font-size:14px;margin-bottom:10px;">مصادر العملاء</div>`;
+    Object.entries(report.bySource).forEach(([k,v])=>{
+      extra += `<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--glass);border-radius:8px;margin-bottom:6px;font-size:13px;"><span>${k}</span><span style="font-weight:700;color:var(--purple)">${v} عميل</span></div>`;
+    });
+    extra += '</div>';
+  }
+  if(report.lowStock && report.lowStock.length){
+    extra += `<div style="margin-top:16px;"><div style="font-weight:700;font-size:14px;margin-bottom:10px;color:var(--amber);">⚠️ منتجات تحتاج إعادة طلب</div>`;
+    report.lowStock.forEach(i=>{
+      extra += `<div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:8px;margin-bottom:6px;font-size:13px;"><span>${i.name}</span><span style="color:var(--amber)">متبقي: ${i.qty}</span></div>`;
+    });
+    extra += '</div>';
+  }
+
+  modal.innerHTML = `<div class="modal" style="max-width:600px;">
+    <div class="mhdr"><div class="mtitle">📊 ${report.title}</div><button class="mclose" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+    <div class="mbody">
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:4px;">${summary}</div>
+      ${extra}
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="this.closest('.modal-overlay').remove()">إغلاق</button>
+      <button class="btn btn-primary" onclick="exportReportPDF('${type}')">📄 تصدير PDF</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+}
+
+function exportReportPDF(type){
+  showToast('info','📄 جارٍ إنشاء تقرير PDF...');
+  setTimeout(()=>window.print(), 500);
+}
+
+// Bind report cards
+document.querySelectorAll('.rcard').forEach((card,i)=>{
+  const types = ['patients','revenue','doctors','appointments','inventory','branches','campaigns','accounts'];
+  card.addEventListener('click',()=>{
+    if(types[i]==='doctors'||types[i]==='branches'||types[i]==='campaigns'||types[i]==='accounts'){
+      showToast('info','📊 هذا التقرير قيد التطوير');
+    } else {
+      showReport(types[i]);
+    }
+  });
+});
+
+// ══════════════════════════════════════════
+// 📆 INSTALLMENTS SCREEN
+// ══════════════════════════════════════════
+function renderInstallments(){
+  const screen = document.getElementById('screen-installments');
+  if(!screen) return;
+
+  const invoices = DB.get('invoices').filter(i=>i.remaining>0||i.status==='جزئي');
+  const overdue = invoices.filter(i=>{
+    if(!i.nextPayDate) return false;
+    return new Date(i.nextPayDate) < new Date();
+  });
+
+  screen.innerHTML = `
+  <div style="margin-bottom:18px;">
+    <h2 style="font-size:17px;font-weight:800;">متابعة الأقساط</h2>
+    <p style="font-size:12.5px;color:var(--text-muted)">${invoices.length} قسط نشط</p>
+  </div>
+  <div class="kpi-grid" style="margin-bottom:18px;">
+    <div class="kpi-card kc-rose"><div class="kpi-icon">💳</div>
+      <div class="kpi-value">${invoices.length}</div>
+      <div class="kpi-label">أقساط نشطة</div></div>
+    <div class="kpi-card kc-amber"><div class="kpi-icon">⚠️</div>
+      <div class="kpi-value">${overdue.length}</div>
+      <div class="kpi-label">أقساط متأخرة</div></div>
+    <div class="kpi-card kc-teal"><div class="kpi-icon">💰</div>
+      <div class="kpi-value">${invoices.reduce((s,i)=>s+(i.remaining||0),0).toLocaleString()} ج</div>
+      <div class="kpi-label">إجمالي المتبقي</div></div>
+  </div>
+  ${invoices.length === 0 ? `
+    <div class="card" style="text-align:center;padding:40px;">
+      <div style="font-size:44px;margin-bottom:14px">✅</div>
+      <h3 style="font-size:17px;margin-bottom:7px">لا توجد أقساط معلقة</h3>
+      <p style="color:var(--text-muted)">كل الفواتير مدفوعة بالكامل</p>
+    </div>` : `
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">📋 قائمة الأقساط</div>
+      <button class="btn btn-ghost btn-sm" onclick="sendAllReminders()">📱 إرسال تذكيرات</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>العميل</th><th>الخدمة</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+        <tbody>
+          ${invoices.map(inv=>`
+          <tr>
+            <td style="font-weight:600">${inv.patient}</td>
+            <td>${inv.service}</td>
+            <td>${inv.total} ج</td>
+            <td style="color:var(--emerald);font-weight:700">${inv.paid} ج</td>
+            <td style="color:var(--rose);font-weight:700">${inv.remaining} ج</td>
+            <td><span class="ast sp">جزئي</span></td>
+            <td style="display:flex;gap:5px;">
+              <button class="btn btn-teal btn-xs" onclick="collectPayment('${inv.id}')">💳 تحصيل</button>
+              <button class="btn btn-ghost btn-xs" onclick="showToast('info','📱 تم إرسال تذكير لـ ${inv.patient}')">📱</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`}`;
+}
+
+function collectPayment(invId){
+  const inv = DB.get('invoices').find(i=>i.id==invId);
+  if(!inv) return;
+  const amount = prompt(`تحصيل دفعة من ${inv.patient}
+المتبقي: ${inv.remaining} ج
+
+أدخل المبلغ المحصل:`);
+  if(!amount) return;
+  const paid = parseFloat(amount);
+  if(isNaN(paid) || paid<=0){ showToast('error','❌ مبلغ غير صحيح'); return; }
+  const newPaid = inv.paid + Math.min(paid, inv.remaining);
+  const newRemaining = inv.total - newPaid;
+  const newStatus = newRemaining<=0 ? 'مدفوع' : 'جزئي';
+  DB.upd('invoices', invId, {paid:newPaid, remaining:Math.max(0,newRemaining), status:newStatus});
+  showToast('success',`✅ تم تسجيل ${paid} ج من ${inv.patient}`, newStatus==='مدفوع'?'تم سداد الفاتورة كاملاً':'يتبقى '+Math.max(0,newRemaining)+' ج');
+  renderInstallments();
+  renderInvs();
+  txt('badge-inst', DB.get('invoices').filter(i=>i.remaining>0).length);
+}
+
+function sendAllReminders(){
+  const invoices = DB.get('invoices').filter(i=>i.remaining>0);
+  showToast('success',`📱 تم إرسال ${invoices.length} تذكير عبر واتساب`,'للعملاء الذين لديهم أقساط متأخرة');
+}
+
+// Override showScreen to handle installments
+const _origShowScreen = window.showScreen;
+window.showScreen = function(id){
+  _origShowScreen(id);
+  if(id==='installments') renderInstallments();
+};
+
+// ══════════════════════════════════════════
+// 📦 INVENTORY AUTO-DEDUCT FROM SESSIONS
+// ══════════════════════════════════════════
+function deductInventory(serviceName){
+  // Map services to products
+  const serviceToProduct = {
+    'هيدرافيشل': 'سيروم فيتامين C',
+    'ليزر إزالة شعر': null,
+    'بوتكس': null,
+    'بلازما': null,
+    'تنظيف بشرة': 'كريم ترطيب SPF50',
+    'جلسات شعر': 'شامبو بروتين'
+  };
+  const product = serviceToProduct[serviceName];
+  if(!product) return;
+  const inv = DB.get('inventory');
+  const idx = inv.findIndex(i=>i.name===product);
+  if(idx>=0 && inv[idx].qty>0){
+    inv[idx].qty -= 1;
+    inv[idx].status = inv[idx].qty===0?'نفذ':inv[idx].qty<=inv[idx].reorder?'منخفض':'متوفر';
+    DB.set('inventory', inv);
+    if(inv[idx].qty<=inv[idx].reorder){
+      showToast('warning',`⚠️ مخزون منخفض: ${product}`,`متبقي ${inv[idx].qty} وحدة`);
+    }
+  }
+}
+
+// Patch saveInv to deduct inventory
+const _origSaveInv = window.saveInv;
+if(_origSaveInv){
+  window.saveInv = function(){
+    const svc = document.getElementById('im-svc')?.value?.split(' - ')[0];
+    _origSaveInv();
+    if(svc) deductInventory(svc);
+  };
+}
+
+// ══════════════════════════════════════════
+// ⏰ SESSION TIMER DISPLAY
+// ══════════════════════════════════════════
+function updateSessionTimer(){
+  const sess = localStorage.getItem('ha_session');
+  if(!sess) return;
+  try{
+    const s = JSON.parse(sess);
+    const remaining = s.expiry - Date.now();
+    if(remaining <= 0){ doLogout(); return; }
+    const hours = Math.floor(remaining/3600000);
+    const mins = Math.floor((remaining%3600000)/60000);
+    const timerEl = document.getElementById('session-timer');
+    if(timerEl) timerEl.textContent = `${hours}:${String(mins).padStart(2,'0')}`;
+  }catch(e){}
+}
+setInterval(updateSessionTimer, 60000);
+updateSessionTimer();
+
+// ══════════════════════════════════════════
+// 🏦 TREASURY SCREEN
+// ══════════════════════════════════════════
+function renderTreasury(){
+  const screen = document.getElementById('screen-treasury');
+  if(!screen) return;
+  const invoices = DB.get('invoices');
+  const totalIn = invoices.reduce((s,i)=>s+(i.paid||0), 0);
+  const expenses = [
+    {name:'إيجار الفرع', amount:8000, date:'2025-06-01', type:'إيجار'},
+    {name:'كهرباء وماء', amount:1200, date:'2025-06-05', type:'مرافق'},
+    {name:'رواتب', amount:45000, date:'2025-06-15', type:'رواتب'},
+    {name:'مستلزمات طبية', amount:3500, date:'2025-06-18', type:'مخزون'}
+  ];
+  const totalOut = expenses.reduce((s,e)=>s+e.amount, 0);
+  const balance = totalIn - totalOut;
+
+  screen.innerHTML = `
+  <div style="margin-bottom:18px;">
+    <h2 style="font-size:17px;font-weight:800;">الخزينة</h2>
+    <p style="font-size:12.5px;color:var(--text-muted)">يونيو 2025</p>
+  </div>
+  <div class="kpi-grid" style="margin-bottom:18px;">
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">📥</div><div class="kpi-value">${totalIn.toLocaleString()} ج</div><div class="kpi-label">إجمالي الوارد</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">📤</div><div class="kpi-value">${totalOut.toLocaleString()} ج</div><div class="kpi-label">إجمالي الصادر</div></div>
+    <div class="kpi-card ${balance>=0?'kc-teal':'kc-amber'}"><div class="kpi-icon">💰</div><div class="kpi-value">${balance.toLocaleString()} ج</div><div class="kpi-label">الرصيد الحالي</div></div>
+  </div>
+  <div class="g2c" style="gap:16px;">
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">📥 الوارد (مدفوعات)</div></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>العميل</th><th>الخدمة</th><th>المبلغ</th><th>التاريخ</th></tr></thead>
+        <tbody>${invoices.filter(i=>i.paid>0).map(i=>`
+          <tr><td style="font-size:13px;font-weight:600">${i.patient}</td><td style="font-size:12px">${i.service}</td>
+          <td style="color:var(--emerald);font-weight:700">${i.paid} ج</td><td style="font-size:12px">${i.date}</td></tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">📤 الصادر (مصروفات)</div>
+        <button class="btn btn-primary btn-sm" onclick="addExpense()">+ مصروف</button>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>البيان</th><th>النوع</th><th>المبلغ</th><th>التاريخ</th></tr></thead>
+        <tbody>${expenses.map(e=>`
+          <tr><td style="font-size:13px;font-weight:600">${e.name}</td>
+          <td><span class="tag tg-purple" style="font-size:11px">${e.type}</span></td>
+          <td style="color:var(--rose);font-weight:700">${e.amount.toLocaleString()} ج</td>
+          <td style="font-size:12px">${e.date}</td></tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>
+  </div>`;
+}
+
+function addExpense(){
+  const name = prompt('اسم المصروف:');
+  if(!name) return;
+  const amount = prompt('المبلغ (ج):');
+  if(!amount || isNaN(amount)) return;
+  showToast('success',`✅ تم إضافة مصروف: ${name}`,`${parseFloat(amount).toLocaleString()} ج`);
+  renderTreasury();
+}
+
+// Patch showScreen for treasury
+const _origShow2 = window.showScreen;
+window.showScreen = function(id){
+  _origShow2(id);
+  if(id==='treasury') renderTreasury();
+};
+
+// ══════════════════════════════════════════
+// 🔔 AUTO NOTIFICATIONS CHECK
+// ══════════════════════════════════════════
+function checkNotifications(){
+  const today = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now()+86400000).toISOString().split('T')[0];
+
+  // Check tomorrow appointments
+  const tomorrowAppts = DB.get('appointments').filter(a=>a.date===tomorrow && a.status==='مؤكد');
+  if(tomorrowAppts.length > 0){
+    setTimeout(()=>{
+      showToast('info',`📅 ${tomorrowAppts.length} مواعيد غداً لم يُرسل لها تذكير`,'اضغط لإرسال تذكيرات واتساب');
+    }, 3000);
+  }
+
+  // Check low stock
+  const lowStock = DB.get('inventory').filter(i=>i.status==='منخفض'||i.status==='نفذ');
+  if(lowStock.length > 0){
+    setTimeout(()=>{
+      showToast('warning',`⚠️ ${lowStock.length} منتجات تحتاج إعادة طلب`);
+    }, 5000);
+  }
+
+  // Check overdue installments
+  const overdueInvs = DB.get('invoices').filter(i=>i.remaining>0);
+  if(overdueInvs.length > 0){
+    txt('badge-inst', overdueInvs.length);
+  }
+}
+
+// Run checks after 2 seconds of loading
+setTimeout(checkNotifications, 2000);
+
+// ══════════════════════════════════════════
+// 📱 ADD LOGOUT TO USER CARD
+// ══════════════════════════════════════════
+document.querySelector('.user-card')?.addEventListener('click', function(){
+  const menu = document.createElement('div');
+  menu.style.cssText='position:fixed;bottom:70px;right:14px;background:var(--modal-bg);border:1px solid var(--glass-border);border-radius:12px;padding:8px;z-index:500;min-width:180px;box-shadow:var(--shadow);';
+  menu.innerHTML = `
+    <div style="padding:8px 12px;font-size:13px;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--glass-border);margin-bottom:6px;">${window._session?.name||'المستخدم'}</div>
+    <div onclick="renewSession();this.closest('div[style]').remove();" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--glass)'" onmouseout="this.style.background='transparent'">🔄 تجديد الجلسة</div>
+    <div onclick="showScreen('settings');this.closest('div[style]').remove();" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--glass)'" onmouseout="this.style.background='transparent'">⚙️ الإعدادات</div>
+    <div onclick="doLogout()" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--rose);" onmouseover="this.style.background='rgba(244,63,94,.08)'" onmouseout="this.style.background='transparent'">🚪 تسجيل الخروج</div>`;
+  document.body.appendChild(menu);
+  setTimeout(()=>document.addEventListener('click',function rm(e){if(!menu.contains(e.target)){menu.remove();document.removeEventListener('click',rm);}},100));
+});
+
+// Add session timer to topbar
+const syncBtn = document.querySelector('.sync-btn');
+if(syncBtn){
+  const timer = document.createElement('div');
+  timer.style.cssText='display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:9px;background:var(--glass);border:1px solid var(--glass-border);font-size:11.5px;font-weight:600;color:var(--text-muted);';
+  timer.innerHTML='⏱️ <span id="session-timer">8:00</span>';
+  timer.title='وقت انتهاء الجلسة';
+  timer.onclick = renewSession;
+  timer.style.cursor='pointer';
+  syncBtn.parentElement.insertBefore(timer, syncBtn);
+}
+</script>

@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="عيادات الحياة">
+<meta name="theme-color" content="#0A0D14">
+<title>عيادات الحياة - تسجيل الدخول</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Tajawal',sans-serif;background:#0A0D14;color:#F1F5F9;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.bg{position:fixed;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(139,92,246,.12) 0%,transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(45,212,191,.10) 0%,transparent 55%),radial-gradient(ellipse at 60% 80%,rgba(196,168,130,.08) 0%,transparent 50%);}
+.wrap{position:relative;z-index:1;width:100%;max-width:440px;padding:20px;}
+.logo-area{text-align:center;margin-bottom:36px;}
+.logo-icon{width:72px;height:72px;background:linear-gradient(135deg,#C4A882,#2DD4BF);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 16px;}
+.logo-title{font-size:22px;font-weight:900;background:linear-gradient(135deg,#D4B896,#2DD4BF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.logo-sub{font-size:13px;color:#475569;margin-top:4px;}
+.card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);border-radius:24px;padding:32px;backdrop-filter:blur(20px);}
+.card-title{font-size:18px;font-weight:800;margin-bottom:6px;}
+.card-sub{font-size:13px;color:#64748B;margin-bottom:28px;}
+.fgrp{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
+.flbl{font-size:12.5px;font-weight:600;color:#94A3B8;}
+.finp{background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.10);border-radius:12px;padding:12px 16px;color:#F1F5F9;font-family:'Tajawal',sans-serif;font-size:14px;outline:none;transition:border .2s;direction:rtl;width:100%;}
+.finp:focus{border-color:#C4A882;box-shadow:0 0 0 3px rgba(196,168,130,.12);}
+.finp::placeholder{color:#475569;}
+.finp.err{border-color:#F43F5E;box-shadow:0 0 0 3px rgba(244,63,94,.10);}
+.role-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px;}
+.role-btn{padding:12px 10px;border-radius:12px;border:1.5px solid rgba(255,255,255,.10);text-align:center;cursor:pointer;transition:all .2s;font-size:13px;font-weight:600;color:#94A3B8;background:rgba(255,255,255,.03);}
+.role-btn:hover{border-color:rgba(196,168,130,.3);color:#D4B896;}
+.role-btn.sel{border-color:#2DD4BF;background:rgba(45,212,191,.08);color:#2DD4BF;}
+.role-icon{font-size:22px;margin-bottom:5px;}
+.btn-login{width:100%;padding:14px;border-radius:12px;background:linear-gradient(135deg,#C4A882,#9A7050);color:#fff;font-family:'Tajawal',sans-serif;font-size:15px;font-weight:700;border:none;cursor:pointer;transition:all .2s;margin-top:8px;}
+.btn-login:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(196,168,130,.35);}
+.btn-login:disabled{opacity:.6;cursor:not-allowed;transform:none;}
+.err-msg{background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.2);border-radius:10px;padding:11px 14px;font-size:13px;color:#F43F5E;margin-top:14px;display:none;}
+.err-msg.show{display:block;}
+.demo-hint{margin-top:20px;padding:14px;background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.15);border-radius:12px;}
+.demo-hint p{font-size:12px;color:#64748B;margin-bottom:8px;font-weight:600;}
+.demo-accounts{display:flex;flex-direction:column;gap:6px;}
+.demo-acc{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 10px;background:rgba(255,255,255,.03);border-radius:8px;cursor:pointer;transition:background .15s;}
+.demo-acc:hover{background:rgba(255,255,255,.06);}
+.demo-acc span{color:#94A3B8;}
+.demo-acc strong{color:#2DD4BF;font-size:11px;}
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08);}
+.divider span{font-size:12px;color:#475569;}
+.fb-setup-btn{width:100%;padding:12px;border-radius:12px;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.10);color:#94A3B8;font-family:'Tajawal',sans-serif;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.fb-setup-btn:hover{border-color:rgba(249,115,22,.3);color:#FB923C;}
+.conn-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;border-radius:20px;margin-bottom:16px;}
+.conn-local{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);color:#F59E0B;}
+.conn-cloud{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);color:#10B981;}
+.loading{display:none;text-align:center;padding:10px;}
+.spinner{width:28px;height:28px;border:3px solid rgba(196,168,130,.2);border-top-color:#C4A882;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 8px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+/* Light mode */
+@media (prefers-color-scheme: light){
+  body{background:#F0F4F8;}
+  .card{background:rgba(255,255,255,.9);border-color:rgba(0,0,0,.09);}
+  .finp{background:rgba(0,0,0,.04);border-color:rgba(0,0,0,.10);color:#0F172A;}
+  .finp::placeholder{color:#94A3B8;}
+  .card-title{color:#0F172A;}
+  .logo-sub,.card-sub{color:#64748B;}
+  .role-btn{color:#64748B;background:rgba(0,0,0,.03);}
+}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="wrap">
+  <div class="logo-area">
+    <div class="logo-icon">💎</div>
+    <div class="logo-title">عيادات الحياة للتجميل</div>
+    <div class="logo-sub">نظام الإدارة المتكامل</div>
+  </div>
+
+  <div class="card">
+    <div id="conn-status" class="conn-badge conn-local">
+      <span>🟡</span> وضع محلي — Firebase غير مهيأ
+    </div>
+
+    <div class="card-title">مرحباً بك 👋</div>
+    <div class="card-sub">سجل دخولك للمتابعة</div>
+
+    <!-- ROLE SELECT -->
+    <div class="role-grid" id="role-grid">
+      <div class="role-btn sel" onclick="selRole(this,'admin')">
+        <div class="role-icon">👩‍💼</div>
+        <div>مدير النظام</div>
+      </div>
+      <div class="role-btn" onclick="selRole(this,'doctor')">
+        <div class="role-icon">👨‍⚕️</div>
+        <div>طبيب</div>
+      </div>
+      <div class="role-btn" onclick="selRole(this,'receptionist')">
+        <div class="role-icon">🖥️</div>
+        <div>استقبال</div>
+      </div>
+      <div class="role-btn" onclick="selRole(this,'accountant')">
+        <div class="role-icon">📊</div>
+        <div>محاسب</div>
+      </div>
+    </div>
+
+    <div class="fgrp">
+      <label class="flbl">اسم المستخدم</label>
+      <input class="finp" type="text" id="username" placeholder="أدخل اسم المستخدم" autocomplete="username">
+    </div>
+    <div class="fgrp">
+      <label class="flbl">كلمة المرور</label>
+      <div style="position:relative;">
+        <input class="finp" type="password" id="password" placeholder="أدخل كلمة المرور" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+        <div onclick="togglePass()" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:18px;color:#475569;" id="pass-eye">👁️</div>
+      </div>
+    </div>
+
+    <div class="err-msg" id="err-msg">❌ اسم المستخدم أو كلمة المرور غير صحيحة</div>
+
+    <button class="btn-login" id="login-btn" onclick="doLogin()">تسجيل الدخول</button>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div style="font-size:13px;color:#64748B;">جارٍ التحقق...</div>
+    </div>
+
+    <div class="divider"><span>حسابات تجريبية</span></div>
+
+    <div class="demo-hint">
+      <p>اضغط على أي حساب لتعبئة البيانات تلقائياً:</p>
+      <div class="demo-accounts">
+        <div class="demo-acc" onclick="fillDemo('admin','admin123')">
+          <span>👩‍💼 مدير النظام</span>
+          <strong>admin / admin123</strong>
+        </div>
+        <div class="demo-acc" onclick="fillDemo('doctor','doc123')">
+          <span>👨‍⚕️ طبيب</span>
+          <strong>doctor / doc123</strong>
+        </div>
+        <div class="demo-acc" onclick="fillDemo('reception','rec123')">
+          <span>🖥️ استقبال</span>
+          <strong>reception / rec123</strong>
+        </div>
+        <div class="demo-acc" onclick="fillDemo('accountant','acc123')">
+          <span>📊 محاسب</span>
+          <strong>accountant / acc123</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"><span>أو</span></div>
+
+    <button class="fb-setup-btn" onclick="openFBSetup()">
+      🔥 إعداد Firebase للمزامنة السحابية
+    </button>
+  </div>
+
+  <!-- FIREBASE SETUP PANEL -->
+  <div id="fb-panel" style="display:none;margin-top:16px;">
+    <div class="card">
+      <div style="font-size:16px;font-weight:800;margin-bottom:6px;">🔥 إعداد Firebase</div>
+      <div style="font-size:12.5px;color:#64748B;margin-bottom:18px;line-height:1.6;">
+        الصق بيانات Firebase لتفعيل المزامنة بين PC والموبايل وكل الأجهزة
+      </div>
+      <div class="fgrp"><label class="flbl">API Key</label><input class="finp" id="fb-key" placeholder="AIzaSy..."></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="fgrp"><label class="flbl">Project ID</label><input class="finp" id="fb-proj" placeholder="my-clinic"></div>
+        <div class="fgrp"><label class="flbl">Auth Domain</label><input class="finp" id="fb-auth" placeholder="xxx.firebaseapp.com"></div>
+        <div class="fgrp"><label class="flbl">Storage Bucket</label><input class="finp" id="fb-stor" placeholder="xxx.appspot.com"></div>
+        <div class="fgrp"><label class="flbl">App ID</label><input class="finp" id="fb-app" placeholder="1:xxx:web:xxx"></div>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:6px;">
+        <button class="btn-login" style="margin-top:0;" onclick="saveFBConfig()">💾 حفظ وتفعيل</button>
+        <button onclick="document.getElementById('fb-panel').style.display='none'" style="padding:12px 16px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);color:#94A3B8;font-family:'Tajawal',sans-serif;font-size:13px;cursor:pointer;">إلغاء</button>
+      </div>
+      <div style="margin-top:14px;padding:12px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.15);border-radius:10px;font-size:12px;color:#94A3B8;line-height:1.7;">
+        💡 <strong style="color:#3B82F6;">خطوات Firebase:</strong><br>
+        1. اذهب لـ console.firebase.google.com<br>
+        2. Add project → اكتب الاسم → Create<br>
+        3. Web &lt;/&gt; → Register → انسخ firebaseConfig<br>
+        4. Firestore Database → Create → Test mode<br>
+        5. Authentication → Email/Password → Enable
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// USERS DATABASE
+const USERS = {
+  'admin':       { pass:'admin123',   role:'admin',        name:'د. سارة محمد',    branch:'all',          permissions:['all'] },
+  'doctor':      { pass:'doc123',     role:'doctor',       name:'د. منى سامي',     branch:'مدينة نصر',    permissions:['patients','appointments','sessions'] },
+  'reception':   { pass:'rec123',     role:'receptionist', name:'نور الاستقبال',   branch:'مدينة نصر',    permissions:['patients','appointments','invoices'] },
+  'accountant':  { pass:'acc123',     role:'accountant',   name:'أحمد المحاسب',    branch:'all',          permissions:['invoices','payments','reports','treasury'] },
+  'manager2':    { pass:'mgr123',     role:'branch_manager',name:'مدير المهندسين', branch:'المهندسين',    permissions:['patients','appointments','invoices','inventory','reports'] }
+};
+
+// Check if already logged in
+(function(){
+  const sess = localStorage.getItem('ha_session');
+  if(sess){
+    try{
+      const s = JSON.parse(sess);
+      if(s.expiry > Date.now()){
+        window.location.href='beauty-clinic-erp.html';
+      } else {
+        localStorage.removeItem('ha_session');
+      }
+    }catch(e){}
+  }
+  // Check Firebase config
+  const fbConf = localStorage.getItem('ha_firebase_config');
+  if(fbConf){
+    try{
+      const c = JSON.parse(fbConf);
+      if(c.apiKey && !c.apiKey.includes('PASTE')){
+        const dot = document.getElementById('conn-status');
+        if(dot){ dot.className='conn-badge conn-cloud'; dot.innerHTML='<span>🟢</span> متصل بـ Firebase ☁️'; }
+      }
+    }catch(e){}
+  }
+  // Auto-apply system theme
+  if(window.matchMedia('(prefers-color-scheme:light)').matches){
+    document.body.style.background='#F0F4F8';
+  }
+})();
+
+let selectedRole = 'admin';
+function selRole(el, role){
+  document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  selectedRole = role;
+}
+
+function fillDemo(user, pass){
+  document.getElementById('username').value = user;
+  document.getElementById('password').value = pass;
+  document.getElementById('err-msg').classList.remove('show');
+  document.getElementById('username').focus();
+}
+
+function togglePass(){
+  const inp = document.getElementById('password');
+  const eye = document.getElementById('pass-eye');
+  if(inp.type==='password'){ inp.type='text'; eye.textContent='🙈'; }
+  else { inp.type='password'; eye.textContent='👁️'; }
+}
+
+function doLogin(){
+  const username = document.getElementById('username').value.trim().toLowerCase();
+  const password = document.getElementById('password').value;
+  const err = document.getElementById('err-msg');
+  const btn = document.getElementById('login-btn');
+  const loader = document.getElementById('loading');
+
+  if(!username || !password){
+    err.textContent='⚠️ أدخل اسم المستخدم وكلمة المرور';
+    err.classList.add('show');
+    document.getElementById(username?'password':'username').classList.add('err');
+    return;
+  }
+
+  err.classList.remove('show');
+  btn.style.display='none';
+  loader.style.display='block';
+
+  // Simulate auth check
+  setTimeout(()=>{
+    const user = USERS[username];
+    if(!user || user.pass !== password){
+      loader.style.display='none';
+      btn.style.display='block';
+      err.textContent='❌ اسم المستخدم أو كلمة المرور غير صحيحة';
+      err.classList.add('show');
+      document.getElementById('username').classList.add('err');
+      document.getElementById('password').classList.add('err');
+      document.getElementById('password').value='';
+      return;
+    }
+
+    // Save session (8 hours)
+    const session = {
+      username,
+      name: user.name,
+      role: user.role,
+      branch: user.branch,
+      permissions: user.permissions,
+      loginTime: Date.now(),
+      expiry: Date.now() + (8 * 60 * 60 * 1000)
+    };
+    localStorage.setItem('ha_session', JSON.stringify(session));
+
+    // Save last user for display
+    localStorage.setItem('ha_current_user', JSON.stringify({name:user.name, role:user.role, branch:user.branch}));
+
+    loader.innerHTML='<div style="font-size:24px;margin-bottom:6px;">✅</div><div style="font-size:13px;color:#10B981;font-weight:600;">مرحباً '+user.name+'!</div>';
+
+    setTimeout(()=>{ window.location.href='beauty-clinic-erp.html'; }, 800);
+  }, 1200);
+}
+
+function openFBSetup(){
+  const p = document.getElementById('fb-panel');
+  p.style.display = p.style.display==='none' ? 'block' : 'none';
+  // Load saved config
+  try{
+    const c = JSON.parse(localStorage.getItem('ha_firebase_config')||'{}');
+    if(c.apiKey) document.getElementById('fb-key').value=c.apiKey;
+    if(c.projectId) document.getElementById('fb-proj').value=c.projectId;
+    if(c.authDomain) document.getElementById('fb-auth').value=c.authDomain;
+    if(c.storageBucket) document.getElementById('fb-stor').value=c.storageBucket;
+    if(c.appId) document.getElementById('fb-app').value=c.appId;
+  }catch(e){}
+}
+
+function saveFBConfig(){
+  const key = document.getElementById('fb-key').value.trim();
+  if(!key){ alert('أدخل API Key على الأقل'); return; }
+  const config = {
+    apiKey: key,
+    authDomain: document.getElementById('fb-auth').value.trim(),
+    projectId: document.getElementById('fb-proj').value.trim(),
+    storageBucket: document.getElementById('fb-stor').value.trim(),
+    appId: document.getElementById('fb-app').value.trim()
+  };
+  localStorage.setItem('ha_firebase_config', JSON.stringify(config));
+  const dot = document.getElementById('conn-status');
+  if(dot){ dot.className='conn-badge conn-cloud'; dot.innerHTML='<span>🟢</span> تم حفظ Firebase — أعد تحميل الصفحة'; }
+  document.getElementById('fb-panel').style.display='none';
+  alert('✅ تم حفظ إعدادات Firebase!
+أعد تحميل الصفحة لتطبيق الإعدادات.');
+}
+
+// Enter key
+document.addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+
+// Remove err class on type
+['username','password'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('input', function(){
+    this.classList.remove('err');
+    document.getElementById('err-msg').classList.remove('show');
+  });
+});
+</script>
+</body>
+</html>
