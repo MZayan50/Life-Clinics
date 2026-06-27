@@ -101,7 +101,7 @@ async function initFirebase(cfg){
     const db = window.firebase.firestore();
 
     // Test connection with a lightweight read
-    await db.collection('_ping').limit(1).get();
+    await db.collection('settings').limit(1).get();
 
     window._firestore = db;
     window._fbReady = true;
@@ -371,7 +371,7 @@ async function testFBConnection(){
   showToast('info','🧪 جارٍ اختبار الاتصال...');
   try {
     const start = Date.now();
-    await window._firestore.collection('_ping').limit(1).get();
+    await window._firestore.collection('settings').limit(1).get();
     const ms = Date.now() - start;
     showToast('success', `✅ الاتصال يعمل`, `زمن الاستجابة: ${ms}ms`);
   } catch(e) {
