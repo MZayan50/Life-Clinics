@@ -117,6 +117,15 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg-primary);color:var(--t
 .kpi-chg{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;margin-top:7px;padding:2px 7px;border-radius:5px;}
 .kpi-up{background:rgba(16,185,129,.12);color:var(--emerald);}
 .kpi-dn{background:rgba(244,63,94,.12);color:var(--rose);}
+/* ── Dashboard new styles ── */
+.dash-notif-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--glass-border);}
+.dash-notif-item:last-child{border-bottom:none;}
+.dash-notif-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.dash-traffic-row{display:flex;align-items:center;font-size:12px;gap:4px;}
+.dash-period-btn.active{background:rgba(45,212,191,.15)!important;color:var(--teal)!important;}
+.dash-cf-btn.active{background:rgba(45,212,191,.15)!important;color:var(--teal)!important;}
+@media(max-width:1100px){#dash-main-grid{grid-template-columns:1fr!important;}}
+/* ── End Dashboard ── */
 .g2{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:18px;}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:18px;}
 .g2c{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
@@ -419,47 +428,284 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 
 <!-- DASHBOARD -->
 <div class="screen active" id="screen-dashboard">
-  <div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
-    <div><h2 style="font-size:22px;font-weight:800;">مرحباً 👋 <span id="dash-uname">د. سارة</span></h2><p style="color:var(--text-muted);font-size:13px;margin-top:3px;" id="dash-sub"></p></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <select class="selbox"><option>كل الفروع</option><option>مدينة نصر</option><option>المهندسين</option></select>
+
+  <!-- ── TOPBAR ROW ── -->
+  <div style="margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h2 style="font-size:22px;font-weight:800;display:flex;align-items:center;gap:8px;">
+        نظرة عامة
+        <span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:rgba(45,212,191,.12);color:var(--teal);border:1px solid rgba(45,212,191,.2);">اليوم ▾</span>
+      </h2>
+      <p style="color:var(--text-muted);font-size:12.5px;margin-top:3px;" id="dash-sub"></p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <div style="display:flex;border-radius:9px;overflow:hidden;border:1px solid var(--glass-border);background:var(--glass);">
+        <button onclick="dashSetPeriod('overview',this)" class="dash-period-btn active" style="padding:5px 13px;font-size:12px;font-family:'Tajawal',sans-serif;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--teal);">نظرة عامة</button>
+        <button onclick="dashSetPeriod('analytics',this)" class="dash-period-btn" style="padding:5px 13px;font-size:12px;font-family:'Tajawal',sans-serif;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--text-muted);">تحليلات</button>
+        <button onclick="dashSetPeriod('reports',this)" class="dash-period-btn" style="padding:5px 13px;font-size:12px;font-family:'Tajawal',sans-serif;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--text-muted);">تقارير</button>
+        <button onclick="dashSetPeriod('notifications',this)" class="dash-period-btn" style="padding:5px 13px;font-size:12px;font-family:'Tajawal',sans-serif;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--text-muted);">إشعارات</button>
+      </div>
+      <select class="selbox" id="dash-branch-sel" onchange="buildChart()"><option>كل الفروع</option><option>مدينة نصر</option><option>المهندسين</option></select>
       <button class="btn btn-primary" onclick="openApptModal()">+ موعد جديد</button>
     </div>
   </div>
-  <div class="kpi-grid">
-    <div class="kpi-card kc-gold"><div class="kpi-icon">👥</div><div class="kpi-value" id="kpi-pat">0</div><div class="kpi-label">إجمالي العملاء</div><div class="kpi-chg kpi-up">↑ 12% هذا الشهر</div></div>
-    <div class="kpi-card kc-teal"><div class="kpi-icon">📅</div><div class="kpi-value" id="kpi-appt">0</div><div class="kpi-label">مواعيد اليوم</div><div class="kpi-chg kpi-up">↑ 8% عن أمس</div></div>
-    <div class="kpi-card kc-emerald"><div class="kpi-icon">💰</div><div class="kpi-value" id="kpi-rev">0</div><div class="kpi-label">إيرادات اليوم (ج)</div><div class="kpi-chg kpi-up">↑ 23% عن أمس</div></div>
-    <div class="kpi-card kc-purple"><div class="kpi-icon">📊</div><div class="kpi-value" id="kpi-mrev">0</div><div class="kpi-label">إيرادات الشهر (ج)</div><div class="kpi-chg kpi-up" id="kpi-mrev-chg">↑ محسوبة من الفواتير</div></div>
-    <div class="kpi-card kc-rose"><div class="kpi-icon">⚠️</div><div class="kpi-value" id="kpi-stk">0</div><div class="kpi-label">منتجات ناقصة</div><div class="kpi-chg kpi-dn">تحتاج إعادة طلب</div></div>
-    <div class="kpi-card kc-amber"><div class="kpi-icon">💸</div><div class="kpi-value" id="kpi-pend">0</div><div class="kpi-label">مدفوعات معلقة (ج)</div><div class="kpi-chg kpi-dn">أقساط متأخرة</div></div>
-  </div>
-  <div class="g2">
-    <div class="card">
-      <div class="card-hdr"><div><div class="card-title">📈 الإيرادات الشهرية</div><div class="card-sub">آخر 7 أشهر</div></div></div>
-      <div class="chart-bar" id="revenue-chart"></div>
-      <div class="clbls" id="revenue-labels"></div>
+
+  <!-- ── KPI CARDS ROW ── -->
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px;">
+    <!-- إجمالي الإيرادات -->
+    <div class="kpi-card kc-emerald" style="position:relative;overflow:hidden;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="kpi-label" style="margin-bottom:8px;">إجمالي الإيرادات</div>
+          <div class="kpi-value" id="kpi-rev" style="font-size:28px;">0</div>
+          <div class="kpi-chg kpi-up" style="margin-top:8px;">↑ 20.1% عن الشهر الماضي</div>
+        </div>
+        <div style="position:absolute;left:14px;top:14px;opacity:.15;font-size:60px;line-height:1;">💰</div>
+      </div>
+      <div id="kpi-rev-sparkline" style="margin-top:12px;height:36px;display:flex;align-items:flex-end;gap:3px;"></div>
     </div>
+    <!-- الطلبات / المواعيد -->
+    <div class="kpi-card kc-rose" style="position:relative;overflow:hidden;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="kpi-label" style="margin-bottom:8px;">مواعيد اليوم</div>
+          <div class="kpi-value" id="kpi-appt" style="font-size:28px;">0</div>
+          <div class="kpi-chg kpi-dn" style="margin-top:8px;">↓ 20.1% عن أمس</div>
+        </div>
+        <div style="position:absolute;left:14px;top:14px;opacity:.15;font-size:60px;line-height:1;">📅</div>
+      </div>
+      <div id="kpi-appt-sparkline" style="margin-top:12px;height:36px;display:flex;align-items:flex-end;gap:3px;"></div>
+    </div>
+    <!-- الزوار / العملاء -->
+    <div class="kpi-card kc-amber" style="position:relative;overflow:hidden;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="kpi-label" style="margin-bottom:8px;">إجمالي العملاء</div>
+          <div class="kpi-value" id="kpi-pat" style="font-size:28px;">0</div>
+          <div class="kpi-chg kpi-up" style="margin-top:8px;">↑ 180.1% هذا الشهر</div>
+        </div>
+        <div style="position:absolute;left:14px;top:14px;opacity:.15;font-size:60px;line-height:1;">👥</div>
+      </div>
+      <div id="kpi-pat-sparkline" style="margin-top:12px;height:36px;display:flex;align-items:flex-end;gap:3px;"></div>
+    </div>
+    <!-- النشط / الإيرادات الشهرية -->
+    <div class="kpi-card kc-purple" style="position:relative;overflow:hidden;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="kpi-label" style="margin-bottom:8px;">إيرادات الشهر (ج)</div>
+          <div class="kpi-value" id="kpi-mrev" style="font-size:28px;">0</div>
+          <div class="kpi-chg kpi-up" id="kpi-mrev-chg" style="margin-top:8px;">↑ محسوبة من الفواتير</div>
+        </div>
+        <div style="position:absolute;left:14px;top:14px;opacity:.15;font-size:60px;line-height:1;">📊</div>
+      </div>
+      <div id="kpi-mrev-sparkline" style="margin-top:12px;height:36px;display:flex;align-items:flex-end;gap:3px;"></div>
+    </div>
+  </div>
+
+  <!-- ── MAIN CONTENT GRID: chart + right panels ── -->
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:18px;margin-bottom:18px;" id="dash-main-grid">
+
+    <!-- LEFT: big chart -->
+    <div>
+      <!-- Line chart card -->
+      <div class="card" style="margin-bottom:18px;">
+        <div class="card-hdr">
+          <div>
+            <div class="card-title">📈 إجمالي الإيرادات</div>
+            <div style="display:flex;gap:14px;margin-top:8px;font-size:12px;">
+              <span style="display:flex;align-items:center;gap:5px;"><span style="width:28px;height:2px;background:var(--teal);display:inline-block;border-radius:2px;"></span>هذا العام</span>
+              <span style="display:flex;align-items:center;gap:5px;color:var(--text-muted);"><span style="width:28px;height:2px;background:var(--text-muted);display:inline-block;border-radius:2px;border:1px dashed;"></span>العام الماضي</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="dashChartFilter('patients',this)" class="dash-cf-btn active" style="font-size:11.5px;padding:4px 11px;border-radius:7px;border:none;cursor:pointer;font-family:'Tajawal',sans-serif;font-weight:600;background:rgba(45,212,191,.15);color:var(--teal);">إجمالي العملاء</button>
+            <button onclick="dashChartFilter('projects',this)" class="dash-cf-btn" style="font-size:11.5px;padding:4px 11px;border-radius:7px;border:none;cursor:pointer;font-family:'Tajawal',sans-serif;font-weight:600;background:var(--glass);color:var(--text-muted);border:1px solid var(--glass-border);">المشاريع</button>
+            <button onclick="dashChartFilter('status',this)" class="dash-cf-btn" style="font-size:11.5px;padding:4px 11px;border-radius:7px;border:none;cursor:pointer;font-family:'Tajawal',sans-serif;font-weight:600;background:var(--glass);color:var(--text-muted);border:1px solid var(--glass-border);">الحالة</button>
+          </div>
+        </div>
+        <!-- SVG Line Chart -->
+        <div style="position:relative;height:160px;">
+          <svg id="dash-line-svg" viewBox="0 0 700 150" preserveAspectRatio="none" style="width:100%;height:100%;" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="tealGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#2DD4BF" stop-opacity="0.25"/>
+                <stop offset="100%" stop-color="#2DD4BF" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="grayGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#475569" stop-opacity="0.18"/>
+                <stop offset="100%" stop-color="#475569" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <!-- Grid lines -->
+            <line x1="0" y1="30" x2="700" y2="30" stroke="rgba(255,255,255,.05)" stroke-width="1"/>
+            <line x1="0" y1="65" x2="700" y2="65" stroke="rgba(255,255,255,.05)" stroke-width="1"/>
+            <line x1="0" y1="100" x2="700" y2="100" stroke="rgba(255,255,255,.05)" stroke-width="1"/>
+            <line x1="0" y1="135" x2="700" y2="135" stroke="rgba(255,255,255,.05)" stroke-width="1"/>
+            <!-- Last year (dashed gray) -->
+            <path id="dash-line-prev" d="M0,110 C58,105 116,95 175,88 C233,81 291,90 350,82 C408,74 466,68 525,72 C583,76 641,62 700,55" fill="url(#grayGrad)" stroke="#475569" stroke-width="1.5" stroke-dasharray="5,4" fill-opacity="1"/>
+            <!-- This year (solid teal) -->
+            <path id="dash-line-curr" d="M0,120 C58,112 116,98 175,75 C233,52 291,68 350,55 C408,42 466,60 525,45 C583,30 641,38 700,28" fill="url(#tealGrad)" stroke="#2DD4BF" stroke-width="2.5" fill-opacity="1"/>
+          </svg>
+          <!-- Y labels -->
+          <div style="position:absolute;top:0;right:0;height:100%;display:flex;flex-direction:column;justify-content:space-between;padding:0;pointer-events:none;">
+            <span style="font-size:10px;color:var(--text-muted);">20k</span>
+            <span style="font-size:10px;color:var(--text-muted);">15k</span>
+            <span style="font-size:10px;color:var(--text-muted);">10k</span>
+            <span style="font-size:10px;color:var(--text-muted);">5k</span>
+            <span style="font-size:10px;color:var(--text-muted);">0</span>
+          </div>
+        </div>
+        <!-- X labels -->
+        <div style="display:flex;justify-content:space-between;margin-top:10px;padding:0 2px;" id="revenue-labels">
+          <span style="font-size:11px;color:var(--text-muted);">يناير</span>
+          <span style="font-size:11px;color:var(--text-muted);">فبراير</span>
+          <span style="font-size:11px;color:var(--text-muted);">مارس</span>
+          <span style="font-size:11px;color:var(--text-muted);">أبريل</span>
+          <span style="font-size:11px;color:var(--text-muted);">مايو</span>
+          <span style="font-size:11px;color:var(--text-muted);">يونيو</span>
+          <span style="font-size:11px;color:var(--text-muted);">يوليو</span>
+        </div>
+        <!-- hidden legacy element for JS compat -->
+        <div id="revenue-chart" style="display:none;"></div>
+      </div>
+
+      <!-- BOTTOM ROW: 3 mini panels -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+
+        <!-- Traffic by device -->
+        <div class="card">
+          <div class="card-hdr"><div class="card-title">🖥️ توزيع حسب الجهاز</div></div>
+          <div id="dash-device-chart" style="display:flex;flex-direction:column;gap:8px;">
+            <div class="dash-traffic-row"><span>كمبيوتر</span><div class="prog" style="flex:1;margin:0 8px;"><div class="prog-f" style="width:72%;background:var(--teal)"></div></div><span style="font-size:11.5px;color:var(--text-muted);min-width:36px;text-align:left;">72%</span></div>
+            <div class="dash-traffic-row"><span>موبايل</span><div class="prog" style="flex:1;margin:0 8px;"><div class="prog-f" style="width:18%;background:var(--purple)"></div></div><span style="font-size:11.5px;color:var(--text-muted);min-width:36px;text-align:left;">18%</span></div>
+            <div class="dash-traffic-row"><span>تابلت</span><div class="prog" style="flex:1;margin:0 8px;"><div class="prog-f" style="width:10%;background:var(--amber)"></div></div><span style="font-size:11.5px;color:var(--text-muted);min-width:36px;text-align:left;">10%</span></div>
+          </div>
+          <!-- Bar sparkline -->
+          <div style="margin-top:12px;display:flex;align-items:flex-end;gap:5px;height:52px;" id="dash-device-bars">
+            <div style="flex:1;border-radius:4px 4px 0 0;background:var(--teal);height:52px;opacity:.7;" title="كمبيوتر"></div>
+            <div style="flex:1;border-radius:4px 4px 0 0;background:var(--purple);height:24px;" title="موبايل"></div>
+            <div style="flex:1;border-radius:4px 4px 0 0;background:var(--teal);height:40px;opacity:.5;" title="لاب توب"></div>
+            <div style="flex:1;border-radius:4px 4px 0 0;background:var(--glass-border);height:32px;" title="iOS"></div>
+            <div style="flex:1;border-radius:4px 4px 0 0;background:var(--amber);height:18px;" title="أندرويد"></div>
+            <div style="flex:1;border-radius:4px 4px 0 0;background:var(--glass-border);height:10px;" title="أخرى"></div>
+          </div>
+          <div style="display:flex;gap:3px;margin-top:4px;">
+            <span style="flex:1;font-size:9.5px;color:var(--text-muted);text-align:center;">لينوكس</span>
+            <span style="flex:1;font-size:9.5px;color:var(--text-muted);text-align:center;">Mac</span>
+            <span style="flex:1;font-size:9.5px;color:var(--text-muted);text-align:center;">iOS</span>
+            <span style="flex:1;font-size:9.5px;color:var(--text-muted);text-align:center;">ويندوز</span>
+            <span style="flex:1;font-size:9.5px;color:var(--text-muted);text-align:center;">أندرويد</span>
+            <span style="flex:1;font-size:9.5px;color:var(--text-muted);text-align:center;">أخرى</span>
+          </div>
+        </div>
+
+        <!-- Traffic by location / donut -->
+        <div class="card">
+          <div class="card-hdr"><div class="card-title">📍 توزيع حسب الفرع</div></div>
+          <!-- Donut SVG -->
+          <div style="display:flex;align-items:center;gap:14px;">
+            <svg viewBox="0 0 80 80" width="80" height="80" style="flex-shrink:0;">
+              <circle cx="40" cy="40" r="30" fill="none" stroke="var(--teal)" stroke-width="12" stroke-dasharray="69 126" stroke-dashoffset="0"/>
+              <circle cx="40" cy="40" r="30" fill="none" stroke="var(--purple)" stroke-width="12" stroke-dasharray="44 151" stroke-dashoffset="-69"/>
+              <circle cx="40" cy="40" r="30" fill="none" stroke="var(--amber)" stroke-width="12" stroke-dasharray="26 169" stroke-dashoffset="-113"/>
+              <circle cx="40" cy="40" r="30" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="12" stroke-dasharray="20 175" stroke-dashoffset="-139"/>
+              <text x="40" y="44" text-anchor="middle" fill="var(--text-primary)" font-size="10" font-family="Tajawal" font-weight="700">الفروع</text>
+            </svg>
+            <div style="flex:1;font-size:12px;display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;justify-content:space-between;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--teal);margin-left:5px;"></span>مدينة نصر</span><span style="color:var(--text-muted);">36.6%</span></div>
+              <div style="display:flex;justify-content:space-between;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--purple);margin-left:5px;"></span>المهندسين</span><span style="color:var(--text-muted);">22.5%</span></div>
+              <div style="display:flex;justify-content:space-between;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--amber);margin-left:5px;"></span>الزمالك</span><span style="color:var(--text-muted);">30.8%</span></div>
+              <div style="display:flex;justify-content:space-between;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2);margin-left:5px;"></span>أخرى</span><span style="color:var(--text-muted);">8.1%</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Notifications + Activities + Contacts -->
+    <div style="display:flex;flex-direction:column;gap:18px;">
+
+      <!-- Notifications -->
+      <div class="card" style="padding:14px;">
+        <div class="card-hdr" style="margin-bottom:12px;"><div class="card-title">🔔 الإشعارات</div><span class="nb nb-rose" id="alerts-count">3</span></div>
+        <div id="dash-alerts" style="display:flex;flex-direction:column;gap:1px;">
+          <div class="dash-notif-item">
+            <div class="dash-notif-dot" style="background:var(--rose);"></div>
+            <div style="flex:1;">
+              <div style="font-size:12.5px;font-weight:600;">جارٍ تحميل التنبيهات...</div>
+              <div style="font-size:11px;color:var(--text-muted);">الآن</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activities -->
+      <div class="card" style="padding:14px;">
+        <div class="card-hdr" style="margin-bottom:12px;"><div class="card-title">⚡ النشاطات الأخيرة</div><button class="btn btn-ghost btn-sm" onclick="showScreen('reports')" style="font-size:11px;padding:3px 9px;">كل النشاطات</button></div>
+        <div id="dash-activities" style="display:flex;flex-direction:column;gap:1px;">
+          <div class="dash-notif-item">
+            <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--purple));display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">✏️</div>
+            <div style="flex:1;">
+              <div style="font-size:12px;font-weight:600;">تعديل خطة علاج</div>
+              <div style="font-size:11px;color:var(--text-muted);">الآن</div>
+            </div>
+          </div>
+          <div class="dash-notif-item">
+            <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--amber));display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">🚀</div>
+            <div style="flex:1;">
+              <div style="font-size:12px;font-weight:600;">إصدار تحديث جديد</div>
+              <div style="font-size:11px;color:var(--text-muted);">منذ ساعة</div>
+            </div>
+          </div>
+          <div class="dash-notif-item">
+            <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--rose),var(--purple));display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">🐛</div>
+            <div style="flex:1;">
+              <div style="font-size:12px;font-weight:600;">إصلاح مشكلة في الفواتير</div>
+              <div style="font-size:11px;color:var(--text-muted);">منذ 12 ساعة</div>
+            </div>
+          </div>
+          <div class="dash-notif-item">
+            <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--emerald),var(--teal));display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">📋</div>
+            <div style="flex:1;">
+              <div style="font-size:12px;font-weight:600;">إضافة موعد جديد</div>
+              <div style="font-size:11px;color:var(--text-muted);">اليوم 11:59 ص</div>
+            </div>
+          </div>
+          <div class="dash-notif-item">
+            <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--amber),var(--rose));display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">🗑️</div>
+            <div style="flex:1;">
+              <div style="font-size:12px;font-weight:600;">حذف موعد</div>
+              <div style="font-size:11px;color:var(--text-muted);">2 فبراير 2024</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contacts / Top Doctors -->
+      <div class="card" style="padding:14px;">
+        <div class="card-hdr" style="margin-bottom:12px;"><div class="card-title">🏆 أفضل الأطباء</div><span class="card-sub">هذا الشهر</span></div>
+        <div id="dash-top-doctors" style="display:flex;flex-direction:column;gap:2px;">
+          <div class="drow"><div class="drank">🥇</div><div class="dava" style="background:linear-gradient(135deg,#8B5CF6,#3B82F6)">👩‍⚕️</div><div style="flex:1;font-size:13px;font-weight:600;">جارٍ التحميل...</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BOTTOM ROW: Today appointments + Service dist + Alerts ── -->
+  <div class="g3" style="margin-bottom:18px;">
+
+    <!-- Today appointments -->
     <div class="card">
-      <div class="card-hdr"><div class="card-title">📅 مواعيد اليوم</div><button class="btn btn-ghost btn-sm" onclick="showScreen('calendar')">الكل</button></div>
+      <div class="card-hdr">
+        <div class="card-title">📅 مواعيد اليوم</div>
+        <button class="btn btn-ghost btn-sm" onclick="showScreen('calendar')">الكل</button>
+      </div>
       <div id="today-appts"></div>
     </div>
-  </div>
-  <div class="g3">
+
+    <!-- Service Distribution -->
     <div class="card">
-      <div class="card-hdr"><div class="card-title">🏆 أفضل الأطباء</div><span class="card-sub">هذا الشهر</span></div>
-      <div id="dash-top-doctors">
-        <div style="text-align:center;color:var(--text-muted);padding:16px;font-size:13px">جارٍ تحميل البيانات...</div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-hdr"><div class="card-title">🔔 تنبيهات</div><span class="card-sub" id="alerts-count"></span></div>
-      <div id="dash-alerts">
-        <div style="text-align:center;color:var(--text-muted);padding:16px;font-size:13px">جارٍ تحميل التنبيهات...</div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-hdr"><div class="card-title">📊 توزيع الخدمات</div></div>
+      <div class="card-hdr"><div class="card-title">📊 توزيع الخدمات</div><span class="card-sub">هذا الشهر</span></div>
       <div id="dash-svc-dist" style="display:flex;flex-direction:column;gap:9px;">
         <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>ليزر شعر</span><span style="color:var(--teal);font-weight:700">34%</span></div><div class="prog"><div class="prog-f" style="width:34%;background:var(--teal)"></div></div></div>
         <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>هيدرافيشل</span><span style="color:var(--purple);font-weight:700">22%</span></div><div class="prog"><div class="prog-f" style="width:22%;background:var(--purple)"></div></div></div>
@@ -468,7 +714,27 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
         <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>أخرى</span><span style="color:var(--amber);font-weight:700">12%</span></div><div class="prog"><div class="prog-f" style="width:12%;background:var(--amber)"></div></div></div>
       </div>
     </div>
+
+    <!-- Quick Stats -->
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">📦 حالة المخزون</div><span class="card-sub kpi-dn">يحتاج مراجعة</span></div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:rgba(244,63,94,.06);border-radius:10px;border:1px solid rgba(244,63,94,.12);">
+          <span style="font-size:13px;">⚠️ منتجات ناقصة</span>
+          <span class="kpi-value" id="kpi-stk" style="font-size:22px;color:var(--rose);">0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:rgba(245,158,11,.06);border-radius:10px;border:1px solid rgba(245,158,11,.12);">
+          <span style="font-size:13px;">💸 مدفوعات معلقة (ج)</span>
+          <span class="kpi-value" id="kpi-pend" style="font-size:22px;color:var(--amber);">0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:rgba(16,185,129,.06);border-radius:10px;border:1px solid rgba(16,185,129,.12);">
+          <span style="font-size:13px;">✅ فواتير مكتملة</span>
+          <span class="kpi-value" id="kpi-inv-done" style="font-size:22px;color:var(--emerald);">0</span>
+        </div>
+      </div>
+    </div>
   </div>
+
 </div>
 
 <!-- PATIENTS -->
