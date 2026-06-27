@@ -186,9 +186,24 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// حفظ إعدادات Firebase في localStorage للنظام الرئيسي
+// حفظ إعدادات Firebase في localStorage للنظام الرئيسي (يُمكّن autoConnect في index.html)
 localStorage.setItem('ha_fb_config', JSON.stringify(firebaseConfig));
 localStorage.setItem('ha_firebase_config', JSON.stringify(firebaseConfig));
+
+// جلب مستخدمي Firestore وحفظهم محلياً (يحل مشكلة المتصفح الجديد)
+(async function syncUsersFromFirestore() {
+  try {
+    const usersSnap = await getDocs(collection(db, 'users'));
+    if (!usersSnap.empty) {
+      const usersObj = {};
+      usersSnap.forEach(doc => {
+        const u = doc.data();
+        if (u.username) usersObj[u.username] = u;
+      });
+      localStorage.setItem('ha_users_db', JSON.stringify(usersObj));
+    }
+  } catch(e) { console.warn('syncUsers:', e.message); }
+})();
 
 // تحديث شارة الاتصال
 const dot = document.getElementById('conn-status');
@@ -432,14 +447,8 @@ function handleFailedLogin(errEl, btn, loader) {
       if (s && s.expiry > Date.now()) {
         const banner = document.getElementById('active-sess-banner');
         const info = document.getElementById('asb-info');
-        if (banner) {
-          const name = s.name || s.username || '';
-          const mins = Math.round((s.expiry - Date.now()) / 60000);
-          const hrs = mins >= 60 ? Math.floor(mins/60) + ' ساعة' : mins + ' دقيقة';
-          if (info) info.textContent = `مسجّل دخول كـ: ${name} · الجلسة صالحة لمدة ${hrs} أخرى`;
-          banner.classList.add('show');
-        }
-        document.querySelector('.card').style.display = 'none';
+        // Session صالحة → انتقل فوراً للنظام
+        window.location.href = 'index.html';
         return;
       } else { localStorage.removeItem('ha_session'); }
     } catch (e) { localStorage.removeItem('ha_session'); }
