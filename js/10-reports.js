@@ -309,11 +309,43 @@ ${bodyHtml}
 <div class="footer">أُنشئ بواسطة نظام عيادات الحياة للتجميل 💎 · ${now}</div>
 <script>setTimeout(()=>window.print(),400);<\/script></body></html>`;
 
-  const w = window.open('','_blank','width=860,height=700,scrollbars=yes');
+  // ── Toolbar: زر PDF حقيقي + طباعة + إغلاق ──
+  const fileName = `${report.title}-${new Date().toLocaleDateString('en-GB').replace(/\//g,'-')}.pdf`;
+  const toolbar = `<div id="rpt-toolbar" style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:3px solid #C4A882;padding:12px 20px;display:flex;gap:10px;justify-content:center;align-items:center;z-index:9999;font-family:'Tajawal',sans-serif;">
+    <button id="rpt-pdf-btn" onclick="downloadRptPDF()" style="padding:9px 26px;background:#1a6dcc;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;">📄 تحميل PDF</button>
+    <button onclick="window.print()" style="padding:9px 22px;background:#C4A882;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;">🖨 طباعة</button>
+    <button onclick="window.close()" style="padding:9px 22px;background:#eee;color:#333;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;">✕ إغلاق</button>
+  </div>
+  <div style="height:70px"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
+  <script>
+  function downloadRptPDF(){
+    var btn=document.getElementById('rpt-pdf-btn');
+    btn.textContent='⏳ جارٍ التحميل...'; btn.disabled=true;
+    var tb=document.getElementById('rpt-toolbar');
+    tb.style.display='none';
+    html2pdf().set({
+      margin:[8,8,8,8],
+      filename:'${fileName}',
+      image:{type:'jpeg',quality:0.97},
+      html2canvas:{scale:2,useCORS:true,letterRendering:true},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+    }).from(document.body).save().then(function(){
+      tb.style.display='flex';
+      btn.textContent='📄 تحميل PDF'; btn.disabled=false;
+    });
+  }
+  <\/script>`;
+
+  const fullHtml = html.replace('</body>', toolbar + '</body>').replace(
+    '<script>setTimeout(()=>window.print(),400);<\/script>', ''
+  );
+
+  const w = window.open('','_blank','width=860,height=750,scrollbars=yes');
   if(!w){ showToast('error','❌ السماح بفتح النوافذ المنبثقة مطلوب'); return; }
-  w.document.write(html);
+  w.document.write(fullHtml);
   w.document.close();
-  showToast('success','📄 تم فتح نافذة الطباعة');
+  showToast('success','📄 جاهز للتحميل أو الطباعة');
 }
 
 // Report cards use inline onclick handlers (see screen-reports HTML)
