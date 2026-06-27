@@ -430,7 +430,7 @@ if(!localStorage.getItem('ha_fix_commission_v1')){
   localStorage.setItem('ha_fix_commission_v1','1');
 }
 
-
+if(!localStorage.getItem('ha_seeded_v2')){
   // clear old seed
   localStorage.removeItem('ha_seeded');
 
