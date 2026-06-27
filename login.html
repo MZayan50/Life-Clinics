@@ -404,7 +404,8 @@ async function doLogin() {
   }
 
   // Firebase
-  const fbConf = localStorage.getItem('ha_firebase_config');
+  // قراءة الـ config من أي من المفتاحين
+  const fbConf = localStorage.getItem('ha_fb_config') || localStorage.getItem('ha_firebase_config');
   if (fbConf) {
     try {
       const c = JSON.parse(fbConf);
@@ -430,7 +431,7 @@ function openFBSetup() {
   const p = document.getElementById('fb-panel');
   p.style.display = p.style.display === 'none' ? 'block' : 'none';
   try {
-    const c = JSON.parse(localStorage.getItem('ha_firebase_config') || '{}');
+    const c = JSON.parse(localStorage.getItem('ha_fb_config') || localStorage.getItem('ha_firebase_config') || '{}');
     if (c.apiKey) document.getElementById('fb-key').value = c.apiKey;
     if (c.projectId) document.getElementById('fb-proj').value = c.projectId;
     if (c.authDomain) document.getElementById('fb-auth').value = c.authDomain;
@@ -449,7 +450,10 @@ function saveFBConfig() {
     storageBucket: document.getElementById('fb-stor').value.trim(),
     appId: document.getElementById('fb-app').value.trim()
   };
-  localStorage.setItem('ha_firebase_config', JSON.stringify(config));
+  // حفظ في المفتاحين معاً — ha_fb_config هو المفتاح الرسمي للنظام الرئيسي
+  const _cfgStr = JSON.stringify(config);
+  localStorage.setItem('ha_fb_config',       _cfgStr);
+  localStorage.setItem('ha_firebase_config', _cfgStr);
   const dot = document.getElementById('conn-status');
   if (dot) { dot.className = 'conn-badge conn-cloud'; dot.innerHTML = '<span>🟢</span> تم حفظ Firebase — أعد تحميل الصفحة'; }
   document.getElementById('fb-panel').style.display = 'none';
