@@ -729,6 +729,24 @@ function getUsersDB(){
 }
 function saveUsersDB(db){ localStorage.setItem(USERS_KEY, JSON.stringify(db)); }
 
+// ── Seed مبكر ومتزامن عند تحميل الملف (قبل checkAuth) ──
+// يضمن وجود ha_users_db حتى لو seedDefaultUsers الـ async لم تكتمل بعد
+(function _earlySeedUsers(){
+  try {
+    const existing = JSON.parse(localStorage.getItem(USERS_KEY)||'{}');
+    if(Object.keys(existing).length > 0) return;
+    // نفس البيانات الافتراضية — بدون await (الـ hash محسوب مسبقاً)
+    const defaults = {
+      'admin':      {username:'admin',      hash:'240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', name:'د. سارة محمد',   role:'admin',         branch:'all',       screens:['all']},
+      'doctor':     {username:'doctor',     hash:'c3362e4da49c24d379b72152ae6c99f1fa035f52829dceed715a7bf8bb464b98', name:'د. منى سامي',   role:'doctor',        branch:'مدينة نصر', screens:['dashboard','patients','photos','calendar','appointments','waitlist','sessions','services']},
+      'reception':  {username:'reception',  hash:'1270ddbd388e309b1234f4e500ea78a83c9d111040fa6cce86c31df0144a3659', name:'نور الاستقبال', role:'receptionist',  branch:'مدينة نصر', screens:['dashboard','patients','calendar','appointments','waitlist','invoices','payments','installments','leads','whatsapp']},
+      'accountant': {username:'accountant', hash:'2159157cf71913278f89c4a16bd7462481e41463ea0f8444523cd1c6887d1e4e', name:'أحمد المحاسب',  role:'accountant',    branch:'all',       screens:['dashboard','invoices','payments','installments','expenses','treasury','accounts','reports','inventory']},
+      'manager2':   {username:'manager2',   hash:'49a0ac18e26df0b0724f5ac5837e436b336527485fc0a388f578913d6ee70e67', name:'مدير المهندسين',role:'branch_manager',branch:'المهندسين', screens:['dashboard','patients','photos','calendar','appointments','waitlist','sessions','services','packages','doctors','staff','invoices','inventory','leads','campaigns','whatsapp','reports']},
+    };
+    localStorage.setItem(USERS_KEY, JSON.stringify(defaults));
+  } catch(e){ /* تجاهل أخطاء localStorage */ }
+})();
+
 // ── Seed default users on first run ──
 async function seedDefaultUsers(){
   const db = getUsersDB();

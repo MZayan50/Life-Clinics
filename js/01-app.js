@@ -595,22 +595,21 @@ window.showScreen = function(id){
   if(id==='resources'){ renderRooms(); renderEquipment(); }
 };
 // ══════════════════════════════════════════
-// 🔐 SESSION MANAGEMENT (Secure — base64 encoded session)
+// 🔐 SESSION MANAGEMENT (Secure — supports plain JSON & base64 encoded session)
 // ══════════════════════════════════════════
 function _parseSession(raw) {
   if (!raw) return null;
+  // محاولة قراءة base64 أولاً (النظام الجديد المشفر)
   try {
-    // محاولة قراءة base64 أولاً (النظام الجديد المشفر)
     const decoded = JSON.parse(decodeURIComponent(escape(atob(raw))));
-    return decoded;
-  } catch (e1) {
-    try {
-      // fallback: plain JSON (النظام القديم)
-      return JSON.parse(raw);
-    } catch (e2) {
-      return null;
-    }
-  }
+    if (decoded && decoded.expiry) return decoded;
+  } catch (e1) { /* ليس base64 */ }
+  // fallback: plain JSON (النظام الحالي)
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.expiry) return parsed;
+  } catch (e2) { /* تالف */ }
+  return null;
 }
 
 (function checkAuth(){
@@ -623,7 +622,8 @@ function _parseSession(raw) {
       window.location.href = 'login.html'; return;
     }
     window._session = s;
-    const _udb = getUsersDB();
+    // getUsersDB قد تكون معرّفة في 11-settings.js — نستخدمها بأمان
+    const _udb = (typeof getUsersDB === 'function') ? getUsersDB() : (()=>{ try{return JSON.parse(localStorage.getItem('ha_users_db')||'{}');}catch(e){return{};} })();
     const _usr = _udb[s.username];
     const liveName = _usr?.name || s.name;
     const liveRole = _usr?.role || s.role;
