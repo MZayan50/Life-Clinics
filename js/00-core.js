@@ -25,7 +25,12 @@ function genUUID(){
 // ══════════════════════════════════════════
 function _now(){ return new Date().toISOString(); }
 function _currentUser(){
-  try{ return JSON.parse(localStorage.getItem('ha_settings')||'{}').managerName || 'النظام'; }
+  // اقرأ من الـ cache أولاً (Firestore data)، وإلا من localStorage
+  try{
+    const s = (DB && DB._cache && DB._cache['settings']) ||
+              JSON.parse(localStorage.getItem('ha_settings')||'{}');
+    return s.managerName || 'النظام';
+  }
   catch{ return 'النظام'; }
 }
 function _audit(extra = {}){
@@ -70,8 +75,14 @@ const EventBus = (function(){
 })();
 
 // ══════════════════════════════════════════
-// 🗃️ DB LAYER — localStorage + Firestore + EventBus
+// 🗃️ DB LAYER — Firestore PRIMARY · localStorage OFFLINE FALLBACK
 // ══════════════════════════════════════════
+// المبدأ الجديد:
+//   • Firestore هو مصدر الحقيقة الوحيد
+//   • _cache يُحدَّث من onSnapshot (realtime listener)
+//   • localStorage يُستخدم فقط عند انقطاع الإنترنت
+//   • أي كتابة (push/upd/del) تروح لـ Firestore مباشرة
+//     وفي حالة Offline تُخزَّن في OQ وترسل تلقائياً عند عودة الاتصال
 // بعد كل عملية يُطلق حدث تلقائي:
 //   push  → '{collection}:created'
 //   upd   → '{collection}:updated'
@@ -87,22 +98,38 @@ const DB = {
     'photos', 'installments', 'cashlog'
   ],
 
+  // ── In-memory cache: Firestore data lives here ──
+  _cache: {},
+
+  // ── Load from cache (Firestore data) — fallback to localStorage if offline ──
   get(k){
+    if (DB._cache[k]) return DB._cache[k];
+    // Offline fallback: read from localStorage
     try { return JSON.parse(localStorage.getItem('ha_' + k)) || []; }
     catch { return []; }
   },
   obj(k){
+    if (DB._cache[k] && !Array.isArray(DB._cache[k])) return DB._cache[k];
+    // Offline fallback
     try { return JSON.parse(localStorage.getItem('ha_' + k)) || {}; }
     catch { return {}; }
   },
-  set(k, v){ localStorage.setItem('ha_' + k, JSON.stringify(v)); },
+
+  // ── Internal: update cache + localStorage (offline backup) ──
+  set(k, v){
+    DB._cache[k] = v;
+    // Always keep localStorage in sync as offline backup
+    try { localStorage.setItem('ha_' + k, JSON.stringify(v)); } catch(e){}
+  },
 
   push(k, o){
-    const a = DB.get(k);
     if (!o.id) o.id = genUUID();
     if (!o.createdAt) Object.assign(o, _audit());
+    // Update local cache immediately (optimistic UI)
+    const a = DB.get(k);
     a.push(o);
     DB.set(k, a);
+    // Write to Firestore (or queue if offline)
     if (DB._fb.includes(k)) fbSet(k, o.id, o);
     EventBus.emit(k + ':created', o);
     EventBus.emit('db:changed', { collection: k, action: 'created', record: o });
@@ -115,7 +142,9 @@ const DB = {
     if (i >= 0){
       const u = _currentUser();
       a[i] = { ...a[i], ...d, updatedAt: _now(), updatedBy: u, version: (a[i].version || 1) + 1 };
+      // Update local cache immediately (optimistic UI)
       DB.set(k, a);
+      // Write to Firestore (or queue if offline)
       if (DB._fb.includes(k)) fbSet(k, id, a[i]);
       EventBus.emit(k + ':updated', a[i]);
       EventBus.emit('db:changed', { collection: k, action: 'updated', record: a[i] });
@@ -129,7 +158,10 @@ const DB = {
 
   del(k, id){
     const rec = DB.get(k).find(x => x.id == id);
-    DB.set(k, DB.get(k).filter(x => x.id != id));
+    const filtered = DB.get(k).filter(x => x.id != id);
+    // Update local cache immediately (optimistic UI)
+    DB.set(k, filtered);
+    // Delete from Firestore (or queue if offline)
     if (DB._fb.includes(k)) fbDel(k, id);
     EventBus.emit(k + ':deleted', { id, record: rec });
     EventBus.emit('db:changed', { collection: k, action: 'deleted', id });
@@ -453,7 +485,7 @@ if(!localStorage.getItem('ha_seeded_v2')){
   localStorage.removeItem('ha_seeded');
 
   // ── إعدادات افتراضية قابلة للتعديل من شاشة الإعدادات ──
-  if(!DB.get('settings') || !DB.get('settings').clinicName){
+  if(!DB.obj('settings') || !DB.obj('settings').clinicName){
     DB.set('settings',{clinicName:'عيادتي للتجميل',phone:'',managerName:'',managerRole:'مدير النظام',schemaVersion:2});
   }
 

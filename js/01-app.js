@@ -647,7 +647,7 @@ function setDate(){const el=document.getElementById('topbar-date');if(el)el.text
 // INIT
 function init(){
   buildChart();renderTodayAppts();loadSettings();setDate();buildDashAlerts();buildDashAlertsEnhanced();buildDashExtra();
-  seedDefaultUsers();
+  // seedDefaultUsers() حُذفت — المستخدمون من Firestore فقط
   // لو في Firebase config → أظهر مؤشر sync مؤقت حتى تكتمل المزامنة
   if(localStorage.getItem('ha_fb_config')){
     const bar = document.getElementById('conn-bar');

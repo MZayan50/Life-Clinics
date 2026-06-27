@@ -1,60 +1,78 @@
 // SETTINGS
 function saveSettings(){
   const s={clinicName:gv('s-cname'),phone:gv('s-cphone'),managerName:gv('s-mname'),managerRole:gv('s-mrole'),anthropicKey:gv('s-anthropic-key')};
-  DB.set('settings',s);
   // تحديث الاسم/الدور فورًا على الشاشة الرئيسية والشريط الجانبي
   if(s.managerName){txt('user-name',s.managerName);txt('dash-uname',s.managerName);}
   if(s.managerRole)txt('user-role',s.managerRole);
-  // حفظ الاسم الجديد في حساب المستخدم الحالي حتى يبقى ظاهرًا بعد إعادة تحميل الصفحة أو تسجيل الدخول مجددًا
+  // حفظ الاسم الجديد في حساب المستخدم الحالي
   if(window._session && window._session.username){
     const udb=getUsersDB();
     const cu=udb[window._session.username];
     if(cu && s.managerName){ cu.name=s.managerName; saveUsersDB(udb); }
   }
-  // Sync to Firestore so all devices share the same settings + API key
+  // Firestore هو مصدر الحقيقة — احفظ فيه أولاً
   if(window._firestore){
     window._firestore.collection('config').doc('settings').set(s)
-      .then(()=>showToast('success','✅ تم حفظ الإعدادات وتزامنها على جميع الأجهزة ☁️'))
-      .catch(()=>showToast('success','✅ تم حفظ الإعدادات محلياً'));
+      .then(()=>{
+        // بعد النجاح: حدّث الـ cache + localStorage كنسخة احتياطية
+        DB._cache['settings'] = s;
+        try { localStorage.setItem('ha_settings', JSON.stringify(s)); } catch(e){}
+        showToast('success','✅ تم حفظ الإعدادات وتزامنها على جميع الأجهزة ☁️');
+      })
+      .catch(e=>{
+        // فشل الكتابة لـ Firestore → احفظ محلياً مع وضعه في الـ queue
+        DB._cache['settings'] = s;
+        try { localStorage.setItem('ha_settings', JSON.stringify(s)); } catch(err){}
+        OQ.push({type:'set', col:'config', id:'settings', data:s, ts: Date.now()});
+        updateQueueBadge();
+        showToast('warning','⚠️ تم الحفظ محلياً — سيُزامَن عند عودة الاتصال');
+      });
   } else {
-    showToast('success','✅ تم حفظ الإعدادات');
+    // Offline — احفظ محلياً + ضع في الـ queue
+    DB._cache['settings'] = s;
+    try { localStorage.setItem('ha_settings', JSON.stringify(s)); } catch(err){}
+    OQ.push({type:'set', col:'config', id:'settings', data:s, ts: Date.now()});
+    updateQueueBadge();
+    showToast('warning','⚠️ تم الحفظ محلياً — سيُزامَن عند الاتصال بـ Firebase 💾');
   }
 }
 
-// Load settings from Firestore and merge into localStorage (called after Firebase init)
+// Load settings from Firestore into _cache (called after Firebase init)
 async function loadSettingsFromFirestore(){
   if(!window._firestore) return;
   try {
     const doc = await window._firestore.collection('config').doc('settings').get();
     if(doc.exists){
       const remote = doc.data();
-      // Merge remote over local - remote wins (so API key syncs across devices)
-      const local = DB.obj('settings');
-      const merged = {...local, ...remote};
-      DB.set('settings', merged);
+      // Firestore يفوز دايماً — ضع في الـ cache
+      DB._cache['settings'] = remote;
+      // حدّث localStorage كنسخة احتياطية فقط
+      try { localStorage.setItem('ha_settings', JSON.stringify(remote)); } catch(e){}
       // Update UI if fields are visible
       const fill = (id, val) => { const el=document.getElementById(id); if(el&&val)el.value=val; };
-      fill('s-cname', merged.clinicName);
-      fill('s-cphone', merged.phone);
-      fill('s-mname', merged.managerName);
-      fill('s-mrole', merged.managerRole);
-      fill('s-anthropic-key', merged.anthropicKey);
-      // اسم/دور المستخدم في الواجهة يُؤخذ من بيانات المستخدم الحقيقية (checkAuth) لا من هذا الحقل
+      fill('s-cname', remote.clinicName);
+      fill('s-cphone', remote.phone);
+      fill('s-mname', remote.managerName);
+      fill('s-mrole', remote.managerRole);
+      fill('s-anthropic-key', remote.anthropicKey);
     }
-    // Also listen for live changes (another device saves settings)
+    // Listen for live changes (another device saves settings)
     window._firestore.collection('config').doc('settings').onSnapshot(doc=>{
       if(doc.exists){
         const remote=doc.data();
-        const local=DB.obj('settings');
-        DB.set('settings',{...local,...remote});
+        // Firestore يفوز دايماً
+        DB._cache['settings'] = remote;
+        try { localStorage.setItem('ha_settings', JSON.stringify(remote)); } catch(e){}
       }
     });
   } catch(e){ console.warn('loadSettingsFromFirestore:', e.message); }
 }
+}
 function loadSettings(){
-  const s=DB.obj('settings');
+  // اقرأ من الـ cache (Firestore data) أو localStorage لو offline
+  const s = DB._cache['settings'] ||
+    (()=>{ try{ return JSON.parse(localStorage.getItem('ha_settings')||'{}'); }catch{return{};} })();
   // ملاحظة: لا نُحدّث user-name/user-role/dash-uname من هنا، لأنها مرتبطة بحساب المستخدم الفعلي
-  // (يتم تحديثها في checkAuth من بيانات المستخدمين الحقيقية وتتبع آخر تعديل عليها)
   ['s-cname','s-cphone','s-mname','s-mrole'].forEach((id,i)=>{const e=document.getElementById(id);if(e)e.value=[s.clinicName,s.phone,s.managerName,s.managerRole][i]||e.value;});
   const akEl=document.getElementById('s-anthropic-key');if(akEl&&s.anthropicKey)akEl.value=s.anthropicKey;
 }
@@ -127,7 +145,7 @@ async function initFirebase(cfg){
     await loadSettingsFromFirestore();
 
     // ── مزامنة المستخدمين في الوقت الفعلي ──
-    // لو جهاز ثاني أضاف/عدّل مستخدم، يتحدث تلقائياً عند تسجيل الدخول
+    // لو جهاز ثاني أضاف/عدّل مستخدم، يتحدث تلقائياً
     if(window._fbListeners['users']) window._fbListeners['users']();
     window._fbListeners['users'] = window._firestore.collection('users')
       .onSnapshot(snapshot => {
@@ -137,10 +155,10 @@ async function initFirebase(cfg){
           const u = doc.data();
           if(u.username) usersObj[u.username] = u;
         });
-        // دمج مع المحلي (المحلي أقدم — Firestore يفوز)
-        const local = getUsersDB();
-        const merged = {...local, ...usersObj};
-        localStorage.setItem(USERS_KEY, JSON.stringify(merged));
+        // Firestore يفوز دايماً — حدّث الـ cache مباشرة
+        window._usersCache = usersObj;
+        // حدّث localStorage كنسخة احتياطية offline فقط
+        try { localStorage.setItem(USERS_KEY, JSON.stringify(usersObj)); } catch(e){}
       }, err => console.warn('Firestore users listener error:', err.message));
 
   } catch(err) {
@@ -173,14 +191,16 @@ function attachFirestoreSync(col){
     .onSnapshot(snapshot => {
       const docs = [];
       snapshot.forEach(doc => docs.push({...doc.data(), id: doc.id}));
-      // ✅ لو Firestore رجّع بيانات فعلية (مش فاضية) → اكتب فوق localStorage
-      // لو فاضية وعندنا بيانات محلية → اسيب المحلية (أمان لو collection جديدة فارغة)
-      const local = DB.get(col);
-      const changed = docs.length !== local.length ||
-        JSON.stringify(docs.map(d=>d.id).sort()) !== JSON.stringify(local.map(d=>d.id).sort());
-      if(docs.length > 0 || local.length === 0){
-        DB.set(col, docs);
-      }
+      // ✅ Firestore هو مصدر الحقيقة — دايماً نحدث الـ cache منه
+      // لو الـ collection فاضية في Firestore → نمسح الـ cache (ده قرار عمد)
+      // لو مكنش فيه Firestore بيانات قبل كده → نستعمل localStorage كـ fallback أولي
+      const prev = DB._cache[col] || [];
+      const changed = docs.length !== prev.length ||
+        JSON.stringify(docs.map(d=>d.id).sort()) !== JSON.stringify(prev.map(d=>d.id).sort());
+      // سواء Firestore فاضية أو لأ — هي مصدر الحقيقة، حدّث الـ cache
+      DB._cache[col] = docs;
+      // حدّث localStorage كنسخة احتياطية offline فقط
+      try { localStorage.setItem('ha_' + col, JSON.stringify(docs)); } catch(e){}
       // أطلق أحداث EventBus حتى يتحدث الـ UI وتعمل Business Logic hooks
       // (هذا يحدث فقط لو كانت التغييرات من جهاز آخر — الكتابة المحلية تطلق الأحداث مسبقاً)
       if(changed && window._fbFirstSync && window._fbFirstSync[col]){
@@ -816,53 +836,36 @@ async function sha256(msg) {
 const USERS_KEY = 'ha_users_db';
 
 function getUsersDB(){
+  // Firestore فقط — الـ cache يُملأ من onSnapshot عند الاتصال
+  // localStorage يُستخدم كـ offline cache (تم ملؤه من Firestore سابقاً)
+  if(window._usersCache && Object.keys(window._usersCache).length > 0) return window._usersCache;
+  // offline fallback: نسخة Firestore المحفوظة محلياً (ليس hardcoded)
   try { return JSON.parse(localStorage.getItem(USERS_KEY)||'{}'); } catch(e){return{};}
 }
 function saveUsersDB(db){
-  localStorage.setItem(USERS_KEY, JSON.stringify(db));
-  // تزامن المستخدمين مع Firestore حتى تستطيع الأجهزة الأخرى تسجيل الدخول
+  // حدّث الـ cache
+  window._usersCache = db;
+  // احفظ في localStorage كنسخة احتياطية offline فقط
+  try { localStorage.setItem(USERS_KEY, JSON.stringify(db)); } catch(e){}
+  // Firestore هو المصدر الأساسي — ارفع إليه
   if(window._firestore){
     Object.entries(db).forEach(([username, userData]) => {
       window._firestore.collection('users').doc(username).set({...userData, username}, {merge:true})
         .catch(e => console.warn('Firestore users sync error:', e.message));
     });
+  } else {
+    // Offline — ضع في الـ queue
+    Object.entries(db).forEach(([username, userData]) => {
+      if(typeof OQ !== 'undefined') OQ.push({type:'set', col:'users', id:username, data:{...userData, username}, ts:Date.now()});
+    });
+    if(typeof updateQueueBadge !== 'undefined') updateQueueBadge();
   }
 }
 
-// ── Seed مبكر ومتزامن عند تحميل الملف (قبل checkAuth) ──
-// يضمن وجود ha_users_db حتى لو seedDefaultUsers الـ async لم تكتمل بعد
-(function _earlySeedUsers(){
-  try {
-    const existing = JSON.parse(localStorage.getItem(USERS_KEY)||'{}');
-    if(Object.keys(existing).length > 0) return;
-    // نفس البيانات الافتراضية — بدون await (الـ hash محسوب مسبقاً)
-    const defaults = {
-      'admin':      {username:'admin',      hash:'240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', name:'د. سارة محمد',   role:'admin',         branch:'all',       screens:['all']},
-      'doctor':     {username:'doctor',     hash:'c3362e4da49c24d379b72152ae6c99f1fa035f52829dceed715a7bf8bb464b98', name:'د. منى سامي',   role:'doctor',        branch:'مدينة نصر', screens:['dashboard','patients','photos','calendar','appointments','waitlist','sessions','services']},
-      'reception':  {username:'reception',  hash:'1270ddbd388e309b1234f4e500ea78a83c9d111040fa6cce86c31df0144a3659', name:'نور الاستقبال', role:'receptionist',  branch:'مدينة نصر', screens:['dashboard','patients','calendar','appointments','waitlist','invoices','payments','installments','leads','whatsapp']},
-      'accountant': {username:'accountant', hash:'2159157cf71913278f89c4a16bd7462481e41463ea0f8444523cd1c6887d1e4e', name:'أحمد المحاسب',  role:'accountant',    branch:'all',       screens:['dashboard','invoices','payments','installments','expenses','treasury','accounts','reports','inventory']},
-      'manager2':   {username:'manager2',   hash:'49a0ac18e26df0b0724f5ac5837e436b336527485fc0a388f578913d6ee70e67', name:'مدير المهندسين',role:'branch_manager',branch:'المهندسين', screens:['dashboard','patients','photos','calendar','appointments','waitlist','sessions','services','packages','doctors','staff','invoices','inventory','leads','campaigns','whatsapp','reports']},
-    };
-    localStorage.setItem(USERS_KEY, JSON.stringify(defaults));
-  } catch(e){ /* تجاهل أخطاء localStorage */ }
-})();
+// ✅ _earlySeedUsers حُذفت — المستخدمون من Firestore فقط عبر onSnapshot
 
-// ── Seed default users on first run ──
-async function seedDefaultUsers(){
-  const db = getUsersDB();
-  if(Object.keys(db).length > 0) return; // already seeded
-  // Passwords: admin=admin123, doctor=doc123, reception=rec123, accountant=acc123, manager2=mgr123
-  const defaults = [
-    {username:'admin',      hash:'240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', name:'د. سارة محمد',   role:'admin',         branch:'all',       screens: ROLE_DEFAULTS.admin},
-    {username:'doctor',     hash:'c3362e4da49c24d379b72152ae6c99f1fa035f52829dceed715a7bf8bb464b98', name:'د. منى سامي',   role:'doctor',        branch:'مدينة نصر', screens: ROLE_DEFAULTS.doctor},
-    {username:'reception',  hash:'1270ddbd388e309b1234f4e500ea78a83c9d111040fa6cce86c31df0144a3659', name:'نور الاستقبال', role:'receptionist',  branch:'مدينة نصر', screens: ROLE_DEFAULTS.receptionist},
-    {username:'accountant', hash:'2159157cf71913278f89c4a16bd7462481e41463ea0f8444523cd1c6887d1e4e', name:'أحمد المحاسب',  role:'accountant',    branch:'all',       screens: ROLE_DEFAULTS.accountant},
-    {username:'manager2',   hash:'49a0ac18e26df0b0724f5ac5837e436b336527485fc0a388f578913d6ee70e67', name:'مدير المهندسين',role:'branch_manager',branch:'المهندسين', screens: ROLE_DEFAULTS.branch_manager},
-  ];
-  const db2 = {};
-  defaults.forEach(u => { db2[u.username] = u; });
-  saveUsersDB(db2);
-}
+// ✅ seedDefaultUsers حُذفت — المستخدمون من Firestore فقط
+function seedDefaultUsers(){ /* no-op */ }
 
 // ── Apply permissions from session ──
 function applyPermissions(role, perms, screens){
@@ -1020,7 +1023,17 @@ function deleteUser(){
   if(!confirm(`هل تريد حذف المستخدم "${username}"؟ هذا لا يمكن التراجع عنه.`)) return;
   const db = getUsersDB();
   delete db[username];
-  saveUsersDB(db);
+  // حدّث الـ cache + localStorage
+  window._usersCache = db;
+  try { localStorage.setItem(USERS_KEY, JSON.stringify(db)); } catch(e){}
+  // احذف من Firestore مباشرة (مش set — عشان الحذف يكون فعلي)
+  if(window._firestore){
+    window._firestore.collection('users').doc(username).delete()
+      .catch(e => console.warn('Firestore delete user error:', e.message));
+  } else if(typeof OQ !== 'undefined'){
+    OQ.push({type:'del', col:'users', id:username, ts:Date.now()});
+    if(typeof updateQueueBadge !== 'undefined') updateQueueBadge();
+  }
   closeModal('user-modal');
   renderUsers();
   showToast('info','🗑️ تم حذف المستخدم');
