@@ -505,20 +505,23 @@ function renderBranches(){
   if(!grid) return;
 
   const cards = branches.map((b,i)=>{
-    const branchPats = patients.filter(p=>(p.branch||'').includes(b.name)).length;
-    const branchRevenue = invoices.filter(inv=>(inv.branch||'').includes(b.name)).reduce((s,inv)=>s+(inv.paid||0),0);
-    const branchDocs = doctors.filter(d=>(d.branch||'').includes(b.name)).length;
-    const branchStaff = staff.filter(s=>(s.branch||'').includes(b.name)).length;
-    const todayAppts = appointments.filter(a=>(a.branch||'').includes(b.name)&&a.date===new Date().toISOString().split('T')[0]).length;
-    const grads=['linear-gradient(135deg,var(--teal),var(--gold))','linear-gradient(135deg,var(--purple),var(--blue))','linear-gradient(135deg,var(--rose),var(--amber))'];
+    const bName = b.name || '';
+    // مطابقة بالاسم أو بالـ branchId
+    const branchPats = patients.filter(p=>(p.branch||'').includes(bName)||(p.branchId||'')===(b.id||'')).length;
+    const branchRevenue = invoices.filter(inv=>(inv.branch||'').includes(bName)||(inv.branchId||'')===(b.id||'')).reduce((s,inv)=>s+(inv.paid||0),0);
+    const branchDocs = doctors.filter(d=>(d.branch||'').includes(bName)||(d.branchId||'')===(b.id||'')).length;
+    const branchStaff = staff.filter(s=>(s.branch||'').includes(bName)||(s.branchId||'')===(b.id||'')).length;
+    const todayAppts = appointments.filter(a=>((a.branch||'').includes(bName)||(a.branchId||'')===(b.id||''))&&a.date===new Date().toISOString().split('T')[0]).length;
+    // دعم حقلي manager و managerName
+    const managerName = b.manager || b.managerName || '';
     return `<div class="bcard">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
         <div>
-          <div style="font-size:15px;font-weight:800;">🏢 ${b.name}</div>
+          <div style="font-size:15px;font-weight:800;">🏢 ${bName}</div>
           <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">📍 ${b.address||'—'}</div>
           ${b.phone?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">📞 ${b.phone}</div>`:''}
         </div>
-        <span class="ast ${b.status==='نشط'?'sc':'sd'}">${b.status}</span>
+        <span class="ast ${(b.status||'نشط')==='نشط'?'sc':'sd'}">${b.status||'نشط'}</span>
       </div>
       <div class="g2c" style="gap:8px;margin-bottom:11px;">
         <div style="background:var(--glass);border-radius:8px;padding:9px;text-align:center;">
@@ -533,10 +536,10 @@ function renderBranches(){
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">
         ${branchDocs?`👩‍⚕️ ${branchDocs} طبيب`:''}${branchStaff?` · 👥 ${branchStaff} موظف`:''}
       </div>
-      ${b.manager?`<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">👤 مدير: ${b.manager}</div>`:''}
+      ${managerName?`<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">👤 مدير: ${managerName}</div>`:''}
       ${todayAppts?`<div style="font-size:12px;color:var(--teal);font-weight:600;margin-bottom:10px;">📅 ${todayAppts} موعد اليوم</div>`:''}
       <div style="display:flex;gap:7px;">
-        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showBranchReport('${b.name}')">📊 تقرير</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showBranchReport('${bName}')">📊 تقرير</button>
         <button class="btn btn-ghost btn-sm" style="flex:1" onclick="openBranchModal('${b.id}')">✏️ تعديل</button>
         <button class="btn btn-danger btn-sm" onclick="delBranch('${b.id}')">🗑</button>
       </div>
@@ -551,6 +554,8 @@ function renderBranches(){
   </div>`);
 
   grid.innerHTML = cards.join('');
+  // تحديث كل قوائم الفروع في البرنامج
+  fillAllBranchSelects();
 }
 
 function showBranchReport(branchName){
@@ -608,11 +613,13 @@ function saveBranch(){
   else { DB.push('branches',data); showToast('success',`✅ تم إضافة فرع ${name}`); }
   closeModal('branch-modal');
   renderBranches();
+  // تحديث كل قوائم الفروع في البرنامج فور الحفظ
+  fillAllBranchSelects();
 }
 
 function delBranch(id){
   const b = (DB.get('branches')||[]).find(x=>x.id===id);
-  if(confirm(`حذف فرع "${b?.name}"؟`)){ DB.del('branches',id); renderBranches(); showToast('info','🗑 تم حذف الفرع'); }
+  if(confirm(`حذف فرع "${b?.name}"؟`)){ DB.del('branches',id); renderBranches(); fillAllBranchSelects(); showToast('info','🗑 تم حذف الفرع'); }
 }
 
 // ROOMS & EQUIPMENT
@@ -621,6 +628,52 @@ function fillResBranchSelect(id,cur){
   sel.innerHTML=DB.get('branches').map(b=>`<option>${b.name}</option>`).join('')||'<option>مدينة نصر</option>';
   if(cur)sel.value=cur;
 }
+
+// ══════════════════════════════════════════
+// 🏢 DYNAMIC BRANCH SELECTS — يملأ كل قوائم الفروع في البرنامج من قاعدة البيانات
+// ══════════════════════════════════════════
+function fillAllBranchSelects(){
+  const branches = DB.get('branches') || [];
+  if(!branches.length) return;
+  const names = branches.map(b=>b.name);
+
+  // قائمة كل الـ IDs التي تحتاج فروع (مع/بدون "كل الفروع")
+  const withAll   = ['doc-branch-filter','wl-branch-filter'];
+  const withoutAll= ['wl-branch','sess-branch','doc-branch','st-branch','exp-branch',
+                     'pur-branch','tr-from','tr-to','am-branch','pm-branch',
+                     'rm-branch','eq-branch'];
+
+  withAll.forEach(id=>{
+    const sel=document.getElementById(id); if(!sel)return;
+    const cur=sel.value;
+    sel.innerHTML='<option value="">كل الفروع</option>'+names.map(n=>`<option value="${n}">${n}</option>`).join('');
+    if(cur)sel.value=cur;
+  });
+
+  withoutAll.forEach(id=>{
+    const sel=document.getElementById(id); if(!sel)return;
+    const cur=sel.value;
+    sel.innerHTML=names.map(n=>`<option>${n}</option>`).join('');
+    if(cur && names.includes(cur))sel.value=cur;
+  });
+
+  // قوائم الفلتر العامة (بدون ID ثابت — select داخل الشاشات)
+  document.querySelectorAll('select.selbox').forEach(sel=>{
+    const opts=[...sel.options].map(o=>o.value||o.text);
+    // إذا يحتوي على "مدينة نصر" أو "المهندسين" فقط (الافتراضية القديمة) → حدّثه
+    const hasOldBranch = opts.some(o=>o==='مدينة نصر'||o==='المهندسين');
+    const hasDynamic = opts.some(o=>o&&!['','كل الفروع','مدينة نصر','المهندسين'].includes(o));
+    if(hasOldBranch && !hasDynamic){
+      const hasAll=opts.includes('كل الفروع')||opts.includes('');
+      const cur=sel.value;
+      sel.innerHTML=(hasAll?'<option value="">كل الفروع</option>':'')+names.map(n=>`<option>${n}</option>`).join('');
+      if(cur && names.includes(cur))sel.value=cur;
+    }
+  });
+}
+
+// استدعاء عند تحميل الصفحة وعند أي تغيير في الفروع
+document.addEventListener('DOMContentLoaded', fillAllBranchSelects);
 function renderRooms(){
   const grid=document.getElementById('rooms-grid');if(!grid)return;
   const rooms=DB.get('rooms');
@@ -781,6 +834,13 @@ function applyPermissions(role, perms, screens){
     if(scr === 'patient-profile') return; // always accessible via patients
     n.style.display = screens.includes(scr) ? '' : 'none';
   });
+}
+
+// ── تطبيق الصلاحيات المعلّقة إن وُجدت (من checkAuth المبكر) ──
+if(window._pendingPermissions){
+  const pp = window._pendingPermissions;
+  applyPermissions(pp.role, pp.perms, pp.screens);
+  window._pendingPermissions = null;
 }
 
 // ══════════════════════════════════════════

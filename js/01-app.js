@@ -612,6 +612,16 @@ function _parseSession(raw) {
   return null;
 }
 
+// ── applyPermissions stub: تُعاد تعريفها في 11-settings.js بعد التحميل ──
+// هذا الـ stub يمنع خطأ "not defined" عند تشغيل checkAuth() مبكراً
+if(typeof applyPermissions === 'undefined'){
+  window.applyPermissions = function(role, perms, screens){
+    // سيتم استبدال هذه الدالة عند تحميل 11-settings.js
+    // في هذه المرحلة نحفظ البيانات فقط
+    window._pendingPermissions = {role, perms, screens};
+  };
+}
+
 (function checkAuth(){
   const sess = localStorage.getItem('ha_session');
   if(!sess){ window.location.href = 'login.html'; return; }
@@ -637,10 +647,20 @@ function _parseSession(raw) {
     // Read live screens from users DB (may have been updated by admin)
     const _screens = _usr ? (_usr.screens || s.permissions) : s.permissions;
     window._userScreens = _screens;
-    applyPermissions(liveRole, s.permissions, _screens);
+    // استدعاء آمن: إن لم تُعرَّف بعد سيُخزَّن ثم يُطبَّق في 11-settings.js
+    if(typeof applyPermissions === 'function'){
+      applyPermissions(liveRole, s.permissions, _screens);
+    } else {
+      window._pendingPermissions = {role: liveRole, perms: s.permissions, screens: _screens};
+    }
   } catch(e){
-    localStorage.removeItem('ha_session');
-    window.location.href = 'login.html';
+    // لا نمسح الجلسة عند أي خطأ عام — فقط عند فشل التحليل الفعلي
+    try {
+      const s2 = _parseSession(localStorage.getItem('ha_session'));
+      if(!s2){ localStorage.removeItem('ha_session'); window.location.href = 'login.html'; }
+    } catch(e2){
+      localStorage.removeItem('ha_session'); window.location.href = 'login.html';
+    }
   }
 })();
 
