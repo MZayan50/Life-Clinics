@@ -585,7 +585,7 @@ function init(){
   _wlAutoUpdateStatuses();
   _startWLAutoRefresh();
 }
-init();
+// init() called from index.html after all scripts load
 // ══════════════════════════════════════════
 // Hook showScreen for branches
 const _origShowBranch = window.showScreen;
