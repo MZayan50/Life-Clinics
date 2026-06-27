@@ -752,5 +752,3 @@ window._wlTimer=setInterval(()=>{
     if(!document.getElementById('screen-doctor-view')?.classList.contains('active')) renderDoctorView();
   }
 },60000);
-
-</script>
