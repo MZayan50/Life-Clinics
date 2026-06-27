@@ -1,3 +1,31 @@
+// ══════════════════════════════════════════════════════════════════
+// 📊 REPORTS MODULE — v4.0  (Event-Driven)
+// Reports · Export PDF
+// ══════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════
+// 📡 EventBus Listeners — تحديث KPI bar تلقائياً
+// ══════════════════════════════════════════
+(function _reportsListeners(){
+
+  // أي تغيير في البيانات الرئيسية → أعد حساب KPIs
+  const refresh = () => renderReports();
+
+  EventBus.on('invoices:created',     refresh);
+  EventBus.on('invoices:updated',     refresh);
+  EventBus.on('invoices:deleted',     refresh);
+  EventBus.on('patients:created',     refresh);
+  EventBus.on('patients:updated',     refresh);
+  EventBus.on('patients:deleted',     refresh);
+  EventBus.on('appointments:created', refresh);
+  EventBus.on('appointments:updated', refresh);
+  EventBus.on('appointments:deleted', refresh);
+  EventBus.on('expenses:created',     refresh);
+  EventBus.on('expenses:updated',     refresh);
+  EventBus.on('expenses:deleted',     refresh);
+
+}());
+
 // 📊 REAL REPORTS FROM DATA
 // ══════════════════════════════════════════
 // ══════════════════════════════════════════
