@@ -671,7 +671,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <select class="selbox"><option>كل الأقسام</option><option>البشرة</option><option>الشعر</option><option>الليزر</option><option>حقن</option></select>
     <button class="btn btn-primary" onclick="openSvcModal()">+ خدمة جديدة</button>
   </div>
-  <div class="card"><div class="table-wrap"><table><thead><tr><th>الخدمة</th><th>القسم</th><th>السعر</th><th>المدة</th><th>التكلفة</th><th>الربح</th><th>الطبيب</th><th></th></tr></thead><tbody id="svc-tbody"></tbody></table></div></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>الخدمة</th><th>القسم</th><th>السعر</th><th>المدة</th><th>التكلفة</th><th>الربح</th><th>الطبيب</th><th>مواد مستهلكة</th><th></th></tr></thead><tbody id="svc-tbody"></tbody></table></div></div>
 </div>
 
 <!-- INVENTORY -->
@@ -1207,19 +1207,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div id="wl-queue-list" style="display:flex;flex-direction:column;gap:8px;"></div>
   </div>
 </div>
-<div class="modal-overlay" id="waitlist-modal">
-  <div class="modal" style="max-width:480px"><div class="mhdr"><div class="mtitle">⏳ إضافة لقائمة الانتظار</div><button class="mclose" onclick="closeModal('waitlist-modal')">✕</button></div>
-  <div class="mbody">
-    <input type="hidden" id="wl-id"><div class="fg">
-    <input type="hidden" id="wl-id">
-    <div class="fgrp full"><label class="flbl">العميل *</label><select class="fctl" id="wl-pat"><option value="">-- اختر عميل --</option></select></div>
-    <div class="fgrp"><label class="flbl">الخدمة المطلوبة</label><select class="fctl" id="wl-service"><option>هيدرافيشل</option><option>ليزر إزالة شعر</option><option>بوتكس</option><option>بلازما</option><option>تنظيف بشرة</option></select></div>
-    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="wl-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
-    <div class="fgrp"><label class="flbl">الأولوية</label><select class="fctl" id="wl-priority"><option value="عادي">عادي</option><option value="عاجل">عاجل</option><option value="VIP">VIP</option></select></div>
-    <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="wl-notes" placeholder="أسباب الانتظار أو طلبات خاصة..."></textarea></div>
-  </div></div>
-  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('waitlist-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveWaitlist()">💾 إضافة</button></div></div>
-</div>
+<!-- waitlist-modal محذوف: قائمة الانتظار تُحسب تلقائيًا من مواعيد اليوم (_wlAutoUpdateStatuses) -->
 
 <!-- SESSIONS -->
 <div class="screen" id="screen-sessions">
@@ -1701,8 +1689,23 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       <div class="fgrp"><label class="flbl">الخدمة</label><select class="fctl" id="photo-svc"><option>ليزر إزالة شعر</option><option>بوتكس</option><option>هيدرافيشل</option><option>بلازما</option><option>تنظيف بشرة</option></select></div>
       <div class="fgrp"><label class="flbl">التاريخ</label><input class="fctl" type="date" id="photo-date"></div>
       <div class="fgrp"><label class="flbl">رقم الجلسة</label><input class="fctl" type="number" id="photo-session" placeholder="1" min="1"></div>
-      <div class="fgrp full"><label class="flbl">صورة قبل (رابط أو اسم ملف)</label><input class="fctl" id="photo-before" placeholder="before.jpg"></div>
-      <div class="fgrp full"><label class="flbl">صورة بعد (رابط أو اسم ملف)</label><input class="fctl" id="photo-after" placeholder="after.jpg"></div>
+      <div class="fgrp full">
+        <label class="flbl">صورة قبل</label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <img id="photo-before-preview" style="width:54px;height:54px;object-fit:cover;border-radius:8px;border:1px solid var(--glass-border);display:none;">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="_pickPhotoSlot('before')">📁 اختيار صورة من الجهاز</button>
+          <span id="photo-before-label" style="font-size:11px;color:var(--text-muted)">لم تُختار صورة</span>
+        </div>
+      </div>
+      <div class="fgrp full">
+        <label class="flbl">صورة بعد</label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <img id="photo-after-preview" style="width:54px;height:54px;object-fit:cover;border-radius:8px;border:1px solid var(--glass-border);display:none;">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="_pickPhotoSlot('after')">📁 اختيار صورة من الجهاز</button>
+          <span id="photo-after-label" style="font-size:11px;color:var(--text-muted)">لم تُختار صورة</span>
+        </div>
+      </div>
+      <div class="fgrp full" style="font-size:11px;color:var(--text-muted);">💾 الصور تُحفظ على هذا الجهاز فقط ولا تُرفع لقاعدة البيانات السحابية — على الكمبيوتر (Chrome/Edge) سيُطلب منك اختيار مكان الحفظ على القرص.</div>
       <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="photo-notes" placeholder="تفاصيل النتيجة..."></textarea></div>
     </div></div>
     <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('photo-modal')">إلغاء</button><button class="btn btn-primary" onclick="savePhoto()">📸 حفظ الصور</button></div>
@@ -1813,6 +1816,8 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="fgrp"><label class="flbl">المدة (دقيقة)</label><input class="fctl" type="number" id="sv-dur" placeholder="60"></div>
     <div class="fgrp"><label class="flbl">الغرفة المطلوبة</label><select class="fctl" id="sv-room"><option value="">— بدون تحديد —</option></select></div>
     <div class="fgrp"><label class="flbl">الجهاز المطلوب</label><select class="fctl" id="sv-equip"><option value="">— بدون تحديد —</option></select></div>
+    <div class="fgrp"><label class="flbl">منتج يُستهلك تلقائياً</label><select class="fctl" id="sv-prod"><option value="">— لا يوجد —</option></select></div>
+    <div class="fgrp"><label class="flbl">الكمية المستهلكة لكل جلسة</label><input class="fctl" type="number" id="sv-qty" placeholder="1" min="0" step="0.5"></div>
   </div></div>
   <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('service-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveSvc()">💾 حفظ</button></div></div>
 </div>
