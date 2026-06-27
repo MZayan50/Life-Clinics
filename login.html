@@ -161,12 +161,42 @@ body{font-family:'Tajawal',sans-serif;background:#0A0D14;color:#F1F5F9;min-heigh
   </div>
 </div>
 
-<script>
+<script type="module">
 // ============================================================
-// SECURE AUTH SYSTEM — كلمات المرور مشفرة SHA-256
+// FIREBASE AUTHENTICATION — تسجيل الدخول عبر Firebase
 // ============================================================
 
-// دالة SHA-256 باستخدام Web Crypto API المدمجة في المتصفح
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// إعدادات Firebase المباشرة
+const firebaseConfig = {
+  apiKey: "AIzaSyCSRzNyTLgcyCbFNXlIE4CbBGEJ943bMYg",
+  authDomain: "life-clinics2.firebaseapp.com",
+  projectId: "life-clinics2",
+  storageBucket: "life-clinics2.firebasestorage.app",
+  messagingSenderId: "1095839174310",
+  appId: "1:1095839174310:web:eac6d293e473cfafed6e67",
+  measurementId: "G-9TVH7J2N9E"
+};
+
+// تهيئة Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// حفظ إعدادات Firebase في localStorage للنظام الرئيسي
+localStorage.setItem('ha_fb_config', JSON.stringify(firebaseConfig));
+localStorage.setItem('ha_firebase_config', JSON.stringify(firebaseConfig));
+
+// تحديث شارة الاتصال
+const dot = document.getElementById('conn-status');
+if (dot) { dot.className = 'conn-badge conn-cloud'; dot.innerHTML = '<span>🟢</span> متصل بـ Firebase ☁️'; }
+
+// ============================================================
+// دالة SHA-256 (للاستخدام الداخلي)
+// ============================================================
 async function sha256(message) {
   const msgBuffer = new TextEncoder().encode(message);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -175,24 +205,10 @@ async function sha256(message) {
 }
 
 // ============================================================
-// قاعدة المستخدمين — كلمات المرور مشفرة SHA-256
-// لتغيير كلمة مرور: افتح DevTools Console وشغل:
-//   sha256("كلمة_المرور_الجديدة").then(h => console.log(h))
-// ثم ضع الـ hash هنا
-
-const USERS = {
-  'admin':      { hash:'240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', role:'admin',         name:'د. سارة محمد',    branch:'all',          permissions:['all'] },
-  'doctor':     { hash:'c3362e4da49c24d379b72152ae6c99f1fa035f52829dceed715a7bf8bb464b98', role:'doctor',        name:'د. منى سامي',     branch:'مدينة نصر',    permissions:['patients','appointments','sessions'] },
-  'reception':  { hash:'1270ddbd388e309b1234f4e500ea78a83c9d111040fa6cce86c31df0144a3659', role:'receptionist',  name:'نور الاستقبال',   branch:'مدينة نصر',    permissions:['patients','appointments','invoices'] },
-  'accountant': { hash:'2159157cf71913278f89c4a16bd7462481e41463ea0f8444523cd1c6887d1e4e', role:'accountant',    name:'أحمد المحاسب',    branch:'all',          permissions:['invoices','payments','reports','treasury'] },
-  'manager2':   { hash:'49a0ac18e26df0b0724f5ac5837e436b336527485fc0a388f578913d6ee70e67', role:'branch_manager', name:'مدير المهندسين', branch:'المهندسين',    permissions:['patients','appointments','invoices','inventory','reports'] }
-};
-
-// ============================================================
 // نظام الحماية من Brute Force
 // ============================================================
-const MAX_ATTEMPTS = 5;         // أقصى عدد محاولات
-const LOCK_DURATION = 30 * 1000; // 30 ثانية قفل
+const MAX_ATTEMPTS = 5;
+const LOCK_DURATION = 30 * 1000;
 
 function getLoginState() {
   try {
@@ -201,35 +217,17 @@ function getLoginState() {
     return JSON.parse(raw);
   } catch { return { attempts: 0, lockedUntil: 0 }; }
 }
-
-function saveLoginState(state) {
-  sessionStorage.setItem('ha_login_guard', JSON.stringify(state));
-}
-
-function isLocked() {
-  const state = getLoginState();
-  return state.lockedUntil > Date.now();
-}
-
+function saveLoginState(state) { sessionStorage.setItem('ha_login_guard', JSON.stringify(state)); }
+function isLocked() { return getLoginState().lockedUntil > Date.now(); }
 function recordFailedAttempt() {
   const state = getLoginState();
   state.attempts = (state.attempts || 0) + 1;
-  if (state.attempts >= MAX_ATTEMPTS) {
-    state.lockedUntil = Date.now() + LOCK_DURATION;
-    state.attempts = 0;
-  }
+  if (state.attempts >= MAX_ATTEMPTS) { state.lockedUntil = Date.now() + LOCK_DURATION; state.attempts = 0; }
   saveLoginState(state);
   return state;
 }
-
-function resetAttempts() {
-  saveLoginState({ attempts: 0, lockedUntil: 0 });
-}
-
-function getRemainingAttempts() {
-  const state = getLoginState();
-  return Math.max(0, MAX_ATTEMPTS - (state.attempts || 0));
-}
+function resetAttempts() { saveLoginState({ attempts: 0, lockedUntil: 0 }); }
+function getRemainingAttempts() { return Math.max(0, MAX_ATTEMPTS - (getLoginState().attempts || 0)); }
 
 // ============================================================
 // عرض شريط المحاولات
@@ -239,7 +237,6 @@ function updateAttemptsUI(state) {
   const fill = document.getElementById('attempts-fill');
   const remaining = Math.max(0, MAX_ATTEMPTS - (state.attempts || 0));
   const pct = (remaining / MAX_ATTEMPTS) * 100;
-
   wrap.style.display = state.attempts > 0 ? 'block' : 'none';
   fill.style.width = pct + '%';
   fill.style.background = pct > 60 ? '#10B981' : pct > 30 ? '#F59E0B' : '#F43F5E';
@@ -254,50 +251,73 @@ function startLockCountdown(ms) {
   const lockMsg = document.getElementById('lock-msg');
   const countdown = document.getElementById('lock-countdown');
   const errMsg = document.getElementById('err-msg');
-
-  btn.disabled = true;
-  btn.style.display = 'none';
-  errMsg.classList.remove('show');
-  lockMsg.classList.add('show');
-
+  btn.disabled = true; btn.style.display = 'none';
+  errMsg.classList.remove('show'); lockMsg.classList.add('show');
   let remaining = Math.ceil(ms / 1000);
   countdown.textContent = remaining;
-
   lockTimer = setInterval(() => {
     remaining--;
     countdown.textContent = remaining;
     if (remaining <= 0) {
       clearInterval(lockTimer);
       lockMsg.classList.remove('show');
-      btn.disabled = false;
-      btn.style.display = 'block';
+      btn.disabled = false; btn.style.display = 'block';
       document.getElementById('attempts-bar-wrap').style.display = 'none';
     }
   }, 1000);
 }
 
 // ============================================================
-// تسجيل الدخول الرئيسي
+// البحث عن المستخدم في Firestore بناءً على username
 // ============================================================
-async function doLogin() {
-  const username = document.getElementById('username').value.trim().toLowerCase();
+async function getUserByUsername(username) {
+  // البحث في collection "users" بناءً على حقل username
+  try {
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('username', '==', username));
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      return snapshot.docs[0].data();
+    }
+    // جرب البحث باستخدام document ID = username
+    const docRef = doc(db, 'users', username);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) return docSnap.data();
+    return null;
+  } catch (e) {
+    console.warn('Firestore lookup failed:', e);
+    return null;
+  }
+}
+
+// ============================================================
+// المستخدمون المحليون (Fallback عند انقطاع الإنترنت)
+// ============================================================
+const USERS_LOCAL = {
+  'admin':      { hash:'240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', role:'admin',         name:'د. سارة محمد',    branch:'all',         screens:['all'] },
+  'doctor':     { hash:'c3362e4da49c24d379b72152ae6c99f1fa035f52829dceed715a7bf8bb464b98', role:'doctor',        name:'د. منى سامي',     branch:'مدينة نصر',   screens:['dashboard','patients','photos','calendar','appointments','waitlist','sessions','services'] },
+  'reception':  { hash:'1270ddbd388e309b1234f4e500ea78a83c9d111040fa6cce86c31df0144a3659', role:'receptionist',  name:'نور الاستقبال',   branch:'مدينة نصر',   screens:['dashboard','patients','calendar','appointments','waitlist','invoices','payments','installments','leads','whatsapp'] },
+  'accountant': { hash:'2159157cf71913278f89c4a16bd7462481e41463ea0f8444523cd1c6887d1e4e', role:'accountant',    name:'أحمد المحاسب',    branch:'all',         screens:['dashboard','invoices','payments','installments','expenses','treasury','accounts','reports','inventory'] },
+  'manager2':   { hash:'49a0ac18e26df0b0724f5ac5837e436b336527485fc0a388f578913d6ee70e67', role:'branch_manager', name:'مدير المهندسين', branch:'المهندسين',   screens:['dashboard','patients','photos','calendar','appointments','waitlist','sessions','services','packages','doctors','staff','invoices','inventory','leads','campaigns','whatsapp','reports'] }
+};
+
+// ============================================================
+// تسجيل الدخول — Firestore (username+hash) ثم Fallback محلي
+// ============================================================
+window.doLogin = async function() {
+  const usernameInput = document.getElementById('username').value.trim().toLowerCase();
   const password = document.getElementById('password').value;
   const errEl = document.getElementById('err-msg');
   const btn = document.getElementById('login-btn');
   const loader = document.getElementById('loading');
 
-  // فحص القفل أولاً
-  if (isLocked()) {
-    const state = getLoginState();
-    startLockCountdown(state.lockedUntil - Date.now());
-    return;
-  }
+  // فحص القفل
+  if (isLocked()) { startLockCountdown(getLoginState().lockedUntil - Date.now()); return; }
 
-  // فراغات
-  if (!username || !password) {
+  if (!usernameInput || !password) {
     errEl.textContent = '⚠️ أدخل اسم المستخدم وكلمة المرور';
     errEl.classList.add('show');
-    document.getElementById(username ? 'password' : 'username').classList.add('err');
+    document.getElementById(usernameInput ? 'password' : 'username').classList.add('err');
     return;
   }
 
@@ -308,61 +328,96 @@ async function doLogin() {
   // تشفير كلمة المرور
   const inputHash = await sha256(password);
 
-  // تأخير صغير لمنع timing attacks
-  await new Promise(r => setTimeout(r, 600 + Math.random() * 600));
+  // ══════════════════════════════════════════════════════
+  // المحاولة 1: Firestore — جلب المستخدم بالـ username
+  // والتحقق من كلمة المرور بـ SHA-256
+  // ══════════════════════════════════════════════════════
+  try {
+    const firestoreUser = await getUserByUsername(usernameInput);
 
-  // Read from dynamic users DB (managed by ERP admin), fallback to static USERS
-  const _dynDB = (()=>{ try{ return JSON.parse(localStorage.getItem('ha_users_db')||'{}'); }catch(e){return{};} })();
-  const user = (Object.keys(_dynDB).length > 0 ? _dynDB : USERS)[username];
-  const valid = user && user.hash === inputHash;
-
-  if (!valid) {
-    const state = recordFailedAttempt();
-    loader.style.display = 'none';
-    btn.style.display = 'block';
-
-    if (isLocked()) {
-      startLockCountdown(getLoginState().lockedUntil - Date.now());
-    } else {
-      const rem = getRemainingAttempts();
-      errEl.textContent = rem <= 2
-        ? `❌ بيانات خاطئة — تحذير: ${rem} محاولة متبقية قبل القفل`
-        : '❌ اسم المستخدم أو كلمة المرور غير صحيحة';
-      errEl.classList.add('show');
-      document.getElementById('username').classList.add('err');
-      document.getElementById('password').classList.add('err');
-      document.getElementById('password').value = '';
-      updateAttemptsUI(state);
+    if (firestoreUser) {
+      // المستخدم موجود في Firestore — تحقق من كلمة المرور
+      const storedHash = firestoreUser.hash || firestoreUser.password || '';
+      if (storedHash && storedHash === inputHash) {
+        // ✅ نجاح من Firestore
+        resetAttempts();
+        loginSuccess(
+          usernameInput,
+          firestoreUser.name || usernameInput,
+          firestoreUser.role || 'user',
+          firestoreUser.branch || 'all',
+          firestoreUser.screens || firestoreUser.permissions || ['all']
+        );
+        return;
+      } else if (storedHash) {
+        // المستخدم موجود لكن كلمة المرور خاطئة — لا نجرب fallback
+        handleFailedLogin(errEl, btn, loader);
+        return;
+      }
+      // لو ما في hash في Firestore — نكمل للـ fallback المحلي
     }
-    return;
+  } catch (fsError) {
+    console.warn('Firestore error, falling back to local:', fsError.message);
+    // خطأ في الشبكة — نكمل للـ fallback
   }
 
-  // نجاح — أعد المحاولات
-  resetAttempts();
+  // ══════════════════════════════════════════════════════
+  // Fallback: قاعدة المستخدمين المحلية (offline / ha_users_db)
+  // ══════════════════════════════════════════════════════
+  const _dynDB = (()=>{ try{ return JSON.parse(localStorage.getItem('ha_users_db')||'{}'); }catch(e){return{};} })();
+  const allUsers = Object.keys(_dynDB).length > 0 ? _dynDB : USERS_LOCAL;
+  const localUser = allUsers[usernameInput];
 
-  // بناء الـ Session Token
+  if (localUser && localUser.hash === inputHash) {
+    resetAttempts();
+    loginSuccess(usernameInput, localUser.name, localUser.role, localUser.branch, localUser.screens || localUser.permissions || ['all']);
+  } else {
+    handleFailedLogin(errEl, btn, loader);
+  }
+};
+
+// ============================================================
+// نجاح تسجيل الدخول — بناء Session وانتقال
+// ============================================================
+async function loginSuccess(username, name, role, branch, screens) {
+  resetAttempts();
   const tokenRaw = username + ':' + Date.now() + ':' + Math.random();
   const sessionToken = await sha256(tokenRaw);
-
   const session = {
-    username,
-    name: user.name,
-    role: user.role,
-    branch: user.branch,
-    permissions: user.permissions || user.screens || ['all'],
-    screens: user.screens || user.permissions || ['all'],
+    username, name, role, branch,
+    screens,
+    permissions: screens,
     loginTime: Date.now(),
     expiry: Date.now() + (8 * 60 * 60 * 1000),
     token: sessionToken
   };
-
-  // تخزين Session كـ JSON عادي (متوافق مع ERP)
   localStorage.setItem('ha_session', JSON.stringify(session));
-  localStorage.setItem('ha_current_user', JSON.stringify({ name: user.name, role: user.role, branch: user.branch }));
-
-  loader.innerHTML = '<div style="font-size:24px;margin-bottom:6px;">✅</div><div style="font-size:13px;color:#10B981;font-weight:600;">مرحباً ' + user.name + '!</div>';
-
+  localStorage.setItem('ha_current_user', JSON.stringify({ name, role, branch }));
+  const loader = document.getElementById('loading');
+  loader.innerHTML = '<div style="font-size:24px;margin-bottom:6px;">✅</div><div style="font-size:13px;color:#10B981;font-weight:600;">مرحباً ' + name + '!</div>';
   setTimeout(() => { window.location.href = 'index.html'; }, 800);
+}
+
+// ============================================================
+// فشل تسجيل الدخول
+// ============================================================
+function handleFailedLogin(errEl, btn, loader) {
+  const state = recordFailedAttempt();
+  loader.style.display = 'none';
+  btn.style.display = 'block';
+  if (isLocked()) {
+    startLockCountdown(getLoginState().lockedUntil - Date.now());
+  } else {
+    const rem = getRemainingAttempts();
+    errEl.textContent = rem <= 2
+      ? `❌ بيانات خاطئة — تحذير: ${rem} محاولة متبقية قبل القفل`
+      : '❌ اسم المستخدم أو كلمة المرور غير صحيحة';
+    errEl.classList.add('show');
+    document.getElementById('username').classList.add('err');
+    document.getElementById('password').classList.add('err');
+    document.getElementById('password').value = '';
+    updateAttemptsUI(state);
+  }
 }
 
 // ============================================================
@@ -372,11 +427,9 @@ async function doLogin() {
   const sessRaw = localStorage.getItem('ha_session');
   if (sessRaw) {
     try {
-      // دعم كلا التنسيقين: JSON عادي أو base64
       let s;
       try { s = JSON.parse(decodeURIComponent(escape(atob(sessRaw)))); } catch(e1) { s = JSON.parse(sessRaw); }
       if (s && s.expiry > Date.now()) {
-        // عرض بانر الجلسة النشطة بدلاً من الـ redirect التلقائي
         const banner = document.getElementById('active-sess-banner');
         const info = document.getElementById('asb-info');
         if (banner) {
@@ -386,61 +439,41 @@ async function doLogin() {
           if (info) info.textContent = `مسجّل دخول كـ: ${name} · الجلسة صالحة لمدة ${hrs} أخرى`;
           banner.classList.add('show');
         }
-        // إخفاء نموذج الدخول
         document.querySelector('.card').style.display = 'none';
         return;
-      } else {
-        localStorage.removeItem('ha_session');
-      }
-    } catch (e) {
-      localStorage.removeItem('ha_session');
-    }
+      } else { localStorage.removeItem('ha_session'); }
+    } catch (e) { localStorage.removeItem('ha_session'); }
   }
-
-  // فحص القفل عند التحميل
   if (isLocked()) {
     const state = getLoginState();
     setTimeout(() => startLockCountdown(state.lockedUntil - Date.now()), 100);
-  }
-
-  // Firebase
-  // قراءة الـ config من أي من المفتاحين
-  const fbConf = localStorage.getItem('ha_fb_config') || localStorage.getItem('ha_firebase_config');
-  if (fbConf) {
-    try {
-      const c = JSON.parse(fbConf);
-      if (c.apiKey && !c.apiKey.includes('PASTE')) {
-        const dot = document.getElementById('conn-status');
-        if (dot) { dot.className = 'conn-badge conn-cloud'; dot.innerHTML = '<span>🟢</span> متصل بـ Firebase ☁️'; }
-      }
-    } catch (e) { }
   }
 })();
 
 // ============================================================
 // دوال مساعدة
 // ============================================================
-function togglePass() {
+window.togglePass = function() {
   const inp = document.getElementById('password');
   const eye = document.getElementById('pass-eye');
   if (inp.type === 'password') { inp.type = 'text'; eye.textContent = '🙈'; }
   else { inp.type = 'password'; eye.textContent = '👁️'; }
-}
+};
 
-function openFBSetup() {
+window.openFBSetup = function() {
   const p = document.getElementById('fb-panel');
   p.style.display = p.style.display === 'none' ? 'block' : 'none';
   try {
-    const c = JSON.parse(localStorage.getItem('ha_fb_config') || localStorage.getItem('ha_firebase_config') || '{}');
+    const c = JSON.parse(localStorage.getItem('ha_fb_config') || '{}');
     if (c.apiKey) document.getElementById('fb-key').value = c.apiKey;
     if (c.projectId) document.getElementById('fb-proj').value = c.projectId;
     if (c.authDomain) document.getElementById('fb-auth').value = c.authDomain;
     if (c.storageBucket) document.getElementById('fb-stor').value = c.storageBucket;
     if (c.appId) document.getElementById('fb-app').value = c.appId;
   } catch (e) { }
-}
+};
 
-function saveFBConfig() {
+window.saveFBConfig = function() {
   const key = document.getElementById('fb-key').value.trim();
   if (!key) { alert('أدخل API Key على الأقل'); return; }
   const config = {
@@ -450,15 +483,23 @@ function saveFBConfig() {
     storageBucket: document.getElementById('fb-stor').value.trim(),
     appId: document.getElementById('fb-app').value.trim()
   };
-  // حفظ في المفتاحين معاً — ha_fb_config هو المفتاح الرسمي للنظام الرئيسي
   const _cfgStr = JSON.stringify(config);
-  localStorage.setItem('ha_fb_config',       _cfgStr);
+  localStorage.setItem('ha_fb_config', _cfgStr);
   localStorage.setItem('ha_firebase_config', _cfgStr);
   const dot = document.getElementById('conn-status');
   if (dot) { dot.className = 'conn-badge conn-cloud'; dot.innerHTML = '<span>🟢</span> تم حفظ Firebase — أعد تحميل الصفحة'; }
   document.getElementById('fb-panel').style.display = 'none';
   alert('✅ تم حفظ إعدادات Firebase!\nأعد تحميل الصفحة لتطبيق الإعدادات.');
-}
+};
+
+window.continueSession = function() { window.location.href = 'index.html'; };
+
+window.clearAndLogin = function() {
+  localStorage.removeItem('ha_session');
+  document.getElementById('active-sess-banner').classList.remove('show');
+  document.querySelector('.card').style.display = 'block';
+  document.getElementById('username').focus();
+};
 
 // إزالة كلاس err عند الكتابة
 ['username', 'password'].forEach(id => {
@@ -467,20 +508,6 @@ function saveFBConfig() {
     document.getElementById('err-msg').classList.remove('show');
   });
 });
-
-// ============================================================
-// دوال بانر الجلسة النشطة
-// ============================================================
-function continueSession() {
-  window.location.href = 'index.html';
-}
-
-function clearAndLogin() {
-  localStorage.removeItem('ha_session');
-  document.getElementById('active-sess-banner').classList.remove('show');
-  document.querySelector('.card').style.display = 'block';
-  document.getElementById('username').focus();
-}
 </script>
 </body>
 </html>
