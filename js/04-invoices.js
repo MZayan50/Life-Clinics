@@ -82,7 +82,16 @@ function saveInv(){
   const id=gv('im-id');
   const svcRaw=gv('im-svc')||'';
   const svcName=svcRaw.includes(' - ')?svcRaw.split(' - ')[0]:svcRaw;
-  const data={patId:pid,patient:pat?.name||'—',service:svcName,originalPrice:price,discount:disc,total:net,paid:net,remaining:0,status:'مدفوع',method,date:gv('im-date')||new Date().toISOString().split('T')[0]};
+  // استخراج الطبيب من الموعد المرتبط أو من الخدمة
+  const svcObj = DB.get('services').find(s=>s.name===svcName);
+  const linkedAppt = DB.get('appointments').find(a=>
+    String(a.patId)===String(pid) && a.date===(gv('im-date')||new Date().toISOString().split('T')[0])
+  );
+  const doctorName = linkedAppt?.doctor || svcObj?.doctor || '';
+  const branchName = linkedAppt?.branch || pat?.branch || '';
+  const data={patId:pid,patient:pat?.name||'—',service:svcName,doctor:doctorName,branch:branchName,
+    originalPrice:price,discount:disc,total:net,paid:net,remaining:0,status:'مدفوع',method,
+    date:gv('im-date')||new Date().toISOString().split('T')[0]};
   if(id){
     DB.upd('invoices',id,data);
     showToast('success','✅ تم تحديث الفاتورة');
@@ -481,9 +490,12 @@ function processSmartPayment(){
     amount,
     source:`دفعة فاتورة — ${inv.patient}`,
     service:inv.service||'',
+    doctor:inv.doctor||'',
+    branch:inv.branch||'',
     method,
     date:today,
     invId,
+    patId:inv.patId||'',
     notes
   });
 

@@ -521,6 +521,18 @@ function setDate(){const el=document.getElementById('topbar-date');if(el)el.text
 function init(){
   buildChart();renderTodayAppts();loadSettings();setDate();buildDashAlerts();
   seedDefaultUsers();
+  // لو في Firebase config → أظهر مؤشر sync مؤقت حتى تكتمل المزامنة
+  if(localStorage.getItem('ha_fb_config')){
+    const bar = document.getElementById('conn-bar');
+    if(bar){
+      const ind = document.createElement('div');
+      ind.id = 'fb-sync-indicator';
+      ind.style.cssText = 'background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:7px 14px;font-size:12px;color:var(--amber);display:flex;align-items:center;gap:7px;margin-top:6px;';
+      ind.innerHTML = '<span style="animation:spin 1s linear infinite;display:inline-block">🔄</span> جارٍ مزامنة البيانات من Firebase...';
+      bar.parentNode?.insertBefore(ind, bar.nextSibling);
+      setTimeout(()=>{ if(ind.parentNode) ind.style.display='none'; }, 8000); // fallback بعد 8 ثواني
+    }
+  }
   const sub=document.getElementById('dash-sub');if(sub)sub.textContent=new Date().toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' · فرع مدينة نصر';
   const low=DB.get('inventory').filter(i=>i.status==='منخفض'||i.status==='نفذ').length;
   txt('badge-stock',low);txt('kpi-stk',low);

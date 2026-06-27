@@ -208,8 +208,19 @@ function delInstallment(id){
   if(confirm('حذف خطة الأقساط؟')){
     const plan=(DB.get('installments')||[]).find(p=>p.id===id);
     if(plan){
-      const patsArr=DB.get('installments').filter(p=>p.id!==id);
-      DB.set('installments',patsArr);
+      // حذف من القائمة مباشرة
+      DB.set('installments',(DB.get('installments')||[]).filter(p=>p.id!==id));
+      // إعادة حساب balance للعميل بعد الحذف
+      const pat = DB.get('patients').find(p=>String(p.id)===String(plan.patientId));
+      if(pat){
+        const invBalance  = DB.get('invoices').filter(i=>String(i.patId)===String(pat.id)||i.patient===pat.name).reduce((s,i)=>s+(i.remaining||0),0);
+        const instBalance = (DB.get('installments')||[]).filter(i=>String(i.patientId)===String(pat.id)&&!i.fromInvId).reduce((s,i)=>s+(i.remaining||0),0);
+        const newBalance  = invBalance + instBalance;
+        DB.upd('patients', pat.id, {
+          balance: newBalance,
+          status: newBalance > 0 ? 'قسط' : (pat.status === 'قسط' ? 'نشط' : pat.status)
+        });
+      }
     }
     showToast('info','🗑️ تم حذف خطة الأقساط');
     renderInstallments();
@@ -335,7 +346,7 @@ function renderPayments(q){
   const tb=document.getElementById('pay-tbody');if(!tb)return;
   tb.innerHTML=entries.map((e,i)=>`<tr>
     <td style="font-size:11px;color:var(--gold-light);font-weight:700">#PAY-${String(i+1).padStart(3,'0')}</td>
-    <td style="font-weight:600">${e.patId?(_patName(e.patId)||(e.source||'').replace('دفعة فاتورة — ','')):(e.source||'').replace('دفعة فاتورة — ','')}</td>
+    <td style="font-weight:600">${e.patId?(_patName(e.patId)||e.patient||(e.source||'').replace(/فاتورة — |دفعة فاتورة — |دفعة قسط #\d+ — /g,'')):(e.patient||(e.source||'').replace(/فاتورة — |دفعة فاتورة — |دفعة قسط #\d+ — /g,''))}</td>
     <td style="font-size:12px">${e.service||'—'}</td>
     <td style="font-weight:800;color:var(--emerald)">${(e.amount||0).toLocaleString()} ج</td>
     <td><span class="tag tg-teal">${PAY_ICONS[e.method]||'💰'} ${e.method||'—'}</span></td>
@@ -354,8 +365,10 @@ function renderTreasury(){
   // ✅ cashlog هو المصدر الوحيد للحسابات — لا double-counting مع الفواتير
   // invoices:created hook في 00-core.js يضيف cashlog entry تلقائياً لكل فاتورة مدفوعة
   const totalIn=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
-  const totalOut=expenses.reduce((s,e)=>s+(e.amount||0),0);
-  const balance=totalIn-totalOut;
+  const totalOutCash=cashlog.filter(c=>c.type==='صادر').reduce((s,c)=>s+(c.amount||0),0);
+  const totalOutExp=expenses.reduce((s,e)=>s+(e.amount||0),0);
+  const totalOut=Math.max(totalOutCash, totalOutExp); // نأخذ الأكبر لتجنب double-counting
+  const balance=totalIn-totalOutExp; // balance حقيقي = وارد - مصروفات
 
   const todayIn=cashlog.filter(c=>c.type==='وارد'&&c.date===today).reduce((s,c)=>s+(c.amount||0),0);
   const todayOut=expenses.filter(e=>e.date===today).reduce((s,e)=>s+(e.amount||0),0);

@@ -146,16 +146,22 @@ const DB = {
 EventBus.on('invoices:created', function(inv){
   const pat = DB.get('patients').find(p => String(p.id) === String(inv.patId));
   if(pat){
+    // spent يُجمع من كل الفواتير لتجنب التكرار عند إعادة الحساب
+    const allInvs = DB.get('invoices').filter(i => String(i.patId) === String(pat.id) || i.patient === pat.name);
+    const totalSpent = allInvs.reduce((s, i) => s + (i.total || 0), 0);
+    const totalRemaining = allInvs.reduce((s, i) => s + (i.remaining || 0), 0);
     DB.upd('patients', pat.id, {
-      spent: (pat.spent || 0) + (inv.total || 0),
-      balance: Math.max(0, (pat.balance || 0) + (inv.remaining || 0)),
-      status: (inv.remaining || 0) > 0 ? 'قسط' : (pat.status === 'غير نشط' ? 'نشط' : pat.status)
+      spent: totalSpent,
+      balance: totalRemaining,
+      status: totalRemaining > 0 ? 'قسط' : (pat.status === 'غير نشط' ? 'نشط' : pat.status)
     });
   }
   if((inv.paid || 0) > 0){
     DB.push('cashlog', {
-      type: 'دخل', source: 'فاتورة', refId: inv.id,
-      patient: inv.patient || '', amount: inv.paid,
+      type: 'وارد', source: `فاتورة — ${inv.patient||''}`, refId: inv.id,
+      patient: inv.patient || '', patId: inv.patId || '',
+      amount: inv.paid, service: inv.service || '',
+      doctor: inv.doctor || '', branch: inv.branch || '',
       method: inv.method || 'كاش',
       date: inv.date || new Date().toISOString().split('T')[0],
       notes: 'دفعة فاتورة'
@@ -169,7 +175,9 @@ EventBus.on('invoices:updated', function(inv){
   if(!pat) return;
   const allInvs = DB.get('invoices').filter(i => String(i.patId) === String(pat.id) || i.patient === pat.name);
   const totalRemaining = allInvs.reduce((s, i) => s + (i.remaining || 0), 0);
+  const totalSpent     = allInvs.reduce((s, i) => s + (i.total || 0), 0);
   DB.upd('patients', pat.id, {
+    spent: totalSpent,
     balance: totalRemaining,
     status: totalRemaining > 0 ? 'قسط' : (pat.status === 'قسط' ? 'نشط' : pat.status)
   });
@@ -207,7 +215,7 @@ EventBus.on('sessions:updated', function(session){
 // ── 5. مصروف جديد → تسجيل في الخزينة ──
 EventBus.on('expenses:created', function(exp){
   DB.push('cashlog', {
-    type: 'خروج', source: 'مصروف', refId: exp.id,
+    type: 'صادر', source: 'مصروف', refId: exp.id,
     amount: exp.amount || 0, method: 'كاش',
     date: exp.date || new Date().toISOString().split('T')[0],
     notes: exp.name || 'مصروف'
@@ -240,17 +248,23 @@ function _flushUIRefresh(){
       if(active==='doctor-view')  renderDoctorView();
       if(active==='dashboard')    renderTodayAppts();
     }
-    if(_pendingRefresh.has('patients')   && active==='patients')     renderPat();
-    if(_pendingRefresh.has('invoices')   && active==='invoices')     renderInvs();
-    if(_pendingRefresh.has('invoices')   && active==='installments') renderInstallments();
-    if(_pendingRefresh.has('inventory')  && active==='inventory')    renderInv();
-    if(_pendingRefresh.has('expenses')   && active==='expenses')     renderExpenses();
-    if(_pendingRefresh.has('expenses')   && active==='treasury')     renderTreasury();
-    if(_pendingRefresh.has('cashlog')    && active==='treasury')     renderTreasury();
-    if(_pendingRefresh.has('purchases')  && active==='purchases')    renderPurchases();
-    if(_pendingRefresh.has('sessions')   && active==='sessions')     renderSessions();
-    if(_pendingRefresh.has('services')   && active==='services')     renderSvcs();
-    if(_pendingRefresh.has('leads')      && active==='leads')        renderLeads();
+    if(_pendingRefresh.has('patients')     && active==='patients')     renderPat();
+    if(_pendingRefresh.has('invoices')     && active==='invoices')     renderInvs();
+    if(_pendingRefresh.has('invoices')     && active==='installments') renderInstallments();
+    if(_pendingRefresh.has('installments') && active==='installments') renderInstallments();
+    if(_pendingRefresh.has('installments') && active==='payments')     renderPayments();
+    if(_pendingRefresh.has('inventory')    && active==='inventory')    renderInv();
+    if(_pendingRefresh.has('expenses')     && active==='expenses')     renderExpenses();
+    if(_pendingRefresh.has('expenses')     && active==='treasury')     renderTreasury();
+    if(_pendingRefresh.has('expenses')     && active==='accounts')     { if(typeof renderAccounts==='function') renderAccounts(); }
+    if(_pendingRefresh.has('cashlog')      && active==='treasury')     renderTreasury();
+    if(_pendingRefresh.has('cashlog')      && active==='payments')     renderPayments();
+    if(_pendingRefresh.has('cashlog')      && active==='accounts')     { if(typeof renderAccounts==='function') renderAccounts(); }
+    if(_pendingRefresh.has('invoices')     && active==='accounts')     { if(typeof renderAccounts==='function') renderAccounts(); }
+    if(_pendingRefresh.has('purchases')    && active==='purchases')    renderPurchases();
+    if(_pendingRefresh.has('sessions')     && active==='sessions')     renderSessions();
+    if(_pendingRefresh.has('services')     && active==='services')     renderSvcs();
+    if(_pendingRefresh.has('leads')        && active==='leads')        renderLeads();
   } catch(e){ console.warn('[UI Refresh]', e); }
   _pendingRefresh.clear();
 }
@@ -262,7 +276,8 @@ function _refreshDashKPIs(){
     const patients = DB.get('patients');
     const invoices = DB.get('invoices');
     const inventory = DB.get('inventory');
-    const todayRev = invoices.filter(i=>i.date===today).reduce((s,i)=>s+(i.paid||0),0);
+    const cashlog  = DB.get('cashlog') || [];
+    const todayRev = cashlog.filter(c=>c.type==='وارد'&&c.date===today).reduce((s,c)=>s+(c.amount||0),0);
     const pending  = invoices.filter(i=>i.status!=='مدفوع').reduce((s,i)=>s+(i.remaining||0),0);
     const low      = inventory.filter(i=>i.status==='منخفض'||i.status==='نفذ').length;
     const todayA   = DB.get('appointments').filter(a=>a.date===today).length;
@@ -291,6 +306,9 @@ EventBus.on('expenses:updated',     () => _scheduleUIRefresh('expenses'));
 EventBus.on('purchases:updated',    () => _scheduleUIRefresh('purchases'));
 EventBus.on('sessions:updated',     () => _scheduleUIRefresh('sessions'));
 EventBus.on('cashlog:created',      () => _scheduleUIRefresh('cashlog'));
+EventBus.on('installments:created', () => _scheduleUIRefresh('installments'));
+EventBus.on('installments:updated', () => _scheduleUIRefresh('installments'));
+EventBus.on('installments:deleted', () => _scheduleUIRefresh('installments'));
 EventBus.on('services:created',     () => _scheduleUIRefresh('services'));
 EventBus.on('services:updated',     () => _scheduleUIRefresh('services'));
 EventBus.on('leads:created',        () => _scheduleUIRefresh('leads'));

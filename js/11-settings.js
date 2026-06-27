@@ -155,12 +155,23 @@ function attachFirestoreSync(col){
     .onSnapshot(snapshot => {
       const docs = [];
       snapshot.forEach(doc => docs.push({...doc.data(), id: doc.id}));
-      // ✅ نمرّ عبر DB.set (لا نكتب على localStorage مباشرة) حتى تبقى كل قراءة/كتابة موحّدة في DB layer
-      // ملاحظة: DB.set لا تُطلق created/updated لكل سجل (لتفادي ضجيج أحداث عند مزامنة كاملة) —
-      // بدلاً من ذلك نجدوِل تحديث واحد موحّد عبر _scheduleUIRefresh الموجودة في 00-core.js،
-      // وهي بنفسها تُحدّث الشاشة النشطة المطابقة + KPIs لوحة التحكم تلقائياً.
-      DB.set(col, docs);
+      // ✅ لو Firestore رجّع بيانات فعلية (مش فاضية) → اكتب فوق localStorage
+      // لو فاضية وعندنا بيانات محلية → اسيب المحلية (أمان لو collection جديدة فارغة)
+      const local = DB.get(col);
+      if(docs.length > 0 || local.length === 0){
+        DB.set(col, docs);
+      }
       _scheduleUIRefresh(col);
+      // أول sync → شيل loading indicator لو موجود
+      if(!window._fbFirstSync) window._fbFirstSync = {};
+      if(!window._fbFirstSync[col]){
+        window._fbFirstSync[col] = true;
+        const allCols = ['patients','appointments','invoices','inventory','services','doctors','staff','expenses','leads','branches'];
+        if(allCols.every(c => window._fbFirstSync[c])){
+          const syncEl = document.getElementById('fb-sync-indicator');
+          if(syncEl) syncEl.style.display = 'none';
+        }
+      }
     }, err => {
       console.error('Firestore listener error on', col, err);
     });
