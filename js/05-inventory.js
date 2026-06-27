@@ -210,22 +210,12 @@ function recvPurchase(id){
   const pur = DB.get('purchases').find(p => p.id === id);
   if(!pur){ showToast('error','❌ الطلبية غير موجودة'); return; }
   if(pur.status === 'مستلم'){ showToast('warning','⚠️ هذه الطلبية مستلمة بالفعل'); return; }
-  // ── إضافة الكميات للمخزون فعلياً ──
-  const items = (DB.get('purchase_items')||[]).filter(i => i.purchaseId === id);
-  let updated = 0;
-  items.forEach(item => {
-    const prod = DB.get('inventory').find(p => p.id === item.productId || p.name === item.product);
-    if(prod){
-      const newQty = (prod.qty||0) + item.qty;
-      const newStatus = newQty === 0 ? 'نفذ' : newQty <= prod.reorder ? 'منخفض' : 'متوفر';
-      // DB.upd يُطلق inventory:updated → EventBus → renderInv تلقائياً
-      DB.upd('inventory', prod.id, { qty: newQty, status: newStatus });
-      updated++;
-    }
-  });
-  // DB.upd يُطلق purchases:updated → EventBus → renderPurchases تلقائياً
+  // ✅ تحديث المخزون يحصل تلقائياً عبر EventBus('purchases:updated') في 00-core.js
+  // لا تحديث يدوي هنا لتجنب الاحتساب المضاعف للكميات
+  const itemCount = (DB.get('purchase_items')||[]).filter(i => i.purchaseId === id).length;
+  // DB.upd يُطلق purchases:updated → 00-core hook يضيف الكميات → EventBus → renderInv تلقائياً
   DB.upd('purchases', id, { status:'مستلم', deliveryDate: new Date().toISOString().split('T')[0] });
-  showToast('success', `✅ تم استلام الطلبية وتحديث ${updated} منتج في المخزون`);
+  showToast('success', `✅ تم استلام الطلبية وتحديث ${itemCount} منتج في المخزون`);
 }
 
 function delPurchase(id){

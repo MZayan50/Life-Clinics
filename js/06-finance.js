@@ -172,7 +172,13 @@ function saveInstallment(){
   const plan={patientId:pid,patientName:pat?.name||'—',service:svc,total,downPayment:down,remaining:remain,installmentAmount:each,count,payments,startDate,status:'نشط'};
   if(!DB.get('installments')) DB.set('installments',[]);
   DB.push('installments',plan);
-  if(pat) DB.upd('patients',pat.id,{status:'قسط',balance:(pat.balance||0)+remain});
+  if(pat){
+    // ✅ إعادة حساب balance من الصفر من كل الفواتير + كل خطط الأقساط المستقلة
+    // بدل الجمع فوق القيمة الموجودة لتجنب التكرار
+    const invBalance = DB.get('invoices').filter(i => String(i.patId)===String(pid)||i.patient===pat.name).reduce((s,i)=>s+(i.remaining||0),0);
+    const instBalance = DB.get('installments').filter(i => String(i.patientId)===String(pid) && !i.fromInvId).reduce((s,i)=>s+(i.remaining||0),0);
+    DB.upd('patients',pat.id,{status:'قسط', balance: invBalance + instBalance});
+  }
   closeModal('installment-modal');
   showToast('success',`✅ تم إنشاء خطة أقساط لـ ${pat?.name}`,`${count} أقساط × ${each.toLocaleString()} ج`);
   renderInstallments();
@@ -251,9 +257,9 @@ function renderAccounts(){
   const receivables=(DB.get('installments')||[]).reduce((s,p)=>s+(p.remaining||0),0);
   const suppliersOwed=(DB.get('suppliers')||[]).reduce((s,x)=>s+(x.owed||0),0);
   // الكاش الفعلي = كل الوارد (من cashlog + فواتير مباشرة) ناقص كل المصروفات
+  // ✅ cashlog هو المصدر الوحيد — invoices:created hook في 00-core.js يضيف entry تلقائياً لكل فاتورة
   const cashIn=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
-  const invPaidDirect=(DB.get('invoices')||[]).filter(i=>i.paid>0&&!cashlog.find(c=>c.invId===String(i.id))).reduce((s,i)=>s+(i.paid||0),0);
-  const cashBalance=Math.max(0,(cashIn+invPaidDirect)-totalCost);
+  const cashBalance=Math.max(0,cashIn-totalCost);
   txt('bs-cash',cashBalance.toLocaleString()+' ج');
   txt('bs-inventory',invValue.toLocaleString()+' ج');
   txt('bs-receivables',receivables.toLocaleString()+' ج');
@@ -300,15 +306,10 @@ function renderPayments(q){
   const method=document.getElementById('pay-method-filter')?.value||'';
   const dateFilter=document.getElementById('pay-date-filter')?.value||'';
 
-  // Payments = all cashlog entries + paid invoices
+  // ✅ Payments = cashlog وارد فقط — المصدر الوحيد بعد توحيد منطق الفواتير
+  // invoices:created hook في 00-core.js يضيف cashlog entry تلقائياً لكل فاتورة
   const cashlog=DB.get('cashlog')||[];
   let entries=cashlog.filter(c=>c.type==='وارد');
-
-  // Also include direct paid invoices not yet in cashlog
-  const invsPaid=(DB.get('invoices')||[]).filter(i=>i.paid>0&&!cashlog.find(c=>c.invId===String(i.id)));
-  invsPaid.forEach(inv=>{
-    entries.push({id:'_inv_'+inv.id,type:'وارد',amount:inv.paid,patId:inv.patId,source:`دفعة فاتورة — ${inv.patient}`,service:inv.service,method:inv.method||'كاش',date:inv.date,invId:String(inv.id),notes:''});
-  });
 
   if(q) entries=entries.filter(e=>(e.source||'').includes(q)||(e.service||'').includes(q));
   if(method) entries=entries.filter(e=>e.method===method);
@@ -350,20 +351,20 @@ function renderTreasury(){
   const expenses=DB.get('expenses')||[];
   const today=new Date().toISOString().split('T')[0];
 
-  // Total in = all وارد entries + invoice paid that's not in cashlog
-  const invPaid=(DB.get('invoices')||[]).filter(i=>i.paid>0&&!cashlog.find(c=>c.invId===String(i.id))).reduce((s,i)=>s+(i.paid||0),0);
-  const totalIn=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0)+invPaid;
+  // ✅ cashlog هو المصدر الوحيد للحسابات — لا double-counting مع الفواتير
+  // invoices:created hook في 00-core.js يضيف cashlog entry تلقائياً لكل فاتورة مدفوعة
+  const totalIn=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
   const totalOut=expenses.reduce((s,e)=>s+(e.amount||0),0);
   const balance=totalIn-totalOut;
 
-  const todayIn=(DB.get('invoices')||[]).filter(i=>i.date===today).reduce((s,i)=>s+(i.paid||0),0)+cashlog.filter(c=>c.type==='وارد'&&c.date===today).reduce((s,c)=>s+(c.amount||0),0);
+  const todayIn=cashlog.filter(c=>c.type==='وارد'&&c.date===today).reduce((s,c)=>s+(c.amount||0),0);
   const todayOut=expenses.filter(e=>e.date===today).reduce((s,e)=>s+(e.amount||0),0);
 
   // Recent movements
+  // ✅ الحركات من cashlog فقط — لا إضافة فواتير منفصلة لتجنب double-counting
   const movements=[
-    ...cashlog.filter(c=>c.type==='وارد').map(c=>({...c,dir:'in'})),
-    ...(DB.get('invoices')||[]).filter(i=>i.paid>0&&!cashlog.find(c=>c.invId===String(i.id))).map(i=>({dir:'in',amount:i.paid,source:`دفعة — ${i.patient}`,service:i.service,date:i.date,method:i.method})),
-    ...expenses.map(e=>({dir:'out',amount:e.amount,source:`مصروف — ${e.category||e.desc||''}`,date:e.date,method:'نقدي'}))
+    ...cashlog.map(c=>({...c,dir:c.type==='وارد'?'in':'out'})),
+    ...expenses.map(e=>({dir:'out',amount:e.amount,source:`مصروف — ${e.name||e.category||''}`,date:e.date,method:'نقدي'}))
   ].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,30);
 
   const el=document.getElementById('treasury-content');if(!el)return;

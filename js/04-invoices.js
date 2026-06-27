@@ -88,7 +88,8 @@ function saveInv(){
     showToast('success','✅ تم تحديث الفاتورة');
   } else {
     DB.push('invoices',data);
-    if(pat)DB.upd('patients',pat.id,{spent:(pat.spent||0)+net});
+    // ✅ spent + balance + cashlog يُحدَّثون تلقائياً عبر EventBus('invoices:created') في 00-core.js
+    // لا تحديث يدوي هنا لتجنب الاحتساب المضاعف
     showToast('success','✅ تم إصدار الفاتورة',`${net.toLocaleString()} ج - ${method}`);
   }
   closeModal('invoice-modal');renderInvs();

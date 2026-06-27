@@ -651,8 +651,13 @@ function finalizeConsultation(){
   // 3. Deduct inventory
   deductInventory(svcName);
   // 4. تحديث ملف العميل — ✅ spent يُحدَّث تلقائيًا عبر EventBus('invoices:created') في 00-core.js
-  // (كان هنا كود يدوي بيضيف net فوق التحديث التلقائي — باج احتساب مضاعف، تم حذفه. باقي الحقول لسه يدوية لأن الـ hook ما بيلمسهاش)
-  if(pat) DB.upd('patients',pat.id,{sessions:(pat.sessions||0)+1,lastVisit:today,lastDoctor:a.doctor||''});
+  // sessions: نحسب من الـ sessions collection + عدد الاستشارات المكتملة من appointments
+  // بدل +1 اليدوية لتجنب التعارض مع sessions:updated hook في 00-core.js
+  if(pat){
+    const sesssDone = DB.get('sessions').filter(s=>s.patId===pat.id).reduce((s,x)=>s+(x.done||0),0);
+    const apptsDone = DB.get('appointments').filter(a=>a.patId===pat.id&&a.status==='مكتمل').length;
+    DB.upd('patients',pat.id,{sessions: Math.max(sesssDone, apptsDone), lastVisit:today, lastDoctor:a.doctor||''});
+  }
   // 5. Sync screens
   renderInvs();renderTodayAppts();
   if(document.getElementById('screen-doctor-view')?.classList.contains('active')) renderDoctorView();
