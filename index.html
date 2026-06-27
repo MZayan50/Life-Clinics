@@ -306,7 +306,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   .ptags{justify-content:center;}
 }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<!-- html2pdf يُحمَّل قبل السكريبتات مباشرة في نهاية الصفحة -->
 </head>
 <body>
 <!-- FIREBASE SETUP -->
@@ -690,21 +690,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   <div class="card"><div class="table-wrap"><table><thead><tr><th>المنتج</th><th>الكمية</th><th>حد إعادة الطلب</th><th>الصلاحية</th><th>سعر البيع</th><th>الحالة</th><th></th></tr></thead><tbody id="inv-tbody"></tbody></table></div></div>
 </div>
 
-<!-- INVOICES -->
-<div class="screen" id="screen-invoices">
-  <div class="filter-bar">
-    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث..." oninput="filterInvs(this.value)"></div>
-    <select class="selbox" onchange="filterInvsSt(this.value)"><option value="">كل الحالات</option><option value="مدفوع">مدفوع</option><option value="معلق">معلق</option><option value="جزئي">جزئي</option></select>
-    <button class="btn btn-primary" onclick="openInvModal()">+ فاتورة جديدة</button>
-    <button class="btn btn-ghost btn-sm" onclick="exportInvoices()">📊 تصدير Excel</button>
-  </div>
-  <div class="kpi-grid" style="margin-bottom:14px;">
-    <div class="kpi-card kc-emerald"><div class="kpi-icon">✅</div><div class="kpi-value" id="inv-paid">0</div><div class="kpi-label">مدفوع (ج)</div></div>
-    <div class="kpi-card kc-amber"><div class="kpi-icon">⏳</div><div class="kpi-value" id="inv-pend2">0</div><div class="kpi-label">معلق (ج)</div></div>
-    <div class="kpi-card kc-rose"><div class="kpi-icon">🔢</div><div class="kpi-value" id="inv-cnt">0</div><div class="kpi-label">عدد الفواتير</div></div>
-  </div>
-  <div class="card"><div class="table-wrap"><table><thead><tr><th>#</th><th>العميل</th><th>التاريخ</th><th>الخدمة</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th></th></tr></thead><tbody id="invs-tbody"></tbody></table></div></div>
-</div>
+<!-- INVOICES — الشاشة الكاملة موجودة في الأسفل (id="screen-invoices") -->
 
 <!-- LEADS -->
 <div class="screen" id="screen-leads">
@@ -1857,6 +1843,16 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <script src="js/09-hr.js"></script>
 <script src="js/10-reports.js"></script>
 <script src="js/11-settings.js"></script>
-<script>init();</script>
+<script>
+  // ✅ ننتظر تحميل كل الملفات قبل استدعاء init()
+  if (typeof init === 'function') {
+    init();
+  } else {
+    window.addEventListener('load', function() {
+      if (typeof init === 'function') init();
+      else console.error('init() غير معرّفة — تحقق من تحميل 01-app.js');
+    });
+  }
+</script>
 </body>
 </html>
