@@ -77,8 +77,11 @@ async function saveFB(){
     showToast('warning','⚠️ API Key و Project ID مطلوبان');
     return;
   }
-  // Save config to localStorage for reuse after reload
-  localStorage.setItem('ha_fb_config', JSON.stringify(cfg));
+  // Save config — ha_fb_config هو المفتاح الرسمي
+  // ha_firebase_config للتوافق مع login.html (نفس القيمة دائماً)
+  const _cfgStr = JSON.stringify(cfg);
+  localStorage.setItem('ha_fb_config',       _cfgStr);
+  localStorage.setItem('ha_firebase_config', _cfgStr);
   showToast('info','🔥 جارٍ الاتصال بـ Firebase...');
   await initFirebase(cfg);
 }
@@ -415,6 +418,7 @@ function disconnectFirebase(){
   window._fbReady = false;
   window._firestore = null;
   localStorage.removeItem('ha_fb_config');
+  localStorage.removeItem('ha_firebase_config');
   txt('conn-txt','وضع محلي 💾');
   const dot = document.getElementById('conn-dot');
   if(dot) dot.style.background = 'var(--amber)';
@@ -423,6 +427,16 @@ function disconnectFirebase(){
 
 // ── Auto-reconnect on page load if config was saved before ──
 (function autoConnectFirebase(){
+  // ── Migration: توحيد المفتاحين تلقائياً عند التشغيل ──
+  // لو فيه config محفوظ بالمفتاح القديم (من login.html) بس مش موجود بالجديد → انقله
+  const _legacy = localStorage.getItem('ha_firebase_config');
+  const _current = localStorage.getItem('ha_fb_config');
+  if(_legacy && !_current){
+    localStorage.setItem('ha_fb_config', _legacy);
+  } else if(_current && !_legacy){
+    localStorage.setItem('ha_firebase_config', _current);
+  }
+  // ────────────────────────────────────────────────────────
   const saved = localStorage.getItem('ha_fb_config');
   if(!saved) return;
   try {
