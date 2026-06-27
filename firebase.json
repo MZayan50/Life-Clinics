@@ -3,6 +3,8 @@
     "public": ".",
     "ignore": [
       "firebase.json",
+      "firestore.rules",
+      "firestore.indexes.json",
       "**/.*",
       "**/node_modules/**"
     ],
@@ -21,7 +23,28 @@
             "value": "public, max-age=3600"
           }
         ]
+      },
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "SAMEORIGIN"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          }
+        ]
       }
     ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }
