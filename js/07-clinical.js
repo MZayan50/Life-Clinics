@@ -1,55 +1,7 @@
 // 📸 PHOTOS SCREEN
 // ══════════════════════════════════════════
-function renderPhotos(q){
-  q=q||'';
-  const catFilter=document.getElementById('photo-cat-filter')?.value||'';
-  if(!DB.get('photos')) DB.set('photos',[
-    {id:'ph1',patientName:'سارة محمد',service:'ليزر',date:'2025-01-15',session:1,before:'📷',after:'📸',notes:'نتيجة ممتازة'},
-    {id:'ph2',patientName:'نادية عمر',service:'بوتكس',date:'2025-02-20',session:1,before:'📷',after:'📸',notes:'إزالة التجاعيد'},
-  ]);
-  let photos=DB.get('photos');
-  if(q) photos=photos.filter(p=>p.patientName.includes(q)||(p.service||'').includes(q));
-  if(catFilter) photos=photos.filter(p=>(p.service||'').includes(catFilter));
+// النسخة الكاملة أسفل — هذه النسخة القديمة محذوفة
 
-  const all=DB.get('photos');
-  txt('photo-kpi-total',all.length*2);
-  txt('photo-kpi-patients',[...new Set(all.map(p=>p.patientName))].length);
-  txt('photo-kpi-pairs',all.length);
-
-  const grid=document.getElementById('photo-grid');if(!grid)return;
-  grid.innerHTML=photos.map(p=>`<div class="card" style="padding:0;overflow:hidden;">
-    <div style="display:grid;grid-template-columns:1fr 1fr;height:180px;">
-      <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);display:flex;flex-direction:column;align-items:center;justify-content:center;border-left:1px solid var(--glass-border);">
-        <div style="font-size:44px;margin-bottom:6px">${p.before||'📷'}</div>
-        <div style="font-size:11px;color:var(--rose);font-weight:700">قبل</div>
-      </div>
-      <div style="background:linear-gradient(135deg,#0d2137,#0d3340);display:flex;flex-direction:column;align-items:center;justify-content:center;">
-        <div style="font-size:44px;margin-bottom:6px">${p.after||'📸'}</div>
-        <div style="font-size:11px;color:var(--teal);font-weight:700">بعد</div>
-      </div>
-    </div>
-    <div style="padding:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <div style="font-weight:700;font-size:13px">${p.patientName}</div>
-        <span class="tag tg-teal" style="font-size:10.5px">${p.service}</span>
-      </div>
-      <div style="font-size:11.5px;color:var(--text-muted)">📅 ${p.date||'—'} · جلسة ${p.session||1}</div>
-      ${p.notes?`<div style="font-size:11.5px;margin-top:5px;color:var(--text-secondary)">${p.notes}</div>`:''}
-      <div style="display:flex;gap:7px;margin-top:10px;">
-        <button class="btn btn-ghost btn-xs" style="flex:1">🔍 مقارنة</button>
-        <button class="btn btn-danger btn-xs" onclick="delPhoto('${p.id}')">🗑</button>
-      </div>
-    </div>
-  </div>`).join('')||'<div class="card" style="text-align:center;padding:40px;color:var(--text-muted);">لا توجد صور طبية بعد</div>';
-}
-function openPhotoModal(){
-  const pats=DB.get('patients');
-  const sel=document.getElementById('photo-pat');if(!sel)return;
-  sel.innerHTML='<option value="">-- اختر عميل --</option>'+pats.map(p=>`<option value="${p.name}">${p.name}</option>`).join('');
-  document.getElementById('photo-id').value='';
-  document.getElementById('photo-date').value=new Date().toISOString().split('T')[0];
-  openModal('photo-modal');
-}
 function renderPhotos(q){
   q=q||'';
   const catF=document.getElementById('photo-cat-filter')?.value||'';
@@ -111,11 +63,10 @@ function delPhoto(id){
 }
 function savePhoto(){
   const pat=gv('photo-pat');if(!pat){showToast('warning','⚠️ اختر العميل');return;}
-  if(!DB.get('photos')) DB.set('photos',[]);
   DB.push('photos',{patientName:pat,service:gv('photo-svc'),date:gv('photo-date'),session:parseInt(gv('photo-session'))||1,before:'📷',after:'📸',notes:gv('photo-notes')});
   closeModal('photo-modal');showToast('success',`✅ تم إضافة صور ${pat}`);renderPhotos();
 }
-function delPhoto(id){if(confirm('حذف الصور؟')){const ph=DB.get('photos').filter(p=>p.id!==id);DB.set('photos',ph);showToast('info','🗑 تم الحذف');renderPhotos();}}
+// ✅ delPhoto معرّفة مرة واحدة أعلاه
 
 // ══════════════════════════════════════════
 // 📊 ACCOUNTS SCREEN
@@ -715,12 +666,5 @@ function finalizeConsultation(){
   showToast('success',`✅ اكتملت استشارة ${a.patient}`,`فاتورة ${net.toLocaleString()} ج · عمولة ${comm.toLocaleString()} ج`);
 }
 
-// Hook showScreen for phase 3 screens
-const _p3Orig=window.showScreen;
-window.showScreen=function(id){
-  _p3Orig(id);
-  if(id==='reception'){_wlAutoUpdateStatuses();renderReception();}
-  if(id==='doctor-view'){_wlAutoUpdateStatuses();renderDoctorView();}
-  if(id==='waitlist'){_wlAutoUpdateStatuses();renderWaitlist();}
-};
+// ✅ reception/doctor-view/waitlist في showScreen الموحدة بـ 00-core.js
 

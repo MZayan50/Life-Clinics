@@ -202,7 +202,7 @@ ${sessions.length?`<h2>✨ خطط الجلسات (${sessions.length})</h2>
 }
 
 // SAVE PATIENT
-function gv(id){return document.getElementById(id)?.value||'';}
+// ✅ gv() معرّفة في 00-core.js — محذوفة من هنا لتجنب التكرار
 function openPatModal(id){
   const p=id?DB.get('patients').find(x=>String(x.id)===String(id)):null;
   document.getElementById('pat-modal-title').textContent=p?'✏️ تعديل عميل':'👥 عميل جديد';

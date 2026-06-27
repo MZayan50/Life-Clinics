@@ -37,17 +37,8 @@ function saveProd(){
 
 // INVOICES
 let _vf='',_vs='';
-function filterInvs(q){_vf=q;renderInvs();}
-function filterInvsSt(s){_vs=s;renderInvs();}
-function renderInvs(){
-  const invs=DB.get('invoices').filter(i=>(!_vf||i.patient.includes(_vf))&&(!_vs||i.status===_vs));
-  const tb=document.getElementById('invs-tbody');if(!tb)return;
-  let paid=0,pend=0;
-  DB.get('invoices').forEach(i=>{if(i.status==='مدفوع')paid+=i.total;else pend+=i.remaining||0;});
-  txt('inv-paid',paid.toLocaleString()+' ج');txt('inv-pend2',pend.toLocaleString()+' ج');txt('inv-cnt',DB.get('invoices').length);
-  tb.innerHTML=invs.map((i,idx)=>`<tr><td style="font-weight:700;color:var(--gold-light);font-size:12px">#INV-${String(idx+1).padStart(3,'0')}</td><td style="font-weight:600">${i.patient}</td><td style="font-size:12px">${i.date}</td><td>${i.service}</td><td style="font-weight:700">${i.total} ج</td><td style="color:var(--emerald);font-weight:700">${i.paid} ج</td><td style="color:${i.remaining>0?'var(--rose)':'var(--emerald)'};font-weight:700">${i.remaining} ج</td><td><span class="ast ${i.status==='مدفوع'?'sc':i.status==='جزئي'?'sp':'sw'}">${i.status}</span></td><td><button class="btn btn-ghost btn-xs" onclick="openInvModal('${i.id}')">✏️</button> <button class="btn btn-ghost btn-xs" onclick="printInvoice('${i.id}')">🖨</button> <button class="btn btn-teal btn-xs" onclick="sendInvoiceWA('${i.id}')" title="إرسال الفاتورة عبر واتساب">💬</button></td></tr>`).join('');
-  txt('kpi-pend',pend.toLocaleString());
-}
+// ✅ filterInvs و renderInvs الكاملة موجودتان في الأسفل (النسخة المتطورة)
+// هذه النسخة البدائية محذوفة لتجنب التعارض
 function updInvTotal(){
   const p=parseFloat(document.getElementById('im-price')?.value)||0,d=parseFloat(document.getElementById('im-disc')?.value)||0;
   txt('ig',p+' ج');txt('id2',d+' ج');txt('in2',(p-d)+' ج');

@@ -11,41 +11,8 @@ function useSysTheme(){localStorage.removeItem('ha_theme');applyTheme(window.mat
 window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',e=>{if(!localStorage.getItem('ha_theme'))applyTheme(e.matches?'dark':'light');});
 
 // NAVIGATION
-const TITLES={dashboard:'لوحة التحكم',patients:'قائمة العملاء','patient-profile':'ملف العميل',reception:'شاشة الاستقبال','doctor-view':'شاشة الطبيب',calendar:'التقويم',appointments:'المواعيد',waitlist:'قائمة الانتظار',sessions:'الجلسات',services:'الخدمات',packages:'الباقات',doctors:'الأطباء',staff:'الموظفون',invoices:'الفواتير',payments:'المدفوعات',installments:'الأقساط',expenses:'المصروفات',treasury:'الخزينة',accounts:'الحسابات',inventory:'المخزون',suppliers:'الموردون',purchases:'المشتريات',transfers:'تحويل المخزون',leads:'العملاء المحتملون',campaigns:'الحملات',whatsapp:'واتساب',branches:'الفروع',resources:'الغرف والأجهزة',reports:'التقارير',ai:'المساعد الذكي',settings:'الإعدادات',photos:'الصور'};
-function showScreen(id){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  const el=document.getElementById('screen-'+id);
-  if(el)el.classList.add('active');
-  const t=document.getElementById('topbar-title');
-  if(t){t.innerHTML=(TITLES[id]||id)+' <span class="topbar-date" id="topbar-date"></span>';setDate();}
-  document.querySelectorAll('.nav-item').forEach(n=>{if(n.getAttribute('onclick')?.includes("'"+id+"'"))n.classList.add('active');});
-  closeSidebar();
-  document.getElementById('main-area')?.scrollTo(0,0);
-  if(id==='patients')renderPat();
-  if(id==='dashboard'){buildChart();buildDashAlerts();renderTodayAppts();}
-  if(id==='appointments')renderAppts();
-  if(id==='inventory')renderInv();
-  if(id==='invoices')renderInvs();
-  if(id==='services')renderSvcs();
-  if(id==='doctors')renderDocs();
-  if(id==='expenses')renderExpenses();
-  if(id==='staff')renderStaff();
-  if(id==='leads')renderLeads();
-  if(id==='calendar')buildCal();
-  if(id==='whatsapp')renderWA();
-  if(id==='payments')renderPayments();
-  if(id==='installments')renderInstallments();
-  if(id==='suppliers')renderSuppliers();
-  if(id==='purchases'){renderPurchases();fillPurchaseSuppliers();}
-  if(id==='transfers')renderTransfers();
-  if(id==='campaigns')renderCampaigns();
-  if(id==='photos')renderPhotos();
-  if(id==='accounts')renderAccounts();
-  if(id==='waitlist'){_wlAutoUpdateStatuses();renderWaitlist();}
-  if(id==='sessions')renderSessions();
-  if(id==='packages')renderPackages();
-}
+// ✅ TITLES و showScreen موحدتان في 00-core.js
+// لا تعريف هنا لتجنب التعارض
 
 // MOBILE SIDEBAR
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sb-overlay').classList.toggle('open');}
@@ -419,12 +386,7 @@ function aiRenderChips(){
     </button>`).join('');
 }
 
-// Init AI screen on first show
-const _origShowAI = window.showScreen;
-window.showScreen = function(id){
-  _origShowAI(id);
-  if(id === 'ai'){ aiRenderMessages(); aiRenderChips(); }
-};
+// ✅ 'ai' screen render في showScreen الموحدة بـ 00-core.js
 
 // Watch input to toggle send button
 document.addEventListener('input', e => {
@@ -586,14 +548,7 @@ function init(){
   _startWLAutoRefresh();
 }
 // init() called from index.html after all scripts load
-// ══════════════════════════════════════════
-// Hook showScreen for branches
-const _origShowBranch = window.showScreen;
-window.showScreen = function(id){
-  _origShowBranch(id);
-  if(id==='branches') renderBranches();
-  if(id==='resources'){ renderRooms(); renderEquipment(); }
-};
+// ✅ branches و resources في showScreen الموحدة بـ 00-core.js
 // ══════════════════════════════════════════
 // 🔐 SESSION MANAGEMENT (Secure — supports plain JSON & base64 encoded session)
 // ══════════════════════════════════════════

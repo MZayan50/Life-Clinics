@@ -356,25 +356,8 @@ async function migrateToFirestore(){
   showToast('success','✅ اكتمل الترحيل — Firestore الآن يحتوي schema v2 صحيح');
 }
 
-// ── Patch DB to write to Firestore whenever Firebase is ready ──
-const _origPush = DB.push.bind(DB);
-const _origUpd  = DB.upd.bind(DB);
-const _origDel  = DB.del.bind(DB);
-
-DB.push = function(k, o){
-  const result = _origPush(k, o);
-  fbSet(k, result.id, result);
-  return result;
-};
-DB.upd = function(k, id, d){
-  _origUpd(k, id, d);
-  const item = DB.get(k).find(x => x.id == id);
-  if(item) fbSet(k, id, item);
-};
-DB.del = function(k, id){
-  _origDel(k, id);
-  fbDel(k, id);
-};
+// ✅ DB.push/upd/del تستدعي fbSet/fbDel تلقائياً من 00-core.js
+// لا حاجة لأي patch إضافي هنا — تم حذفه لتجنب double-write لـ Firestore
 
 // Flush any pending queue after Firebase connects
 const _origInitFirebase = initFirebase;

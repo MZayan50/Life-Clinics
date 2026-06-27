@@ -50,66 +50,8 @@ function delExp(id){
   if(confirm(`حذف مصروف "${e?.name||''}"؟`)){DB.del('expenses',id);showToast('info','🗑 تم الحذف');renderExpenses();if(document.getElementById('screen-treasury')?.classList.contains('active'))renderTreasury();}
 }
 
-// 📆 INSTALLMENTS SCREEN
-// ══════════════════════════════════════════
-function renderInstallments(){
-  const screen = document.getElementById('screen-installments');
-  if(!screen) return;
-
-  const invoices = DB.get('invoices').filter(i=>i.remaining>0||i.status==='جزئي');
-  const overdue = invoices.filter(i=>{
-    if(!i.nextPayDate) return false;
-    return new Date(i.nextPayDate) < new Date();
-  });
-
-  screen.innerHTML = `
-  <div style="margin-bottom:18px;">
-    <h2 style="font-size:17px;font-weight:800;">متابعة الأقساط</h2>
-    <p style="font-size:12.5px;color:var(--text-muted)">${invoices.length} قسط نشط</p>
-  </div>
-  <div class="kpi-grid" style="margin-bottom:18px;">
-    <div class="kpi-card kc-rose"><div class="kpi-icon">💳</div>
-      <div class="kpi-value">${invoices.length}</div>
-      <div class="kpi-label">أقساط نشطة</div></div>
-    <div class="kpi-card kc-amber"><div class="kpi-icon">⚠️</div>
-      <div class="kpi-value">${overdue.length}</div>
-      <div class="kpi-label">أقساط متأخرة</div></div>
-    <div class="kpi-card kc-teal"><div class="kpi-icon">💰</div>
-      <div class="kpi-value">${invoices.reduce((s,i)=>s+(i.remaining||0),0).toLocaleString()} ج</div>
-      <div class="kpi-label">إجمالي المتبقي</div></div>
-  </div>
-  ${invoices.length === 0 ? `
-    <div class="card" style="text-align:center;padding:40px;">
-      <div style="font-size:44px;margin-bottom:14px">✅</div>
-      <h3 style="font-size:17px;margin-bottom:7px">لا توجد أقساط معلقة</h3>
-      <p style="color:var(--text-muted)">كل الفواتير مدفوعة بالكامل</p>
-    </div>` : `
-  <div class="card">
-    <div class="card-hdr"><div class="card-title">📋 قائمة الأقساط</div>
-      <button class="btn btn-ghost btn-sm" onclick="sendAllReminders()">📱 إرسال تذكيرات</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>العميل</th><th>الخدمة</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th>إجراءات</th></tr></thead>
-        <tbody>
-          ${invoices.map(inv=>`
-          <tr>
-            <td style="font-weight:600">${inv.patient}</td>
-            <td>${inv.service}</td>
-            <td>${inv.total} ج</td>
-            <td style="color:var(--emerald);font-weight:700">${inv.paid} ج</td>
-            <td style="color:var(--rose);font-weight:700">${inv.remaining} ج</td>
-            <td><span class="ast sp">جزئي</span></td>
-            <td style="display:flex;gap:5px;">
-              <button class="btn btn-teal btn-xs" onclick="collectPayment('${inv.id}')">💳 تحصيل</button>
-              <button class="btn btn-ghost btn-xs" onclick="showToast('info','📱 تم إرسال تذكير لـ ${inv.patient}')">📱</button>
-            </td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>
-  </div>`}`;
-}
+// ✅ renderInstallments الكاملة موجودة في الأسفل (النسخة المتطورة بـ plans)
+// هذه النسخة البسيطة محذوفة
 
 function collectPayment(invId){
   const inv = DB.get('invoices').find(i=>i.id==invId);
@@ -136,69 +78,13 @@ function sendAllReminders(){
   showToast('success',`📱 تم إرسال ${invoices.length} تذكير عبر واتساب`,'للعملاء الذين لديهم أقساط متأخرة');
 }
 
-// Override showScreen to handle installments
-const _origShowScreen = window.showScreen;
-window.showScreen = function(id){
-  _origShowScreen(id);
-  if(id==='installments') renderInstallments();
-};
+// ✅ renderInstallments تُستدعى من showScreen الموحدة في 00-core.js
 
 // ══════════════════════════════════════════
-// 🏦 TREASURY SCREEN
+// 🏦 TREASURY SCREEN — النسخة الكاملة بـ cashlog في الأسفل
 // ══════════════════════════════════════════
-function renderTreasury(){
-  const container = document.getElementById('treasury-content');
-  if(!container) return;
-  const invoices = DB.get('invoices');
-  const totalIn = invoices.reduce((s,i)=>s+(i.paid||0), 0);
-  const expenses = DB.get('expenses');
-  const totalOut = expenses.reduce((s,e)=>s+(e.amount||0), 0);
-  const balance = totalIn - totalOut;
 
-  container.innerHTML = `
-  <div style="margin-bottom:18px;">
-    <h2 style="font-size:17px;font-weight:800;">الخزينة</h2>
-    <p style="font-size:12.5px;color:var(--text-muted)">${new Date().toLocaleDateString('ar-EG',{month:'long',year:'numeric'})}</p>
-  </div>
-  <div class="kpi-grid" style="margin-bottom:18px;">
-    <div class="kpi-card kc-emerald"><div class="kpi-icon">📥</div><div class="kpi-value">${totalIn.toLocaleString()} ج</div><div class="kpi-label">إجمالي الوارد</div></div>
-    <div class="kpi-card kc-rose"><div class="kpi-icon">📤</div><div class="kpi-value">${totalOut.toLocaleString()} ج</div><div class="kpi-label">إجمالي الصادر</div></div>
-    <div class="kpi-card ${balance>=0?'kc-teal':'kc-amber'}"><div class="kpi-icon">💰</div><div class="kpi-value">${balance.toLocaleString()} ج</div><div class="kpi-label">الرصيد الحالي</div></div>
-  </div>
-  <div class="g2c" style="gap:16px;">
-    <div class="card">
-      <div class="card-hdr"><div class="card-title">📥 الوارد (مدفوعات)</div></div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>العميل</th><th>الخدمة</th><th>المبلغ</th><th>التاريخ</th></tr></thead>
-        <tbody>${invoices.filter(i=>i.paid>0).map(i=>`
-          <tr><td style="font-size:13px;font-weight:600">${i.patient}</td><td style="font-size:12px">${i.service}</td>
-          <td style="color:var(--emerald);font-weight:700">${i.paid} ج</td><td style="font-size:12px">${i.date}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px">لا توجد مدفوعات</td></tr>'}
-        </tbody>
-      </table></div>
-    </div>
-    <div class="card">
-      <div class="card-hdr"><div class="card-title">📤 الصادر (مصروفات)</div>
-        <button class="btn btn-primary btn-sm" onclick="showScreen('expenses')">+ مصروف</button>
-      </div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>البيان</th><th>النوع</th><th>المبلغ</th><th>التاريخ</th></tr></thead>
-        <tbody>${expenses.map(e=>`
-          <tr><td style="font-size:13px;font-weight:600">${e.name}</td>
-          <td><span class="tag tg-purple" style="font-size:11px">${e.type}</span></td>
-          <td style="color:var(--rose);font-weight:700">${(e.amount||0).toLocaleString()} ج</td>
-          <td style="font-size:12px">${e.date||'—'}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px">لا توجد مصروفات</td></tr>'}
-        </tbody>
-      </table></div>
-    </div>
-  </div>`;
-}
-
-// Patch showScreen for treasury
-const _origShow2 = window.showScreen;
-window.showScreen = function(id){
-  _origShow2(id);
-  if(id==='treasury') renderTreasury();
-};
+// ✅ renderTreasury تُستدعى من showScreen الموحدة في 00-core.js
 
 // ══════════════════════════════════════════
 // 💳 PAYMENTS SCREEN
@@ -443,34 +329,10 @@ function renderAccounts(){
 // ══════════════════════════════════════════
 // PATCH showScreen for new screens
 // ══════════════════════════════════════════
-const _origShow3 = window.showScreen;
-window.showScreen = function(id){
-  _origShow3(id);
-  if(id==='payments') renderPayments();
-  if(id==='installments') renderInstallments();
-  if(id==='suppliers') renderSuppliers();
-  if(id==='purchases'){renderPurchases();fillPurchaseSuppliers();}
-  if(id==='transfers') renderTransfers();
-  if(id==='campaigns') renderCampaigns();
-  if(id==='photos') renderPhotos();
-  if(id==='accounts') renderAccounts();
-};
+// ✅ كل render calls منقولة لـ showScreen الموحدة في 00-core.js
 
-// Patch DB to support arrays that don't exist yet
-const _origDBGet = DB.get.bind(DB);
-DB.get = function(key){
-  const result = _origDBGet(key);
-  if(!result && ['installments','suppliers','purchases','transfers','campaigns','photos','waitlist','sessions','packages'].includes(key)){
-    return [];
-  }
-  return result;
-};
-DB.push = function(key, item){
-  item.id = item.id || Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-  const arr = DB.get(key)||[];
-  arr.push(item);
-  DB.set(key, arr);
-};
+// ✅ DB.push و DB.get معرّفان في 00-core.js بشكل صحيح مع audit + fbSet
+// لا حاجة لأي override هنا
 
 // ══════════════════════════════════════════
 // ⏳ WAITLIST
@@ -574,15 +436,9 @@ function renderTreasury(){
     </div>`;
 }
 
-// Hook treasury screen
-const _p6ShowOrig=window.showScreen;
-window.showScreen=function(id){
-  _p6ShowOrig(id);
-  if(id==='treasury') renderTreasury();
-  if(id==='invoices') renderInvs();
-};
+// ✅ treasury و invoices في showScreen الموحدة بـ 00-core.js
 
 // Run installment status check on load + every 5 minutes
-setTimeout(updateInstallmentStatuses,3000);
-setInterval(updateInstallmentStatuses,5*60*1000);
+setTimeout(updateInstallmentStatuses, 3000);
+setInterval(updateInstallmentStatuses, 5 * 60 * 1000);
 
