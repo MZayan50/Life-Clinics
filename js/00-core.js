@@ -413,7 +413,24 @@ function showScreen(id){
   EventBus.emit('screen:changed', { id });
 }
 
-if(!localStorage.getItem('ha_seeded_v2')){
+// ══════════════════════════════════════════
+// 🩹 MIGRATION — توحيد حقل عمولة الطبيب
+// نسخ سابقة كانت تحفظ commissionPercentage بينما كل الحسابات (الفواتير/التقارير) تقرأ commission
+// هذا يصحح بيانات أي عيادة مُنشأة قبل هذا التحديث، مرة واحدة فقط
+// ══════════════════════════════════════════
+if(!localStorage.getItem('ha_fix_commission_v1')){
+  const docs = DB.get('doctors');
+  let fixed = false;
+  docs.forEach(d=>{
+    if((d.commission===undefined || d.commission===null) && d.commissionPercentage!==undefined){
+      DB.upd('doctors', d.id, { commission: d.commissionPercentage });
+      fixed = true;
+    }
+  });
+  localStorage.setItem('ha_fix_commission_v1','1');
+}
+
+
   // clear old seed
   localStorage.removeItem('ha_seeded');
 
@@ -431,9 +448,9 @@ if(!localStorage.getItem('ha_seeded_v2')){
   // ── Doctors ──
   const D1='doc-mona-0001', D2='doc-ahmed-0002', D3='doc-lamia-0003';
   DB.set('doctors',[
-    {id:D1,name:'د. منى سامي',specialty:'بشرة وجلدية',licenseNumber:'12345',phone:'01112223331',email:'mona@lifeclinics.com',branchId:BR1,commissionType:'percentage',commissionPercentage:15,consultationFee:300,status:'نشط',workStart:'09:00',workEnd:'17:00',offDay:'الجمعة',leaveDates:'',..._audit()},
-    {id:D2,name:'د. أحمد رضا',specialty:'ليزر وإزالة شعر',licenseNumber:'12346',phone:'01112223332',email:'ahmed@lifeclinics.com',branchId:BR1,commissionType:'percentage',commissionPercentage:12,consultationFee:250,status:'نشط',workStart:'10:00',workEnd:'18:00',offDay:'الجمعة',leaveDates:'',..._audit()},
-    {id:D3,name:'د. لمياء حسن',specialty:'حقن وبلازما',licenseNumber:'12347',phone:'01112223333',email:'lamia@lifeclinics.com',branchId:BR2,commissionType:'percentage',commissionPercentage:18,consultationFee:350,status:'نشط',workStart:'09:00',workEnd:'16:00',offDay:'السبت',leaveDates:'',..._audit()}
+    {id:D1,name:'د. منى سامي',specialty:'بشرة وجلدية',licenseNumber:'12345',phone:'01112223331',email:'mona@lifeclinics.com',branchId:BR1,commission:15,consultationFee:300,status:'نشط',workStart:'09:00',workEnd:'17:00',offDay:'الجمعة',leaveDates:'',..._audit()},
+    {id:D2,name:'د. أحمد رضا',specialty:'ليزر وإزالة شعر',licenseNumber:'12346',phone:'01112223332',email:'ahmed@lifeclinics.com',branchId:BR1,commission:12,consultationFee:250,status:'نشط',workStart:'10:00',workEnd:'18:00',offDay:'الجمعة',leaveDates:'',..._audit()},
+    {id:D3,name:'د. لمياء حسن',specialty:'حقن وبلازما',licenseNumber:'12347',phone:'01112223333',email:'lamia@lifeclinics.com',branchId:BR2,commission:18,consultationFee:350,status:'نشط',workStart:'09:00',workEnd:'16:00',offDay:'السبت',leaveDates:'',..._audit()}
   ]);
 
   // ── Rooms ──

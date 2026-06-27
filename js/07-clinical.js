@@ -1,6 +1,111 @@
 // 📸 PHOTOS SCREEN
 // ══════════════════════════════════════════
-// النسخة الكاملة أسفل — هذه النسخة القديمة محذوفة
+// تخزين الصور 100% محلي على الجهاز — لا تُرفع أي صورة لـ Firestore أبدًا.
+// قاعدة البيانات (وبالتالي المزامنة السحابية) تحفظ فقط مرجع نصي صغير (key) لكل صورة.
+// ══════════════════════════════════════════
+
+// ── PhotoStore: طبقة تخزين الصور محليًا (IndexedDB) ──
+// • على الكمبيوتر (Chrome/Edge): File System Access API → يسأل المستخدم "حفظ بإسم"
+//   ويحفظ الصورة كملف فعلي على القرص باسم = مفتاح الصورة، ويُخزَّن مرجع الملف (handle) في IndexedDB لإعادة فتحه تلقائيًا لاحقًا.
+// • على الموبايل/المتصفحات التي لا تدعم هذه الـ API: تُخزَّن الصورة كـ Blob داخل IndexedDB على نفس الجهاز فقط (نفس مبدأ "لا رفع للسحابة" لكن بدون اختيار مسار يدوي، لأن أنظمة الموبايل لا تسمح بذلك من المتصفح).
+const PhotoStore = (function(){
+  let _db = null;
+  function _open(){
+    return new Promise((resolve,reject)=>{
+      if(_db) return resolve(_db);
+      if(!window.indexedDB) return reject(new Error('IndexedDB غير متاح'));
+      const req = indexedDB.open('ha_photos_db', 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if(!db.objectStoreNames.contains('handles')) db.createObjectStore('handles');
+        if(!db.objectStoreNames.contains('blobs'))   db.createObjectStore('blobs');
+      };
+      req.onsuccess = () => { _db = req.result; resolve(_db); };
+      req.onerror   = () => reject(req.error);
+    });
+  }
+  async function _store(name, mode){ const db = await _open(); return db.transaction(name, mode).objectStore(name); }
+  function _get(store, key){ return new Promise(res=>{ const rq=store.get(key); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>res(null); }); }
+  const supportsFS = () => typeof window.showSaveFilePicker === 'function';
+
+  // حفظ ملف صورة جديد تحت مفتاح فريد (key). يرجع true لو نجح الحفظ، أو يرمي خطأ AbortError لو المستخدم لغى نافذة الحفظ
+  async function save(key, file){
+    if(supportsFS()){
+      const ext = (file.name||'').match(/\.[a-z0-9]+$/i)?.[0] || '.jpg';
+      const handle = await window.showSaveFilePicker({
+        suggestedName: key + ext,
+        types: [{ description:'صورة', accept:{ 'image/*':['.png','.jpg','.jpeg','.webp'] } }]
+      }); // قد يرمي AbortError لو المستخدم ضغط "إلغاء" — يُترك ليتعامل معه المستدعي
+      const writable = await handle.createWritable();
+      await writable.write(file);
+      await writable.close();
+      (await _store('handles','readwrite')).put(handle, key);
+      return true;
+    }
+    // الموبايل / متصفحات بدون File System Access API
+    (await _store('blobs','readwrite')).put(file, key);
+    return true;
+  }
+
+  // يرجع object URL للعرض، أو 'PERMISSION_NEEDED' لو محتاج إذن (ويحتاج user gesture لإعادة الطلب)، أو null لو غير موجودة
+  async function getURL(key){
+    const blob = await _get(await _store('blobs','readonly'), key);
+    if(blob) return URL.createObjectURL(blob);
+    const handle = await _get(await _store('handles','readonly'), key);
+    if(!handle) return null;
+    try{
+      let perm = await handle.queryPermission({mode:'read'});
+      if(perm !== 'granted') perm = await handle.requestPermission({mode:'read'});
+      if(perm !== 'granted') return 'PERMISSION_NEEDED';
+      const file = await handle.getFile();
+      return URL.createObjectURL(file);
+    }catch(e){ return 'PERMISSION_NEEDED'; }
+  }
+
+  async function remove(key){
+    if(!key) return;
+    (await _store('blobs','readwrite')).delete(key);
+    (await _store('handles','readwrite')).delete(key);
+  }
+
+  return { save, getURL, remove, supportsFS };
+})();
+
+// ── حالة نافذة إضافة الصور (مؤقتة أثناء فتح المودال فقط) ──
+window._photoModalState = { id:null, beforeKey:null, afterKey:null };
+
+function openPhotoModal(patientId){
+  window._photoModalState = { id: genUUID(), beforeKey:null, afterKey:null };
+  const f = (id,v='') => { const el=document.getElementById(id); if(el) el.value=v; };
+  f('photo-id'); f('photo-svc'); f('photo-session',1); f('photo-notes');
+  const dEl=document.getElementById('photo-date'); if(dEl) dEl.value=new Date().toISOString().split('T')[0];
+  ['before','after'].forEach(slot=>{
+    const prev=document.getElementById('photo-'+slot+'-preview'); if(prev){ prev.style.display='none'; prev.src=''; }
+    const lbl=document.getElementById('photo-'+slot+'-label'); if(lbl) lbl.textContent='لم تُختار صورة';
+  });
+  openModal('photo-modal'); // openModal يستدعي fillPatDropdowns تلقائيًا (ويشمل الآن photo-pat)
+  if(patientId){ const sel=document.getElementById('photo-pat'); if(sel) sel.value=patientId; }
+}
+
+// اختيار صورة من جهاز المستخدم لخانة "قبل" أو "بعد" وحفظها فورًا محليًا (بدون رفعها لأي سيرفر)
+function _pickPhotoSlot(slot){
+  const input=document.createElement('input');
+  input.type='file'; input.accept='image/*';
+  input.onchange = async () => {
+    const file=input.files[0]; if(!file) return;
+    const key = `${window._photoModalState.id}_${slot}`;
+    try{
+      await PhotoStore.save(key, file);
+      window._photoModalState[slot+'Key'] = key;
+      const prev=document.getElementById('photo-'+slot+'-preview');
+      if(prev){ prev.src=URL.createObjectURL(file); prev.style.display='block'; }
+      const lbl=document.getElementById('photo-'+slot+'-label'); if(lbl) lbl.textContent='✅ '+(file.name||'تم الحفظ');
+    }catch(err){
+      if(err?.name!=='AbortError') showToast('error','❌ فشل حفظ الصورة', err?.message||'');
+    }
+  };
+  input.click();
+}
 
 function renderPhotos(q){
   q=q||'';
@@ -15,7 +120,7 @@ function renderPhotos(q){
   txt('photo-kpi-total',all.length);
   const uniqPats=new Set(all.map(p=>p.patientName)).size;
   txt('photo-kpi-patients',uniqPats);
-  const pairs=all.filter(p=>p.before&&p.after&&p.before!=='📷').length;
+  const pairs=all.filter(p=>p.beforeKey&&p.afterKey).length;
   txt('photo-kpi-pairs',pairs);
 
   const grid=document.getElementById('photo-grid');if(!grid)return;
@@ -38,34 +143,60 @@ function renderPhotos(q){
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-        <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:20px;text-align:center;">
-          <div style="font-size:28px">${p.before&&p.before!=='📷'?'🖼':'📷'}</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">قبل</div>
-          ${p.before&&p.before!=='📷'?`<div style="font-size:10px;color:var(--teal);margin-top:2px;word-break:break-all">${p.before.substring(0,20)}...</div>`:''}
+        <div id="ph-before-${p.id}" style="background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:20px;text-align:center;min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          <div style="font-size:28px">📷</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px">قبل</div>
         </div>
-        <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:20px;text-align:center;">
-          <div style="font-size:28px">${p.after&&p.after!=='📸'?'🖼':'📸'}</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">بعد</div>
-          ${p.after&&p.after!=='📸'?`<div style="font-size:10px;color:var(--teal);margin-top:2px;word-break:break-all">${p.after.substring(0,20)}...</div>`:''}
+        <div id="ph-after-${p.id}" style="background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:20px;text-align:center;min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          <div style="font-size:28px">📸</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px">بعد</div>
         </div>
       </div>
       ${p.notes?`<div style="font-size:12px;color:var(--text-muted);border-top:1px solid var(--glass-border);padding-top:8px;">${p.notes}</div>`:''}
     </div>
   `).join('');
+
+  // تحميل المعاينات بشكل غير متزامن من التخزين المحلي (IndexedDB) — لا يوجد طلب شبكة هنا أبدًا
+  photos.forEach(p=>{
+    if(p.beforeKey) _loadPhotoThumb(`ph-before-${p.id}`, p.beforeKey, 'قبل');
+    if(p.afterKey)  _loadPhotoThumb(`ph-after-${p.id}`,  p.afterKey,  'بعد');
+  });
 }
+
+async function _loadPhotoThumb(elId, key, label){
+  const el=document.getElementById(elId); if(!el) return;
+  const url = await PhotoStore.getURL(key);
+  if(url==='PERMISSION_NEEDED'){
+    el.innerHTML=`<button class="btn btn-ghost btn-xs" onclick="_loadPhotoThumb('${elId}','${key}','${label}')">🔓 عرض الصورة</button>`;
+  } else if(url){
+    el.innerHTML=`<img src="${url}" style="width:100%;height:90px;object-fit:cover;border-radius:8px">`;
+  }
+  // لو null (الصورة غير موجودة لأي سبب) → يبقى الإيموجي الافتراضي كما هو
+}
+
 function delPhoto(id){
   if(confirm('حذف هذه الصور؟')){
+    const p=DB.get('photos').find(x=>x.id===id);
+    if(p){ PhotoStore.remove(p.beforeKey); PhotoStore.remove(p.afterKey); }
     DB.del('photos', id);
     showToast('info','🗑 تم الحذف');
     renderPhotos();
   }
 }
+
 function savePhoto(){
-  const pat=gv('photo-pat');if(!pat){showToast('warning','⚠️ اختر العميل');return;}
-  DB.push('photos',{patientName:pat,service:gv('photo-svc'),date:gv('photo-date'),session:parseInt(gv('photo-session'))||1,before:'📷',after:'📸',notes:gv('photo-notes')});
-  closeModal('photo-modal');showToast('success',`✅ تم إضافة صور ${pat}`);renderPhotos();
+  const patId=gv('photo-pat'); if(!patId){showToast('warning','⚠️ اختر العميل');return;}
+  const pat=DB.get('patients').find(x=>x.id===patId);
+  const st=window._photoModalState||{};
+  if(!st.beforeKey && !st.afterKey){ showToast('warning','⚠️ اختر صورة واحدة على الأقل (قبل أو بعد)'); return; }
+  DB.push('photos',{
+    id: st.id, patientId: patId, patientName: pat?.name||'',
+    service: gv('photo-svc'), date: gv('photo-date')||new Date().toISOString().split('T')[0],
+    session: parseInt(gv('photo-session'))||1,
+    beforeKey: st.beforeKey||null, afterKey: st.afterKey||null,
+    notes: gv('photo-notes')
+  });
+  closeModal('photo-modal');
+  showToast('success',`✅ تم إضافة صور ${pat?.name||''}`);
 }
-// ✅ delPhoto معرّفة مرة واحدة أعلاه
 
 // ══════════════════════════════════════════
 // 📊 ACCOUNTS SCREEN

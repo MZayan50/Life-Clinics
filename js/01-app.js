@@ -27,7 +27,7 @@ function closeModal(id){document.getElementById(id)?.classList.remove('open');}
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 function fillPatDropdowns(){
   const pats=DB.get('patients');
-  ['am-pat','im-pat'].forEach(did=>{const sel=document.getElementById(did);if(!sel)return;const cur=sel.value;sel.innerHTML='<option value="">-- اختر عميل --</option>'+pats.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');if(cur)sel.value=cur;});
+  ['am-pat','im-pat','photo-pat'].forEach(did=>{const sel=document.getElementById(did);if(!sel)return;const cur=sel.value;sel.innerHTML='<option value="">-- اختر عميل --</option>'+pats.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');if(cur)sel.value=cur;});
 }
 
 // TABS
