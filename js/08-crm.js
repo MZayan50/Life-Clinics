@@ -315,36 +315,12 @@ function sendBulkWAReminders(){
 // ══════════════════════════════════════════
 
 // بيانات أولية للحملات إن لم توجد
-function _initCampaignsSeed(){
-  if(DB.get('campaigns').length) return;
-  // نستخدم DB.set مباشرة لتجنب إطلاق الأحداث بشكل متكرر عند الـ seed
-  DB.set('campaigns', [
-    {
-      id: 'c1', name: 'حملة عيد الأم - بوتكس 20%', channel: 'إنستجرام',
-      goal: 'زيادة الحجوزات', budget: 5000, leadsCount: 45, converted: 18,
-      startDate: '2025-03-01', endDate: '2025-03-31', status: 'منتهية',
-      desc: 'خصم 20% على جلسات البوتكس بمناسبة عيد الأم',
-    },
-    {
-      id: 'c2', name: 'صيف مثالي - ليزر الجسم', channel: 'فيسبوك',
-      goal: 'ترويج خدمة', budget: 8000, leadsCount: 72, converted: 31,
-      startDate: '2025-06-01', endDate: '2025-08-31', status: 'نشطة',
-      desc: 'باقات ليزر الجسم الكاملة بأسعار موسم الصيف',
-    },
-    {
-      id: 'c3', name: 'عروض رمضان الكريم', channel: 'واتساب',
-      goal: 'ولاء العملاء', budget: 3000, leadsCount: 28, converted: 24,
-      startDate: '2025-09-01', endDate: '2025-09-30', status: 'مجدولة',
-      desc: 'عروض حصرية لعملاء العيادة الحاليين',
-    },
-  ]);
-}
+// _initCampaignsSeed أُزيلت — لا بيانات وهمية، الشاشة تعرض empty state حقيقي
 
 const CAMP_COLORS = { 'نشطة': 'kc-teal', 'منتهية': 'kc-rose', 'مجدولة': 'kc-amber' };
 const CHAN_ICONS  = { 'إنستجرام': '📸', 'فيسبوك': '👥', 'واتساب': '💬', 'SMS': '📱', 'إيميل': '📧', 'جوجل': '🔍' };
 
 function renderCampaigns(q){
-  _initCampaignsSeed();
   q = q || '';
   const stFilter = document.getElementById('camp-status-filter')?.value || '';
   let camps = DB.get('campaigns');
@@ -389,7 +365,12 @@ function renderCampaigns(q){
         <button class="btn btn-danger btn-sm"  style="font-size:11px"        onclick="delCampaign('${c.id}')">🗑</button>
       </div>
     </div>`;
-  }).join('') || '<div class="card" style="text-align:center;padding:40px;color:var(--text-muted);">لا توجد حملات</div>';
+  }).join('') || `<div class="card" style="text-align:center;padding:48px 24px;color:var(--text-muted);">
+      <div style="font-size:40px;margin-bottom:12px;">📣</div>
+      <div style="font-size:15px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;">لا توجد حملات تسويقية بعد</div>
+      <div style="font-size:13px;margin-bottom:20px;">أنشئ أول حملة لتتبع الليدز والميزانية ومعدل التحويل</div>
+      <button class="btn btn-teal btn-sm" onclick="openCampaignModal()">+ حملة جديدة</button>
+    </div>`;
 }
 
 function openCampaignModal(id){

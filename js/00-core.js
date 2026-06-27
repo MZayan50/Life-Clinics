@@ -169,18 +169,32 @@ EventBus.on('invoices:created', function(inv){
   }
 });
 
-// ── 2. تحديث فاتورة → إعادة حساب رصيد العميل ──
+// ── 2. تحديث فاتورة → إعادة حساب رصيد العميل + تسجيل الدفع الجديد في الخزينة ──
 EventBus.on('invoices:updated', function(inv){
   const pat = DB.get('patients').find(p => String(p.id) === String(inv.patId) || p.name === inv.patient);
-  if(!pat) return;
-  const allInvs = DB.get('invoices').filter(i => String(i.patId) === String(pat.id) || i.patient === pat.name);
-  const totalRemaining = allInvs.reduce((s, i) => s + (i.remaining || 0), 0);
-  const totalSpent     = allInvs.reduce((s, i) => s + (i.total || 0), 0);
-  DB.upd('patients', pat.id, {
-    spent: totalSpent,
-    balance: totalRemaining,
-    status: totalRemaining > 0 ? 'قسط' : (pat.status === 'قسط' ? 'نشط' : pat.status)
-  });
+  if(pat){
+    const allInvs = DB.get('invoices').filter(i => String(i.patId) === String(pat.id) || i.patient === pat.name);
+    const totalRemaining = allInvs.reduce((s, i) => s + (i.remaining || 0), 0);
+    const totalSpent     = allInvs.reduce((s, i) => s + (i.total || 0), 0);
+    DB.upd('patients', pat.id, {
+      spent: totalSpent,
+      balance: totalRemaining,
+      status: totalRemaining > 0 ? 'قسط' : (pat.status === 'قسط' ? 'نشط' : pat.status)
+    });
+  }
+  // إذا كانت الفاتورة تحمل دفعة جديدة (paidDelta) سجّلها في الخزينة
+  // paidDelta يُحسب في saveInv عند كل تعديل يزيد المدفوع
+  if((inv.paidDelta || 0) > 0){
+    DB.push('cashlog', {
+      type: 'وارد', source: `دفعة — ${inv.patient||''}`, refId: inv.id,
+      patient: inv.patient || '', patId: inv.patId || '',
+      amount: inv.paidDelta, service: inv.service || '',
+      doctor: inv.doctor || '', branch: inv.branch || '',
+      method: inv.method || 'كاش',
+      date: inv.date || new Date().toISOString().split('T')[0],
+      notes: 'دفعة جزئية على فاتورة'
+    });
+  }
 });
 
 // ── 3. استلام مشتريات → تحديث المخزون + سجل الحركات ──
@@ -430,153 +444,34 @@ if(!localStorage.getItem('ha_fix_commission_v1')){
   localStorage.setItem('ha_fix_commission_v1','1');
 }
 
+// ══════════════════════════════════════════
+// 🗃️ تهيئة المجموعات الفارغة عند أول تشغيل
+// يُنشئ الهيكل فقط — لا بيانات وهمية
+// ══════════════════════════════════════════
 if(!localStorage.getItem('ha_seeded_v2')){
-  // clear old seed
+  // حذف أي seed قديم إن وجد
   localStorage.removeItem('ha_seeded');
 
-  const today=new Date().toISOString().split('T')[0];
-  const ts=_now();
-  const SYS='النظام';
+  // ── إعدادات افتراضية قابلة للتعديل من شاشة الإعدادات ──
+  if(!DB.get('settings') || !DB.get('settings').clinicName){
+    DB.set('settings',{clinicName:'عيادتي للتجميل',phone:'',managerName:'',managerRole:'مدير النظام',schemaVersion:2});
+  }
 
-  // ── Branches ──
-  const BR1='branch-nasr-0001', BR2='branch-mohan-0002';
-  DB.set('branches',[
-    {id:BR1,name:'مدينة نصر',address:'شارع عباس العقاد، مدينة نصر',phone:'0223456789',managerName:'كريم ماهر',isActive:true,..._audit()},
-    {id:BR2,name:'المهندسين',address:'شارع جامعة الدول العربية، المهندسين',phone:'0238765432',managerName:'سارة عادل',isActive:true,..._audit()}
-  ]);
-
-  // ── Doctors ──
-  const D1='doc-mona-0001', D2='doc-ahmed-0002', D3='doc-lamia-0003';
-  DB.set('doctors',[
-    {id:D1,name:'د. منى سامي',specialty:'بشرة وجلدية',licenseNumber:'12345',phone:'01112223331',email:'mona@lifeclinics.com',branchId:BR1,commission:15,consultationFee:300,status:'نشط',workStart:'09:00',workEnd:'17:00',offDay:'الجمعة',leaveDates:'',..._audit()},
-    {id:D2,name:'د. أحمد رضا',specialty:'ليزر وإزالة شعر',licenseNumber:'12346',phone:'01112223332',email:'ahmed@lifeclinics.com',branchId:BR1,commission:12,consultationFee:250,status:'نشط',workStart:'10:00',workEnd:'18:00',offDay:'الجمعة',leaveDates:'',..._audit()},
-    {id:D3,name:'د. لمياء حسن',specialty:'حقن وبلازما',licenseNumber:'12347',phone:'01112223333',email:'lamia@lifeclinics.com',branchId:BR2,commission:18,consultationFee:350,status:'نشط',workStart:'09:00',workEnd:'16:00',offDay:'السبت',leaveDates:'',..._audit()}
-  ]);
-
-  // ── Rooms ──
-  const R1='room-0001',R2='room-0002',R3='room-0003',R4='room-0004';
-  DB.set('rooms',[
-    {id:R1,name:'غرفة كشف 1',branchId:BR1,branch:'مدينة نصر',status:'متاحة',..._audit()},
-    {id:R2,name:'غرفة كشف 2',branchId:BR1,branch:'مدينة نصر',status:'متاحة',..._audit()},
-    {id:R3,name:'غرفة ليزر',branchId:BR1,branch:'مدينة نصر',status:'متاحة',..._audit()},
-    {id:R4,name:'غرفة كشف 1',branchId:BR2,branch:'المهندسين',status:'متاحة',..._audit()}
-  ]);
-
-  // ── Equipment ──
-  DB.set('equipment',[
-    {id:'equip-0001',name:'جهاز ليزر إزالة الشعر',branchId:BR1,branch:'مدينة نصر',roomId:R3,status:'شغال',..._audit()},
-    {id:'equip-0002',name:'جهاز بلازما',branchId:BR2,branch:'المهندسين',roomId:R4,status:'شغال',..._audit()},
-    {id:'equip-0003',name:'جهاز هيدرافيشل',branchId:BR1,branch:'مدينة نصر',roomId:R1,status:'شغال',..._audit()}
-  ]);
-
-  // ── Services ──
-  const S1='svc-hydra-0001',S2='svc-laser-0002',S3='svc-botox-0003',S4='svc-plasma-0004';
-  DB.set('services',[
-    {id:S1,name:'هيدرافيشل',cat:'البشرة',price:800,cost:200,duration:60,doctorId:D1,doctor:'د. منى سامي',roomId:R1,room:'غرفة كشف 1',equipment:'',..._audit()},
-    {id:S2,name:'ليزر إزالة شعر',cat:'ليزر',price:1200,cost:300,duration:45,doctorId:D2,doctor:'د. أحمد رضا',roomId:R3,room:'غرفة ليزر',equipment:'جهاز ليزر إزالة الشعر',..._audit()},
-    {id:S3,name:'بوتكس',cat:'حقن',price:3500,cost:800,duration:30,doctorId:D1,doctor:'د. منى سامي',roomId:R1,room:'غرفة كشف 1',equipment:'',..._audit()},
-    {id:S4,name:'بلازما',cat:'البشرة',price:2000,cost:400,duration:50,doctorId:D3,doctor:'د. لمياء حسن',roomId:R4,room:'غرفة كشف 2',equipment:'جهاز بلازما',..._audit()}
-  ]);
-
-  // ── Patients ──
-  const P1='pat-noura-0001',P2='pat-may-0002',P3='pat-salma-0003',P4='pat-hana-0004';
-  DB.set('patients',[
-    {id:P1,medicalRecordNumber:'MRN-001',name:'نورا أحمد سعيد',phone:'01112345678',email:'noura@email.com',gender:'أنثى',dob:'1992-03-15',skin:'مختلطة',hair:'كيرلي',skinProbs:'حب شباب - بقع',hairProbs:'تساقط',allergies:'لا حساسية',pregnancy:'لا',balance:0,sessions:8,spent:12400,status:'نشط',source:'إنستجرام',branchId:BR1,branch:'مدينة نصر',loyaltyPoints:124,creditBalance:0,outstandingBalance:0,isVIP:false,..._audit()},
-    {id:P2,medicalRecordNumber:'MRN-002',name:'مي إبراهيم حسن',phone:'01009876543',email:'',gender:'أنثى',dob:'1995-07-20',skin:'دهنية',hair:'دهني',skinProbs:'حب شباب',hairProbs:'',allergies:'',pregnancy:'لا',balance:1500,sessions:3,spent:2400,status:'قسط',source:'فيسبوك',branchId:BR1,branch:'مدينة نصر',loyaltyPoints:24,creditBalance:0,outstandingBalance:1500,isVIP:false,..._audit()},
-    {id:P3,medicalRecordNumber:'MRN-003',name:'سلمى خالد رمضان',phone:'01223456789',email:'',gender:'أنثى',dob:'1988-11-05',skin:'جافة',hair:'جاف',skinProbs:'تجاعيد',hairProbs:'جفاف',allergies:'حساسية للنيكل',pregnancy:'لا',balance:0,sessions:15,spent:28500,status:'نشط',source:'صديق',branchId:BR2,branch:'المهندسين',loyaltyPoints:285,creditBalance:0,outstandingBalance:0,isVIP:true,..._audit()},
-    {id:P4,medicalRecordNumber:'MRN-004',name:'هنا محمود عبدالله',phone:'01554567890',email:'',gender:'أنثى',dob:'1990-05-12',skin:'عادية',hair:'عادي',skinProbs:'بقع',hairProbs:'',allergies:'',pregnancy:'لا',balance:0,sessions:6,spent:9000,status:'غير نشط',source:'إعلان',branchId:BR1,branch:'مدينة نصر',loyaltyPoints:90,creditBalance:0,outstandingBalance:0,isVIP:false,..._audit()}
-  ]);
-
-  // ── Appointments ──
-  const A1='appt-0001',A2='appt-0002',A3='appt-0003',A4='appt-0004';
-  DB.set('appointments',[
-    {id:A1,patientId:P1,patient:'نورا أحمد سعيد',serviceId:S1,service:'هيدرافيشل',type:'جلسة',doctorId:D1,doctor:'د. منى سامي',roomId:R1,time:'09:00',date:today,status:'مؤكد',branchId:BR1,branch:'مدينة نصر',..._audit()},
-    {id:A2,patientId:P2,patient:'مي إبراهيم حسن',serviceId:S2,service:'ليزر إزالة شعر',type:'ليزر',doctorId:D2,doctor:'د. أحمد رضا',roomId:R3,time:'10:30',date:today,status:'انتظار',branchId:BR1,branch:'مدينة نصر',..._audit()},
-    {id:A3,patientId:P3,patient:'سلمى خالد رمضان',serviceId:S4,service:'بلازما',type:'جلسة',doctorId:D3,doctor:'د. لمياء حسن',roomId:R4,time:'11:00',date:today,status:'في العيادة',branchId:BR2,branch:'المهندسين',..._audit()},
-    {id:A4,patientId:P4,patient:'هنا محمود عبدالله',serviceId:S3,service:'بوتكس',type:'بوتكس',doctorId:D1,doctor:'د. منى سامي',roomId:R1,time:'14:00',date:today,status:'مؤكد',branchId:BR1,branch:'مدينة نصر',..._audit()}
-  ]);
-
-  // ── Invoices (patientId + serviceId — not names) ──
-  const V1='inv-0001',V2='inv-0002';
-  DB.set('invoices',[
-    {id:V1,invoiceNumber:'INV-001',patientId:P1,patient:'نورا أحمد سعيد',appointmentId:A1,total:800,discount:0,tax:0,paid:800,remaining:0,status:'مدفوع',method:'كاش',date:today,branchId:BR1,..._audit()},
-    {id:V2,invoiceNumber:'INV-002',patientId:P2,patient:'مي إبراهيم حسن',appointmentId:A2,total:1200,discount:0,tax:0,paid:600,remaining:600,status:'جزئي',method:'فيزا',date:today,branchId:BR1,..._audit()}
-  ]);
-
-  // ── Invoice Items (separate table) ──
-  DB.set('invoice_items',[
-    {id:'iitem-0001',invoiceId:V1,serviceId:S1,service:'هيدرافيشل',qty:1,unitPrice:800,discount:0,total:800,..._audit()},
-    {id:'iitem-0002',invoiceId:V2,serviceId:S2,service:'ليزر إزالة شعر',qty:1,unitPrice:1200,discount:0,total:1200,..._audit()}
-  ]);
-
-  // ── Inventory ──
-  const PROD1='prod-0001',PROD2='prod-0002',PROD3='prod-0003',PROD4='prod-0004';
-  DB.set('inventory',[
-    {id:PROD1,name:'سيروم فيتامين C',cat:'بشرة',qty:3,reorder:10,price:250,cost:120,expiry:'2026-06-30',status:'منخفض',branchId:BR1,branch:'مدينة نصر',..._audit()},
-    {id:PROD2,name:'كريم ترطيب SPF50',cat:'بشرة',qty:24,reorder:10,price:180,cost:80,expiry:'2026-12-01',status:'متوفر',branchId:BR1,branch:'مدينة نصر',..._audit()},
-    {id:PROD3,name:'شامبو بروتين',cat:'شعر',qty:0,reorder:5,price:120,cost:50,expiry:'',status:'نفذ',branchId:BR1,branch:'مدينة نصر',..._audit()},
-    {id:PROD4,name:'سيروم نمو الشعر',cat:'شعر',qty:8,reorder:5,price:320,cost:140,expiry:'2027-03-01',status:'متوفر',branchId:BR2,branch:'المهندسين',..._audit()}
-  ]);
-
-  // ── Suppliers ──
-  const SUP1='sup-0001',SUP2='sup-0002';
-  DB.set('suppliers',[
-    {id:SUP1,name:'شركة ديرما ميد',contact:'أحمد السيد',phone:'01066667777',email:'info@dermamed.com',address:'القاهرة',paymentTerms:'30 يوم',status:'نشط',..._audit()},
-    {id:SUP2,name:'مستودع بيوتي لاين',contact:'سهام فارس',phone:'01199998888',email:'info@beautyline.com',address:'الجيزة',paymentTerms:'فوري',status:'نشط',..._audit()}
-  ]);
-
-  // ── Purchases ──
-  const PUR1='pur-0001';
-  DB.set('purchases',[
-    {id:PUR1,purchaseNumber:'PO-001',supplierId:SUP1,supplier:'شركة ديرما ميد',date:today,total:3600,paid:3600,remaining:0,status:'مستلم',branchId:BR1,..._audit()}
-  ]);
-  DB.set('purchase_items',[
-    {id:'pi-0001',purchaseId:PUR1,productId:PROD1,product:'سيروم فيتامين C',qty:10,unitCost:120,total:1200,..._audit()},
-    {id:'pi-0002',purchaseId:PUR1,productId:PROD2,product:'كريم ترطيب SPF50',qty:20,unitCost:80,total:1600,..._audit()},
-    {id:'pi-0003',purchaseId:PUR1,productId:PROD4,product:'سيروم نمو الشعر',qty:5,unitCost:140,total:700,..._audit()}
-  ]);
-
-  // ── Leads ──
-  DB.set('leads',[
-    {id:'lead-0001',name:'رانيا مصطفى',phone:'01011111111',service:'ليزر شعر',source:'إنستجرام',status:'جديد',notes:'',..._audit()},
-    {id:'lead-0002',name:'دينا علي',phone:'01022222222',service:'هيدرافيشل',source:'فيسبوك',status:'جديد',notes:'',..._audit()},
-    {id:'lead-0003',name:'هبة رشاد',phone:'01033333333',service:'بوتكس',source:'واتساب',status:'تم التواصل',notes:'',..._audit()},
-    {id:'lead-0004',name:'إيمان طه',phone:'01044444444',service:'ليزر شعر',source:'فيسبوك',status:'مهتم',notes:'محتمل 4800',..._audit()},
-    {id:'lead-0005',name:'لمياء سعد',phone:'01055555555',service:'هيدرافيشل',source:'صديق',status:'تم التحويل',notes:'',..._audit()}
-  ]);
-
-  // ── Staff ──
-  DB.set('staff',[
-    {id:'staff-0001',name:'مريم سعيد',role:'استقبال',phone:'01098765431',email:'mariam@lifeclinics.com',branchId:BR1,branch:'مدينة نصر',salary:5000,status:'نشط',..._audit()},
-    {id:'staff-0002',name:'هدى فاروق',role:'محاسب',phone:'01098765432',email:'hoda@lifeclinics.com',branchId:BR1,branch:'مدينة نصر',salary:6500,status:'نشط',..._audit()},
-    {id:'staff-0003',name:'كريم ماهر',role:'مدير فرع',phone:'01098765433',email:'karim@lifeclinics.com',branchId:BR2,branch:'المهندسين',salary:9000,status:'نشط',..._audit()},
-    {id:'staff-0004',name:'سارة عادل',role:'استقبال',phone:'01098765434',email:'sara@lifeclinics.com',branchId:BR2,branch:'المهندسين',salary:5000,status:'نشط',..._audit()}
-  ]);
-
-  // ── Expenses ──
-  DB.set('expenses',[
-    {id:'exp-0001',name:'إيجار الفرع',amount:8000,type:'إيجار',branchId:BR1,branch:'مدينة نصر',date:today,notes:'',..._audit()},
-    {id:'exp-0002',name:'كهرباء وماء',amount:1200,type:'مرافق',branchId:BR1,branch:'مدينة نصر',date:today,notes:'',..._audit()},
-    {id:'exp-0003',name:'رواتب',amount:45000,type:'رواتب',branchId:BR1,branch:'مدينة نصر',date:today,notes:'',..._audit()},
-    {id:'exp-0004',name:'مستلزمات طبية',amount:3500,type:'مخزون',branchId:BR2,branch:'المهندسين',date:today,notes:'',..._audit()}
-  ]);
-
-  // ── Settings ──
-  DB.set('settings',{clinicName:'عيادات الحياة للتجميل',phone:'0100-000-0000',managerName:'د. سارة محمد',managerRole:'مدير النظام',schemaVersion:2});
-
-  // ── Empty collections (ready to use) ──
-  DB.set('visits',[]);
-  DB.set('inventory_transactions',[]);
-  DB.set('sessions',[]);
-  DB.set('packages',[]);
-  DB.set('waitlist',[]);
-  DB.set('campaigns',[]);
-  DB.set('audit_log',[]);
-
-  // ── Collections إضافية (مضافة في v3) ──
-  DB.set('photos',[]);
-  DB.set('installments',[]);
-  DB.set('cashlog',[]);
+  // ── تهيئة جميع المجموعات فارغة ──
+  const EMPTY_COLLECTIONS = [
+    'branches','doctors','rooms','equipment','services',
+    'patients','appointments','invoices','invoice_items',
+    'inventory','suppliers','purchases','purchase_items',
+    'leads','staff','expenses','visits','inventory_transactions',
+    'sessions','packages','waitlist','campaigns','audit_log',
+    'photos','installments','cashlog'
+  ];
+  EMPTY_COLLECTIONS.forEach(col => {
+    // لا تمسح مجموعة فيها بيانات فعلية مدخلة مسبقاً
+    if(!localStorage.getItem('ha_' + col)){
+      DB.set(col, []);
+    }
+  });
 
   localStorage.setItem('ha_seeded_v2','1');
 }

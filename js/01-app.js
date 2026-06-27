@@ -92,7 +92,7 @@ function updateServiceDistribution(){
   });
   const total = Object.values(svcMap).reduce((a,b)=>a+b,0);
   if(!total){
-    // keep static default if no data
+    el.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">لا توجد فواتير هذا الشهر بعد</div>';
     return;
   }
   const sorted = Object.entries(svcMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
@@ -113,14 +113,24 @@ function buildTopDoctors(){
   const appointments = DB.get('appointments');
   const docRev = {};
   invoices.forEach(inv=>{
-    const appt = appointments.find(a=>a.patient===inv.patient&&a.date===inv.date);
-    const doc = (appt?.doctor||inv.doctor||'').trim();
+    // أولوية 1: doctorId مباشرة في الفاتورة
+    // أولوية 2: اسم الطبيب في الفاتورة مباشرة
+    // أولوية 3: البحث في الموعد المرتبط
+    let doc = (inv.doctor||'').trim();
+    if(!doc){
+      const appt = appointments.find(a=>
+        (inv.appointmentId && a.id===inv.appointmentId) ||
+        (a.patientId===inv.patientId && a.date===inv.date) ||
+        (a.patient===inv.patient && a.date===inv.date)
+      );
+      doc = (appt?.doctor||'').trim();
+    }
     if(!doc) return;
     docRev[doc] = (docRev[doc]||0) + (inv.paid||0);
   });
-  // Fallback: count sessions from appointments
+  // أضف الأطباء الذين لديهم مواعيد هذا الشهر حتى لو بدون فواتير
   appointments.filter(a=>(a.date||'').startsWith(thisMonth)).forEach(a=>{
-    if(a.doctor && !docRev[a.doctor]) docRev[a.doctor] = 0;
+    if(a.doctor && !(a.doctor in docRev)) docRev[a.doctor] = 0;
   });
   const sorted = Object.entries(docRev).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
@@ -543,7 +553,7 @@ function buildKpiSparklines(){
   }
   renderSparkline('kpi-rev-sparkline', revData, 'var(--emerald)');
   renderSparkline('kpi-appt-sparkline', apptData, 'var(--rose)');
-  renderSparkline('kpi-pat-sparkline', patData.map(()=>Math.random()*5|0), 'var(--amber)');
+  renderSparkline('kpi-pat-sparkline', patData, 'var(--amber)');
   renderSparkline('kpi-mrev-sparkline', revData, 'var(--purple)');
 }
 

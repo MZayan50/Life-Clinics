@@ -84,16 +84,24 @@ function saveInv(){
   const svcName=svcRaw.includes(' - ')?svcRaw.split(' - ')[0]:svcRaw;
   // استخراج الطبيب من الموعد المرتبط أو من الخدمة
   const svcObj = DB.get('services').find(s=>s.name===svcName);
+  const apptDate = gv('im-date')||new Date().toISOString().split('T')[0];
   const linkedAppt = DB.get('appointments').find(a=>
-    String(a.patId)===String(pid) && a.date===(gv('im-date')||new Date().toISOString().split('T')[0])
+    (String(a.patientId)===String(pid) || String(a.patId)===String(pid)) &&
+    a.date===apptDate
   );
-  const doctorName = linkedAppt?.doctor || svcObj?.doctor || '';
-  const branchName = linkedAppt?.branch || pat?.branch || '';
-  const data={patId:pid,patient:pat?.name||'—',service:svcName,doctor:doctorName,branch:branchName,
+  const doctorName  = linkedAppt?.doctor  || svcObj?.doctor  || '';
+  const doctorId    = linkedAppt?.doctorId || svcObj?.doctorId || '';
+  const serviceId   = svcObj?.id || '';
+  const branchName  = linkedAppt?.branch  || pat?.branch || '';
+  const data={patId:pid,patientId:pid,patient:pat?.name||'—',service:svcName,serviceId,doctor:doctorName,doctorId,branch:branchName,
     originalPrice:price,discount:disc,total:net,paid:net,remaining:0,status:'مدفوع',method,
     date:gv('im-date')||new Date().toISOString().split('T')[0]};
   if(id){
-    DB.upd('invoices',id,data);
+    // احسب الفرق في المدفوع مقارنة بالفاتورة الأصلية
+    const oldInv = DB.get('invoices').find(i=>String(i.id)===String(id));
+    const oldPaid = oldInv?.paid || 0;
+    const paidDelta = Math.max(0, net - oldPaid); // الزيادة في المدفوع فقط
+    DB.upd('invoices',id,{...data, paidDelta});
     showToast('success','✅ تم تحديث الفاتورة');
   } else {
     DB.push('invoices',data);
