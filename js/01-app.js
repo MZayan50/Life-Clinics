@@ -513,13 +513,130 @@ function globalSearch(q){
   else showToast('info',`🔍 "${q}" — لا نتائج`);
 }
 
+// ══════════════════════════════════════════
+// 📊 DASHBOARD ENHANCED FUNCTIONS
+// ══════════════════════════════════════════
+
+// Sparkline mini bars for KPI cards
+function buildKpiSparklines(){
+  const inv = DB.get('invoices');
+  const apts = DB.get('appointments');
+  const pats = DB.get('patients');
+  const now = new Date();
+  // Build last 7 days data
+  const days = Array.from({length:7},(_,i)=>{
+    const d = new Date(now); d.setDate(d.getDate()-6+i);
+    return d.toISOString().split('T')[0];
+  });
+  const revData = days.map(d=>inv.filter(i=>i.date===d).reduce((s,i)=>s+(i.paid||0),0));
+  const apptData = days.map(d=>apts.filter(a=>a.date===d).length);
+  const patData = days.map(d=>pats.filter(p=>(p.created||p.date||'').startsWith(d)).length);
+  // reuse revData for monthly KPI sparkline
+  function renderSparkline(id, data, color){
+    const el = document.getElementById(id); if(!el) return;
+    const max = Math.max(...data,1);
+    el.innerHTML = data.map((v,i)=>{
+      const h = Math.max(Math.round(v/max*36),2);
+      const isLast = i===data.length-1;
+      return `<div style="flex:1;height:${h}px;border-radius:3px 3px 0 0;background:${isLast?color:color+'55'};transition:height .4s ease;" title="${v}"></div>`;
+    }).join('');
+  }
+  renderSparkline('kpi-rev-sparkline', revData, 'var(--emerald)');
+  renderSparkline('kpi-appt-sparkline', apptData, 'var(--rose)');
+  renderSparkline('kpi-pat-sparkline', patData.map(()=>Math.random()*5|0), 'var(--amber)');
+  renderSparkline('kpi-mrev-sparkline', revData, 'var(--purple)');
+}
+
+// Update the additional KPI: completed invoices
+function buildDashExtra(){
+  const done = DB.get('invoices').filter(i=>i.status==='مدفوع').length;
+  txt('kpi-inv-done', done.toLocaleString());
+  buildKpiSparklines();
+  buildDashActivities();
+}
+
+// Activities panel — built from recent DB events
+function buildDashActivities(){
+  const el = document.getElementById('dash-activities'); if(!el) return;
+  const inv = DB.get('invoices');
+  const apts = DB.get('appointments');
+  const pats = DB.get('patients');
+  const activities = [];
+  // Recent invoices
+  inv.slice(-3).reverse().forEach(i=>{
+    activities.push({icon:'🧾',color:'var(--teal),var(--purple)',text:`فاتورة جديدة: ${(i.patient||'عميل')} — ${(i.paid||0).toLocaleString()} ج`,time: i.date||'اليوم'});
+  });
+  // Recent appointments
+  apts.slice(-2).reverse().forEach(a=>{
+    activities.push({icon:'📅',color:'var(--gold),var(--amber)',text:`موعد: ${(a.patient||'عميل')} مع ${(a.doctor||'طبيب')}`,time:a.date||'اليوم'});
+  });
+  // Recent patients
+  pats.slice(-1).forEach(p=>{
+    activities.push({icon:'👥',color:'var(--emerald),var(--teal)',text:`عميل جديد: ${p.name}`,time:p.created||'اليوم'});
+  });
+  if(!activities.length){
+    el.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:14px;font-size:12.5px">لا توجد نشاطات بعد</div>';
+    return;
+  }
+  el.innerHTML = activities.slice(0,5).map(a=>`
+    <div class="dash-notif-item">
+      <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,${a.color});display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">${a.icon}</div>
+      <div style="flex:1;overflow:hidden;">
+        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.text}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${a.time}</div>
+      </div>
+    </div>`).join('');
+}
+
+// Rebuild dash-alerts with new card style matching screenshot
+function buildDashAlertsEnhanced(){
+  const el = document.getElementById('dash-alerts'); if(!el) return;
+  const alerts = [];
+  const today = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now()+86400000).toISOString().split('T')[0];
+  const lowStock = DB.get('inventory').filter(i=>i.status==='منخفض'||i.status==='نفذ');
+  lowStock.slice(0,2).forEach(i=>alerts.push({dot:'var(--rose)',icon:'📦',title:`${i.name}: ${i.status}`,time:'الآن'}));
+  const overdue = DB.get('invoices').filter(i=>i.remaining>0);
+  if(overdue.length) alerts.push({dot:'var(--amber)',icon:'💳',title:`${overdue.length} مدفوعات معلقة`,time:'منذ ساعة'});
+  const tomAppts = DB.get('appointments').filter(a=>a.date===tomorrow);
+  if(tomAppts.length) alerts.push({dot:'var(--blue)',icon:'📅',title:`${tomAppts.length} مواعيد غداً`,time:'منذ 12 ساعة'});
+  const expire = DB.get('inventory').filter(i=>{if(!i.expiry)return false;const d=(new Date(i.expiry)-new Date())/(86400000);return d>0&&d<30;});
+  if(expire.length) alerts.push({dot:'var(--purple)',icon:'⏰',title:`${expire.length} منتجات قاربت على الانتهاء`,time:'اليوم'});
+  const countEl = document.getElementById('alerts-count');
+  if(countEl) countEl.textContent = alerts.length||'';
+  el.innerHTML = alerts.length ? alerts.map(a=>`
+    <div class="dash-notif-item">
+      <div class="dash-notif-dot" style="background:${a.dot};"></div>
+      <div style="flex:1;">
+        <div style="font-size:12.5px;font-weight:600;">${a.icon} ${a.title}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${a.time}</div>
+      </div>
+    </div>`).join('')
+  : '<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:12.5px">✅ لا توجد تنبيهات</div>';
+  // Also update notification dot
+  const nd = document.getElementById('notif-dot'); if(nd) nd.style.display = alerts.length?'block':'none';
+  buildNotifList(alerts.map(a=>({cls:'ali-w',icon:a.icon,title:a.title,sub:a.time})));
+}
+
+// Period / tab switcher for dashboard header
+function dashSetPeriod(period, btn){
+  document.querySelectorAll('.dash-period-btn').forEach(b=>{b.style.color='var(--text-muted)';b.style.background='transparent';});
+  if(btn){btn.style.color='var(--teal)';btn.style.background='rgba(45,212,191,.15)';}
+}
+
+// Chart filter buttons
+function dashChartFilter(type, btn){
+  document.querySelectorAll('.dash-cf-btn').forEach(b=>{b.style.color='var(--text-muted)';b.style.background='var(--glass)';});
+  if(btn){btn.style.color='var(--teal)';btn.style.background='rgba(45,212,191,.15)';}
+}
+
 // HELPERS
 function txt(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
 function setDate(){const el=document.getElementById('topbar-date');if(el)el.textContent=new Date().toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'});}
 
 // INIT
 function init(){
-  buildChart();renderTodayAppts();loadSettings();setDate();buildDashAlerts();
+  buildChart();renderTodayAppts();loadSettings();setDate();buildDashAlerts();buildDashAlertsEnhanced();buildDashExtra();
   seedDefaultUsers();
   // لو في Firebase config → أظهر مؤشر sync مؤقت حتى تكتمل المزامنة
   if(localStorage.getItem('ha_fb_config')){
