@@ -152,22 +152,12 @@ function attachFirestoreSync(col){
     .onSnapshot(snapshot => {
       const docs = [];
       snapshot.forEach(doc => docs.push({...doc.data(), id: doc.id}));
-      // Merge into localStorage so offline reads still work
-      localStorage.setItem('ha_' + col, JSON.stringify(docs));
-      // Refresh active screen
-      const active = document.querySelector('.screen.active')?.id?.replace('screen-','');
-      if(active === col || (col === 'appointments' && active === 'calendar')){
-        if(col === 'patients')    renderPat();
-        if(col === 'appointments'){renderAppts(); buildCal(); renderTodayAppts();}
-        if(col === 'inventory')   renderInv();
-        if(col === 'invoices')    renderInvs();
-        if(col === 'services')    renderSvcs();
-        if(col === 'leads')       renderLeads();
-      }
-      // Always refresh dashboard KPIs
-      if(col === 'patients')    { txt('kpi-pat', docs.length); txt('badge-patients', docs.length); }
-      if(col === 'inventory')   { const l=docs.filter(i=>i.status==='منخفض'||i.status==='نفذ').length; txt('kpi-stk',l); txt('badge-stock',l); }
-      if(col === 'invoices')    { const p=docs.filter(i=>i.status!=='مدفوع').reduce((s,i)=>s+(i.remaining||0),0); txt('kpi-pend',p.toLocaleString()); }
+      // ✅ نمرّ عبر DB.set (لا نكتب على localStorage مباشرة) حتى تبقى كل قراءة/كتابة موحّدة في DB layer
+      // ملاحظة: DB.set لا تُطلق created/updated لكل سجل (لتفادي ضجيج أحداث عند مزامنة كاملة) —
+      // بدلاً من ذلك نجدوِل تحديث واحد موحّد عبر _scheduleUIRefresh الموجودة في 00-core.js،
+      // وهي بنفسها تُحدّث الشاشة النشطة المطابقة + KPIs لوحة التحكم تلقائياً.
+      DB.set(col, docs);
+      _scheduleUIRefresh(col);
     }, err => {
       console.error('Firestore listener error on', col, err);
     });
@@ -819,12 +809,10 @@ function applyPermissions(role, perms, screens){
   });
 }
 
-// ── تطبيق الصلاحيات المعلّقة إن وُجدت (من checkAuth المبكر) ──
-if(window._pendingPermissions){
-  const pp = window._pendingPermissions;
-  applyPermissions(pp.role, pp.perms, pp.screens);
-  window._pendingPermissions = null;
-}
+// ── الاستماع لحدث الصلاحيات (موحَّد عبر EventBus بدل stub/pending في 01-app.js) ──
+// {replay:true}: إذا checkAuth() في 01-app.js أطلقت الحدث قبل تحميل هذا الملف،
+// سيُستدعى applyPermissions فوراً بآخر قيمة محفوظة — بلا حاجة لمتغير window._pendingPermissions
+EventBus.on('auth:resolved', ({role, perms, screens}) => applyPermissions(role, perms, screens), {replay:true});
 
 // ══════════════════════════════════════════
 // 👤 USER MANAGEMENT UI

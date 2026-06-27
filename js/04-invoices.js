@@ -52,9 +52,12 @@ function openInvModal(id){
   fillPatDropdowns();
   const patSel=document.getElementById('im-pat');
   if(inv&&patSel){
-    // find patient by name
-    const pt=DB.get('patients').find(p=>p.name===inv.patient);
-    if(pt)patSel.value=pt.id;
+    // prefer patId, fallback to name-match for legacy records
+    if(inv.patId) patSel.value=inv.patId;
+    else {
+      const pt=DB.get('patients').find(p=>p.name===inv.patient);
+      if(pt)patSel.value=pt.id;
+    }
   }
   const priceEl=document.getElementById('im-price');
   const discEl=document.getElementById('im-disc');
@@ -79,7 +82,7 @@ function saveInv(){
   const id=gv('im-id');
   const svcRaw=gv('im-svc')||'';
   const svcName=svcRaw.includes(' - ')?svcRaw.split(' - ')[0]:svcRaw;
-  const data={patient:pat?.name||'—',service:svcName,originalPrice:price,discount:disc,total:net,paid:net,remaining:0,status:'مدفوع',method,date:gv('im-date')||new Date().toISOString().split('T')[0]};
+  const data={patId:pid,patient:pat?.name||'—',service:svcName,originalPrice:price,discount:disc,total:net,paid:net,remaining:0,status:'مدفوع',method,date:gv('im-date')||new Date().toISOString().split('T')[0]};
   if(id){
     DB.upd('invoices',id,data);
     showToast('success','✅ تم تحديث الفاتورة');
@@ -147,7 +150,7 @@ function buildInvoiceHTML(inv, clinicName, clinicPhone, idx){
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
   <div class="section">
     <div class="section-title">بيانات العميل</div>
-    <div class="info-row"><span>الاسم:</span><strong>${inv.patient}</strong></div>
+    <div class="info-row"><span>الاسم:</span><strong>${_patName(inv.patId)||inv.patient}</strong></div>
     <div class="info-row"><span>الفرع:</span><span>${inv.branch||'مدينة نصر'}</span></div>
   </div>
   <div class="section">
@@ -230,7 +233,7 @@ window.printInvoice = function(id){
 function sendInvoiceWA(id){
   const inv=DB.get('invoices').find(x=>String(x.id)===String(id));
   if(!inv){showToast('error','❌ الفاتورة غير موجودة');return;}
-  const pat=DB.get('patients').find(p=>p.name===inv.patient);
+  const pat=DB.get('patients').find(p=>String(p.id)===String(inv.patId))||DB.get('patients').find(p=>p.name===inv.patient);
   const phone=getWAPhone(pat);
   const clinicName=DB.obj('settings').clinicName||'عيادات الحياة للتجميل';
   const clinicPhone2=DB.obj('settings').phone||'';
@@ -279,7 +282,7 @@ function renderInvs(){
   const tb=document.getElementById('inv-tbody');if(!tb)return;
   tb.innerHTML=invs.map((inv,i)=>`<tr>
     <td style="font-size:11px;color:var(--gold-light);font-weight:700">#INV-${String(i+1).padStart(3,'0')}</td>
-    <td style="font-weight:600">${inv.patient||'—'}</td>
+    <td style="font-weight:600">${_patName(inv.patId)||inv.patient||'—'}</td>
     <td style="font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${inv.service||'—'}</td>
     <td style="font-size:12px;color:var(--text-muted)">${inv.doctor||'—'}</td>
     <td style="font-weight:800">${(inv.total||0).toLocaleString()} ج</td>
@@ -327,7 +330,7 @@ function openSmartPay(invId){
 
   // Basic info
   txt('sp-inv-ref',`#INV-${String(idx+1).padStart(3,'0')}`);
-  txt('sp-pat-name',inv.patient||'—');
+  txt('sp-pat-name',_patName(inv.patId)||inv.patient||'—');
   txt('sp-service-name',inv.service||'—');
   txt('sp-total',(inv.total||0).toLocaleString()+' ج');
   txt('sp-paid-before',(inv.paid||0).toLocaleString()+' ج');
@@ -483,12 +486,9 @@ function processSmartPayment(){
     notes
   });
 
-  // 3. Update patient profile
+  // 3. ✅ تحديث رصيد العميل يحصل تلقائيًا عبر EventBus('invoices:updated') في 00-core.js
+  // (كان هنا كود يدوي بيطرح amount من pat.balance مرة ثانية فوق التحديث التلقائي — باج احتساب مضاعف، تم حذفه)
   const pat=(DB.get('patients')||[]).find(p=>String(p.id)===String(inv.patId)||p.name===inv.patient);
-  if(pat){
-    const newBalance=Math.max(0,(pat.balance||0)-amount);
-    DB.upd('patients',pat.id,{balance:newBalance,status:newBalance>0?'قسط':'نشط'});
-  }
 
   // 4. Auto-create installment plan if selected
   if(makeInst&&newRem>0){
@@ -509,18 +509,11 @@ function processSmartPayment(){
     DB.upd('invoices',invId,{method:'أقساط'});
   }
 
-  // 5. Refresh all related screens
-  renderInvs();
+  // 5. ✅ تحديث الشاشات + KPIs لوحة التحكم يحصل تلقائيًا عبر EventBus
+  // (DB.upd للفاتورة وDB.push لـ cashlog يجدولان _scheduleUIRefresh + _refreshDashKPIs في 00-core.js)
+  // renderPayments() لسه يدوية لأن شاشة المدفوعات مالها hint مخصص في _scheduleUIRefresh حتى الآن
   renderPayments();
-  renderInstallments();
-  if(document.getElementById('screen-treasury')?.classList.contains('active')) renderTreasury();
   txt('badge-inst',(DB.get('installments')||[]).filter(p=>p.remaining>0).length);
-
-  // 6. Update dashboard KPIs
-  const todayRevenue=(DB.get('invoices')||[]).filter(i=>i.date===today).reduce((s,i)=>s+(i.paid||0),0);
-  txt('kpi-rev',todayRevenue.toLocaleString());
-  const pendingBal=(DB.get('invoices')||[]).filter(i=>i.remaining>0).reduce((s,i)=>s+(i.remaining||0),0);
-  txt('kpi-pend',pendingBal.toLocaleString());
 
   closeModal('smart-pay-modal');
 

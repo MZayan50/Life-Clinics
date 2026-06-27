@@ -140,14 +140,7 @@ function buildTopDoctors(){
   }
   el.innerHTML = sorted.map(([name,rev],i)=>`<div class="drow"><div class="drank">${medals[i]||'⭐'}</div><div class="dava" style="background:${grads[i%5]}">👩‍⚕️</div><div style="flex:1;font-size:13px;font-weight:600">${name}</div><div style="color:var(--teal);font-weight:700;font-size:12.5px">${rev.toLocaleString()} ج</div></div>`).join('');
 }
-function buildServiceChart(){
-  const invoices=DB.get('invoices');
-  if(!container)return;
-  container.innerHTML=sorted.map(([svc,val],i)=>{
-    const pct=Math.round(val/total*100);
-    return`<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>${svc}</span><span style="color:${colors[i]};font-weight:700">${pct}%</span></div><div class="prog"><div class="prog-f" style="width:${pct}%;background:${colors[i]}"></div></div></div>`;
-  }).join('')||container.innerHTML;
-}
+
 
 
 // ══════════════════════════════════════════
@@ -567,15 +560,8 @@ function _parseSession(raw) {
   return null;
 }
 
-// ── applyPermissions stub: تُعاد تعريفها في 11-settings.js بعد التحميل ──
-// هذا الـ stub يمنع خطأ "not defined" عند تشغيل checkAuth() مبكراً
-if(typeof applyPermissions === 'undefined'){
-  window.applyPermissions = function(role, perms, screens){
-    // سيتم استبدال هذه الدالة عند تحميل 11-settings.js
-    // في هذه المرحلة نحفظ البيانات فقط
-    window._pendingPermissions = {role, perms, screens};
-  };
-}
+// ── applyPermissions موحَّدة الآن عبر EventBus('auth:resolved') — لا حاجة لـ stub/pending ──
+// (انظر 11-settings.js: EventBus.on('auth:resolved', ..., {replay:true}))
 
 (function checkAuth(){
   const sess = localStorage.getItem('ha_session');
@@ -602,12 +588,9 @@ if(typeof applyPermissions === 'undefined'){
     // Read live screens from users DB (may have been updated by admin)
     const _screens = _usr ? (_usr.screens || s.permissions) : s.permissions;
     window._userScreens = _screens;
-    // استدعاء آمن: إن لم تُعرَّف بعد سيُخزَّن ثم يُطبَّق في 11-settings.js
-    if(typeof applyPermissions === 'function'){
-      applyPermissions(liveRole, s.permissions, _screens);
-    } else {
-      window._pendingPermissions = {role: liveRole, perms: s.permissions, screens: _screens};
-    }
+    // ✅ موحّد عبر EventBus بدل stub/pending — applyPermissions في 11-settings.js
+    // مسجَّلة بـ {replay:true} فتُستدعى فوراً بآخر قيمة حتى لو حدث هذا الحدث قبل تحميل ملفها
+    EventBus.emit('auth:resolved', { role: liveRole, perms: s.permissions, screens: _screens });
   } catch(e){
     // لا نمسح الجلسة عند أي خطأ عام — فقط عند فشل التحليل الفعلي
     try {
@@ -711,19 +694,8 @@ document.querySelector('.user-card')?.addEventListener('click', function(){
 });
 
 // ══════════════════════════════════════════
-// ── Phase 6: Global auto-refresh every 60s — always syncs all live screens ──
-if(window._wlTimer) clearInterval(window._wlTimer);
-window._wlTimer=setInterval(()=>{
-  const changed=_wlAutoUpdateStatuses();
-  // Always refresh all screens regardless of which is active
-  renderTodayAppts();
-  if(document.getElementById('screen-waitlist')?.classList.contains('active')) renderWaitlist();
-  if(document.getElementById('screen-reception')?.classList.contains('active')) renderReception();
-  if(document.getElementById('screen-doctor-view')?.classList.contains('active')) renderDoctorView();
-  // If statuses changed, refresh non-active screens too (silent background update)
-  if(changed){
-    if(!document.getElementById('screen-waitlist')?.classList.contains('active')) renderWaitlist();
-    if(!document.getElementById('screen-reception')?.classList.contains('active')) renderReception();
-    if(!document.getElementById('screen-doctor-view')?.classList.contains('active')) renderDoctorView();
-  }
-},60000);
+// ✅ التحديث الدوري كل 60 ثانية موحَّد الآن في مكان واحد:
+//    _startWLAutoRefresh() في 07-clinical.js (يُستدعى مرة واحدة من init())
+//    DB.upd عند تغيّر حالة موعد → EventBus → _scheduleUIRefresh تلقائياً (00-core.js)
+// تمت إزالة المؤقّت المكرر الذي كان هنا (كان يُستبدَل فوراً بمؤقّت 07-clinical.js
+// عند استدعاء init() — أي أنه كان كوداً ميتاً عملياً).

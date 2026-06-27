@@ -255,9 +255,6 @@ function wlMarkNoShow(id){
 }
 
 // Legacy waitlist functions (kept for backward compat)
-function openWaitlistModal(id){ openApptModal(); }
-function saveWaitlist(){ saveAppt(); }
-function convertToAppt(id){ openApptModal(); }
 function delWaitlist(id){ if(confirm('حذف من قائمة الانتظار؟')){ DB.del('waitlist',id); renderWaitlist(); } }
 
 // Auto-refresh: update statuses + re-render every 60s
@@ -653,8 +650,9 @@ function finalizeConsultation(){
   });
   // 3. Deduct inventory
   deductInventory(svcName);
-  // 4. Update patient profile
-  if(pat) DB.upd('patients',pat.id,{spent:(pat.spent||0)+net,sessions:(pat.sessions||0)+1,lastVisit:today,lastDoctor:a.doctor||''});
+  // 4. تحديث ملف العميل — ✅ spent يُحدَّث تلقائيًا عبر EventBus('invoices:created') في 00-core.js
+  // (كان هنا كود يدوي بيضيف net فوق التحديث التلقائي — باج احتساب مضاعف، تم حذفه. باقي الحقول لسه يدوية لأن الـ hook ما بيلمسهاش)
+  if(pat) DB.upd('patients',pat.id,{sessions:(pat.sessions||0)+1,lastVisit:today,lastDoctor:a.doctor||''});
   // 5. Sync screens
   renderInvs();renderTodayAppts();
   if(document.getElementById('screen-doctor-view')?.classList.contains('active')) renderDoctorView();

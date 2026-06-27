@@ -53,25 +53,8 @@ function delExp(id){
 // ✅ renderInstallments الكاملة موجودة في الأسفل (النسخة المتطورة بـ plans)
 // هذه النسخة البسيطة محذوفة
 
-function collectPayment(invId){
-  const inv = DB.get('invoices').find(i=>i.id==invId);
-  if(!inv) return;
-  const amount = prompt(`تحصيل دفعة من ${inv.patient}
-المتبقي: ${inv.remaining} ج
-
-أدخل المبلغ المحصل:`);
-  if(!amount) return;
-  const paid = parseFloat(amount);
-  if(isNaN(paid) || paid<=0){ showToast('error','❌ مبلغ غير صحيح'); return; }
-  const newPaid = inv.paid + Math.min(paid, inv.remaining);
-  const newRemaining = inv.total - newPaid;
-  const newStatus = newRemaining<=0 ? 'مدفوع' : 'جزئي';
-  DB.upd('invoices', invId, {paid:newPaid, remaining:Math.max(0,newRemaining), status:newStatus});
-  showToast('success',`✅ تم تسجيل ${paid} ج من ${inv.patient}`, newStatus==='مدفوع'?'تم سداد الفاتورة كاملاً':'يتبقى '+Math.max(0,newRemaining)+' ج');
-  renderInstallments();
-  renderInvs();
-  txt('badge-inst', DB.get('invoices').filter(i=>i.remaining>0).length);
-}
+// ── collectPayment() مُلغاة — كانت كود ميت (مش مستدعاة من أي مكان، التحصيل كله بقى
+// عبر openSmartPay/processSmartPayment) وكانت فيها نفس باج طرح المبلغ مرتين من رصيد العميل ──
 
 function sendAllReminders(){
   const invoices = DB.get('invoices').filter(i=>i.remaining>0);
@@ -86,46 +69,7 @@ function sendAllReminders(){
 
 // ✅ renderTreasury تُستدعى من showScreen الموحدة في 00-core.js
 
-// ══════════════════════════════════════════
-// 💳 PAYMENTS SCREEN
-// ══════════════════════════════════════════
-function renderPayments(q){
-  q = q || (document.getElementById('pay-search')?.value||'').toLowerCase();
-  const method = document.getElementById('pay-method-filter')?.value||'';
-  const dateFilter = document.getElementById('pay-date-filter')?.value||'';
-  let invs = DB.get('invoices').filter(i => i.paid > 0);
-  if(q) invs = invs.filter(i => i.patient.includes(q) || (i.service||'').includes(q));
-  if(method) invs = invs.filter(i => i.method === method);
-  if(dateFilter) invs = invs.filter(i => i.date === dateFilter);
-  invs = [...invs].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-
-  const all = DB.get('invoices').filter(i=>i.paid>0);
-  const today = new Date().toISOString().split('T')[0];
-  const todayTotal = all.filter(i=>i.date===today).reduce((s,i)=>s+(i.paid||0),0);
-  const visa = all.filter(i=>i.method==='فيزا').reduce((s,i)=>s+(i.paid||0),0);
-  const cash = all.filter(i=>i.method==='كاش').reduce((s,i)=>s+(i.paid||0),0);
-  const transfer = all.filter(i=>['إنستاباي','فودافون','تحويل'].includes(i.method)).reduce((s,i)=>s+(i.paid||0),0);
-
-  txt('pay-kpi-total', all.reduce((s,i)=>s+(i.paid||0),0).toLocaleString()+' ج');
-  txt('pay-kpi-today', todayTotal.toLocaleString()+' ج');
-  txt('pay-kpi-visa', visa.toLocaleString()+' ج');
-  txt('pay-kpi-cash', cash.toLocaleString()+' ج');
-  txt('pay-kpi-transfer', transfer.toLocaleString()+' ج');
-  txt('pay-count-lbl', invs.length+' عملية');
-
-  const PAY_ICONS = {'كاش':'💵','فيزا':'💳','إنستاباي':'📱','فودافون':'📱','تحويل':'🏦','أقساط':'📆'};
-  const tb = document.getElementById('pay-tbody'); if(!tb) return;
-  tb.innerHTML = invs.map((inv,i)=>`<tr>
-    <td style="font-size:11px;color:var(--gold-light);font-weight:700">#PAY-${String(i+1).padStart(3,'0')}</td>
-    <td style="font-weight:600">${inv.patient}</td>
-    <td style="font-size:12px">${inv.service||'—'}</td>
-    <td style="font-weight:800;color:var(--emerald)">${(inv.paid||0).toLocaleString()} ج</td>
-    <td><span class="tag tg-teal">${PAY_ICONS[inv.method]||'💰'} ${inv.method||'—'}</span></td>
-    <td style="font-size:12px;color:var(--text-muted)">${inv.date||'—'}</td>
-    <td style="font-size:11px;color:var(--text-muted)">#INV-${String(i+1).padStart(3,'0')}</td>
-    <td><span class="ast sc">مكتمل</span></td>
-  </tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px">لا توجد مدفوعات</td></tr>';
-}
+// ✅ renderPayments الكاملة بـ cashlog موجودة في الأسفل
 
 // ══════════════════════════════════════════
 // 📆 INSTALLMENTS SCREEN
@@ -245,6 +189,12 @@ function payInstallment(planId){
   DB.upd('installments',planId,plan);
   const pat=DB.get('patients').find(p=>p.id===plan.patientId);
   if(pat) DB.upd('patients',pat.id,{balance:Math.max(0,(pat.balance||0)-plan.installmentAmount)});
+  // ✅ تسجيل دفعة القسط في الخزينة — كانت غير موجودة، فدفعات الأقساط ما كانت توصل لـ cashlog إطلاقًا
+  DB.push('cashlog',{
+    type:'وارد', source:`دفعة قسط #${nextInst.num} — ${plan.patientName}`,
+    service:plan.service||'', amount:plan.installmentAmount, method:'كاش',
+    date:nextInst.paidDate, refId:planId, notes:`قسط ${nextInst.num}/${plan.count}`
+  });
   showToast('success',`✅ تم تسجيل دفع القسط #${nextInst.num}`,`${plan.installmentAmount.toLocaleString()} ج`);
   renderInstallments();
 }
@@ -269,9 +219,12 @@ function renderAccounts(){
   document.getElementById('acc-period-lbl').textContent=new Date().toLocaleDateString('ar-EG',{month:'long',year:'numeric'});
 
   // P&L
+  const cashlog=DB.get('cashlog')||[];
   const totalRevenue=invoices.reduce((s,i)=>s+(i.paid||0),0);
   const totalExpense=expenses.reduce((s,e)=>s+(e.amount||0),0);
-  const netProfit=totalRevenue-totalExpense;
+  const staffSalariesMonth=DB.get('staff').reduce((s,x)=>s+(x.salary||0),0);
+  const totalCost=totalExpense+staffSalariesMonth;
+  const netProfit=totalRevenue-totalCost;
   const margin=totalRevenue?Math.round(netProfit/totalRevenue*100):0;
 
   // Revenue breakdown
@@ -280,14 +233,15 @@ function renderAccounts(){
   const revEl=document.getElementById('acc-revenues');
   if(revEl) revEl.innerHTML=Object.entries(revByService).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--glass-border);"><span style="color:var(--text-muted)">${k}</span><span style="font-weight:700;color:var(--emerald)">${v.toLocaleString()} ج</span></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px">لا توجد إيرادات</div>';
 
-  // Expense breakdown
+  // Expense breakdown — تشمل المصروفات + الرواتب
   const expByType={};
   expenses.forEach(e=>{expByType[e.type]=(expByType[e.type]||0)+(e.amount||0);});
+  if(staffSalariesMonth>0) expByType['رواتب الموظفين']=(expByType['رواتب الموظفين']||0)+staffSalariesMonth;
   const expEl=document.getElementById('acc-expenses-list');
   if(expEl) expEl.innerHTML=Object.entries(expByType).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--glass-border);"><span style="color:var(--text-muted)">${k}</span><span style="font-weight:700;color:var(--rose)">${v.toLocaleString()} ج</span></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px">لا توجد مصروفات</div>';
 
   txt('acc-total-revenue',totalRevenue.toLocaleString()+' ج');
-  txt('acc-total-expense',totalExpense.toLocaleString()+' ج');
+  txt('acc-total-expense',totalCost.toLocaleString()+' ج');
   const npEl=document.getElementById('acc-net-profit');
   if(npEl){npEl.textContent=(netProfit>=0?'+':'')+netProfit.toLocaleString()+' ج';npEl.style.color=netProfit>=0?'var(--emerald)':'var(--rose)';}
   txt('acc-margin',margin+'%');
@@ -296,15 +250,17 @@ function renderAccounts(){
   const invValue=DB.get('inventory').reduce((s,i)=>s+(i.qty*i.price),0);
   const receivables=(DB.get('installments')||[]).reduce((s,p)=>s+(p.remaining||0),0);
   const suppliersOwed=(DB.get('suppliers')||[]).reduce((s,x)=>s+(x.owed||0),0);
-  const staffSalaries=DB.get('staff').reduce((s,x)=>s+(x.salary||0),0);
-  const cashBalance=totalRevenue-totalExpense;
+  // الكاش الفعلي = كل الوارد (من cashlog + فواتير مباشرة) ناقص كل المصروفات
+  const cashIn=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
+  const invPaidDirect=(DB.get('invoices')||[]).filter(i=>i.paid>0&&!cashlog.find(c=>c.invId===String(i.id))).reduce((s,i)=>s+(i.paid||0),0);
+  const cashBalance=Math.max(0,(cashIn+invPaidDirect)-totalCost);
   txt('bs-cash',cashBalance.toLocaleString()+' ج');
   txt('bs-inventory',invValue.toLocaleString()+' ج');
   txt('bs-receivables',receivables.toLocaleString()+' ج');
-  txt('bs-total-assets',(Math.max(0,cashBalance)+invValue+receivables).toLocaleString()+' ج');
+  txt('bs-total-assets',(cashBalance+invValue+receivables).toLocaleString()+' ج');
   txt('bs-suppliers',suppliersOwed.toLocaleString()+' ج');
-  txt('bs-salaries',staffSalaries.toLocaleString()+' ج');
-  txt('bs-equity',(Math.max(0,cashBalance)+invValue+receivables-suppliersOwed-staffSalaries).toLocaleString()+' ج');
+  txt('bs-salaries',staffSalariesMonth.toLocaleString()+' ج');
+  txt('bs-equity',(cashBalance+invValue+receivables-suppliersOwed-staffSalariesMonth).toLocaleString()+' ج');
 
   // Cash flow table
   const cfTb=document.getElementById('cf-tbody');if(!cfTb)return;
@@ -314,7 +270,9 @@ function renderAccounts(){
   cfTb.innerHTML=MONTHS.map((m,i)=>{
     const mStr=`${year}-${String(i+1).padStart(2,'0')}`;
     const inflow=invoices.filter(x=>(x.date||'').startsWith(mStr)).reduce((s,x)=>s+(x.paid||0),0);
-    const outflow=expenses.filter(x=>(x.date||'').startsWith(mStr)).reduce((s,x)=>s+(x.amount||0),0);
+    const expOutflow=expenses.filter(x=>(x.date||'').startsWith(mStr)).reduce((s,x)=>s+(x.amount||0),0);
+    // الرواتب تظهر شهرياً حتى لو مش مسجلة بتاريخ
+    const outflow=expOutflow+staffSalariesMonth;
     const net=inflow-outflow;cumulative+=net;
     return `<tr>
       <td style="font-weight:600">${m}</td>
@@ -335,11 +293,9 @@ function renderAccounts(){
 // لا حاجة لأي override هنا
 
 // ══════════════════════════════════════════
-// ⏳ WAITLIST
+// 💳 PAYMENTS — النسخة الكاملة بـ cashlog
 // ══════════════════════════════════════════
-// (Enhanced version replacing stub above)
-const _origRenderPayments=window.renderPayments;
-window.renderPayments=function(q){
+function renderPayments(q){
   q=q||(document.getElementById('pay-search')?.value||'').toLowerCase();
   const method=document.getElementById('pay-method-filter')?.value||'';
   const dateFilter=document.getElementById('pay-date-filter')?.value||'';
@@ -351,7 +307,7 @@ window.renderPayments=function(q){
   // Also include direct paid invoices not yet in cashlog
   const invsPaid=(DB.get('invoices')||[]).filter(i=>i.paid>0&&!cashlog.find(c=>c.invId===String(i.id)));
   invsPaid.forEach(inv=>{
-    entries.push({id:'_inv_'+inv.id,type:'وارد',amount:inv.paid,source:`دفعة فاتورة — ${inv.patient}`,service:inv.service,method:inv.method||'كاش',date:inv.date,invId:String(inv.id),notes:''});
+    entries.push({id:'_inv_'+inv.id,type:'وارد',amount:inv.paid,patId:inv.patId,source:`دفعة فاتورة — ${inv.patient}`,service:inv.service,method:inv.method||'كاش',date:inv.date,invId:String(inv.id),notes:''});
   });
 
   if(q) entries=entries.filter(e=>(e.source||'').includes(q)||(e.service||'').includes(q));
@@ -378,7 +334,7 @@ window.renderPayments=function(q){
   const tb=document.getElementById('pay-tbody');if(!tb)return;
   tb.innerHTML=entries.map((e,i)=>`<tr>
     <td style="font-size:11px;color:var(--gold-light);font-weight:700">#PAY-${String(i+1).padStart(3,'0')}</td>
-    <td style="font-weight:600">${(e.source||'').replace('دفعة فاتورة — ','')}</td>
+    <td style="font-weight:600">${e.patId?(_patName(e.patId)||(e.source||'').replace('دفعة فاتورة — ','')):(e.source||'').replace('دفعة فاتورة — ','')}</td>
     <td style="font-size:12px">${e.service||'—'}</td>
     <td style="font-weight:800;color:var(--emerald)">${(e.amount||0).toLocaleString()} ج</td>
     <td><span class="tag tg-teal">${PAY_ICONS[e.method]||'💰'} ${e.method||'—'}</span></td>

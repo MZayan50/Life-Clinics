@@ -1,5 +1,37 @@
 // 📊 REAL REPORTS FROM DATA
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// 📊 renderReports — يُستدعى تلقائياً من showScreen
+// يعبّي KPI cards في أعلى الشاشة بأرقام حقيقية
+// ══════════════════════════════════════════
+function renderReports(){
+  const el = document.getElementById('reports-kpi-bar');
+  if(!el) return;
+  const invoices  = DB.get('invoices')  || [];
+  const patients  = DB.get('patients')  || [];
+  const appts     = DB.get('appointments') || [];
+  const expenses  = DB.get('expenses')  || [];
+  const today     = new Date().toISOString().split('T')[0];
+  const thisMonth = today.substring(0,7);
+
+  const monthRev  = invoices.filter(i=>(i.date||'').startsWith(thisMonth)).reduce((s,i)=>s+(i.paid||0),0);
+  const totalPend = invoices.reduce((s,i)=>s+(i.remaining||0),0);
+  const newPats   = patients.filter(p=>(p.createdAt||'').startsWith(thisMonth)).length;
+  const todayAppt = appts.filter(a=>a.date===today).length;
+  const monthExp  = expenses.filter(e=>(e.date||'').startsWith(thisMonth)).reduce((s,e)=>s+(e.amount||0),0);
+  const netProfit = monthRev - monthExp;
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
+      <div class="kpi-card kc-emerald"><div class="kpi-icon">💰</div><div class="kpi-value">${monthRev.toLocaleString()} ج</div><div class="kpi-label">إيرادات الشهر</div></div>
+      <div class="kpi-card kc-rose"><div class="kpi-icon">💸</div><div class="kpi-value">${monthExp.toLocaleString()} ج</div><div class="kpi-label">مصروفات الشهر</div></div>
+      <div class="kpi-card ${netProfit>=0?'kc-teal':'kc-amber'}"><div class="kpi-icon">📈</div><div class="kpi-value">${(netProfit>=0?'+':'')+netProfit.toLocaleString()} ج</div><div class="kpi-label">صافي الربح</div></div>
+      <div class="kpi-card kc-gold"><div class="kpi-icon">⏳</div><div class="kpi-value">${totalPend.toLocaleString()} ج</div><div class="kpi-label">مستحقات معلقة</div></div>
+      <div class="kpi-card kc-purple" style="--kc-color:#8B5CF6"><div class="kpi-icon">👥</div><div class="kpi-value">${newPats}</div><div class="kpi-label">عملاء جدد الشهر</div></div>
+      <div class="kpi-card kc-teal"><div class="kpi-icon">📅</div><div class="kpi-value">${todayAppt}</div><div class="kpi-label">مواعيد اليوم</div></div>
+    </div>`;
+}
+
 function generateReport(type){
   const invoices = DB.get('invoices');
   const patients = DB.get('patients');
@@ -30,6 +62,8 @@ function generateRevenueReport(invoices, month){
   const byMethod = {};
   monthInvs.forEach(i=>{ byMethod[i.method] = (byMethod[i.method]||0)+i.paid; });
 
+  const avgInv=monthInvs.length?Math.round(totalRevenue/monthInvs.length):0;
+  const collectionRate=totalRevenue?Math.round(totalPaid/totalRevenue*100):0;
   return {
     title: 'تقرير الإيرادات',
     period: month,
@@ -37,7 +71,9 @@ function generateRevenueReport(invoices, month){
       {label:'إجمالي الإيرادات', value:totalRevenue.toLocaleString()+' ج', color:'var(--emerald)'},
       {label:'المحصل فعلاً', value:totalPaid.toLocaleString()+' ج', color:'var(--teal)'},
       {label:'المتبقي', value:totalPending.toLocaleString()+' ج', color:'var(--rose)'},
-      {label:'عدد الفواتير', value:monthInvs.length, color:'var(--purple)'}
+      {label:'عدد الفواتير', value:monthInvs.length, color:'var(--purple)'},
+      {label:'متوسط الفاتورة', value:avgInv.toLocaleString()+' ج', color:'var(--gold-light)'},
+      {label:'نسبة التحصيل', value:collectionRate+'%', color:'var(--teal)'}
     ],
     byService,
     byMethod
@@ -51,13 +87,17 @@ function generatePatientsReport(patients, appointments){
   const bySource = {};
   patients.forEach(p=>{ bySource[p.source||'غير محدد'] = (bySource[p.source||'غير محدد']||0)+1; });
 
+  const vipCount=patients.filter(p=>p.isVIP).length;
+  const totalSpent=patients.reduce((s,p)=>s+(p.spent||0),0);
   return {
     title: 'تقرير العملاء',
     summary: [
       {label:'إجمالي العملاء', value:patients.length, color:'var(--teal)'},
       {label:'العملاء النشطون', value:active, color:'var(--emerald)'},
-      {label:'عملاء لديهم ديون', value:withBalance, color:'var(--amber)'},
-      {label:'إجمالي الديون', value:totalDebt.toLocaleString()+' ج', color:'var(--rose)'}
+      {label:'VIP', value:vipCount, color:'var(--gold-light)'},
+      {label:'إجمالي الديون', value:totalDebt.toLocaleString()+' ج', color:'var(--rose)'},
+      {label:'إجمالي الإنفاق', value:totalSpent.toLocaleString()+' ج', color:'var(--purple)'},
+      {label:'عملاء لديهم ديون', value:withBalance, color:'var(--amber)'}
     ],
     bySource
   };
@@ -257,17 +297,26 @@ function generateDoctorsReport(){
   const docStats = {};
   doctors.forEach(d=>{ docStats[d.name]={name:d.name,specialty:d.specialty||'—',revenue:0,sessions:0,patients:new Set()}; });
   invoices.forEach(inv=>{
-    const appt = appointments.find(a=>a.patient===inv.patient&&a.date===inv.date);
-    const docName = (appt?.doctor||inv.doctor||'').trim();
+    // البحث بـ doctorId أولاً ثم بالاسم كـ fallback
+    let docName='';
+    if(inv.doctorId){
+      const d=doctors.find(x=>x.id===inv.doctorId);
+      docName=d?.name||'';
+    }
+    if(!docName){
+      const appt=appointments.find(a=>(a.patId===inv.patId||a.patient===inv.patient)&&a.date===inv.date);
+      docName=(appt?.doctor||inv.doctor||'').trim();
+    }
     if(!docName)return;
-    if(!docStats[docName]) docStats[docName]={name:docName,specialty:'—',revenue:0,sessions:0,patients:new Set()};
+    if(!docStats[docName]) docStats[docName]={name:docName,specialty:doctors.find(d=>d.name===docName)?.specialty||'—',revenue:0,sessions:0,patients:new Set()};
     docStats[docName].revenue += inv.paid||0;
-    docStats[docName].patients.add(inv.patient);
+    docStats[docName].patients.add(inv.patId||inv.patient);
   });
   appointments.forEach(a=>{
     const d=a.doctor;if(!d)return;
-    if(!docStats[d]) docStats[d]={name:d,specialty:'—',revenue:0,sessions:0,patients:new Set()};
+    if(!docStats[d]) docStats[d]={name:d,specialty:doctors.find(x=>x.name===d)?.specialty||'—',revenue:0,sessions:0,patients:new Set()};
     docStats[d].sessions++;
+    if(a.patId||a.patient) docStats[d].patients.add(a.patId||a.patient);
   });
   const sorted = Object.values(docStats).sort((a,b)=>b.revenue-a.revenue);
   const totalRev = sorted.reduce((s,d)=>s+d.revenue,0);
