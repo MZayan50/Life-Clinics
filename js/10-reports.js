@@ -23,6 +23,9 @@
   EventBus.on('expenses:created',     refresh);
   EventBus.on('expenses:updated',     refresh);
   EventBus.on('expenses:deleted',     refresh);
+  EventBus.on('purchases:created',    refresh);
+  EventBus.on('purchases:updated',    refresh);
+  EventBus.on('purchases:deleted',    refresh);
 
 }());
 
@@ -47,13 +50,16 @@ function renderReports(){
   const newPats   = patients.filter(p=>(p.createdAt||'').startsWith(thisMonth)).length;
   const todayAppt = appts.filter(a=>a.date===today).length;
   const monthExp  = expenses.filter(e=>(e.date||'').startsWith(thisMonth)).reduce((s,e)=>s+(e.amount||0),0);
-  const netProfit = monthRev - monthExp;
+  const purchases = DB.get('purchases') || [];
+  const monthPur  = purchases.filter(p=>(p.orderDate||'').startsWith(thisMonth) && p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
+  const netProfit = monthRev - monthExp - monthPur;
 
   el.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
       <div class="kpi-card kc-emerald"><div class="kpi-icon">💰</div><div class="kpi-value">${monthRev.toLocaleString()} ج</div><div class="kpi-label">إيرادات الشهر</div></div>
       <div class="kpi-card kc-rose"><div class="kpi-icon">💸</div><div class="kpi-value">${monthExp.toLocaleString()} ج</div><div class="kpi-label">مصروفات الشهر</div></div>
-      <div class="kpi-card ${netProfit>=0?'kc-teal':'kc-amber'}"><div class="kpi-icon">📈</div><div class="kpi-value">${(netProfit>=0?'+':'')+netProfit.toLocaleString()} ج</div><div class="kpi-label">صافي الربح</div></div>
+      <div class="kpi-card kc-amber"><div class="kpi-icon">🛒</div><div class="kpi-value">${monthPur.toLocaleString()} ج</div><div class="kpi-label">مشتريات مستلمة</div></div>
+      <div class="kpi-card ${netProfit>=0?'kc-teal':'kc-amber'}"><div class="kpi-icon">📈</div><div class="kpi-value">${(netProfit>=0?'+':'')+netProfit.toLocaleString()} ج</div><div class="kpi-label">صافي الربح (بعد المصروفات والمشتريات)</div></div>
       <div class="kpi-card kc-gold"><div class="kpi-icon">⏳</div><div class="kpi-value">${totalPend.toLocaleString()} ج</div><div class="kpi-label">مستحقات معلقة</div></div>
       <div class="kpi-card kc-purple" style="--kc-color:#8B5CF6"><div class="kpi-icon">👥</div><div class="kpi-value">${newPats}</div><div class="kpi-label">عملاء جدد الشهر</div></div>
       <div class="kpi-card kc-teal"><div class="kpi-icon">📅</div><div class="kpi-value">${todayAppt}</div><div class="kpi-label">مواعيد اليوم</div></div>

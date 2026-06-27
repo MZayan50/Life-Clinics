@@ -778,8 +778,9 @@ function finalizeConsultation(){
     date:today,originalPrice:price,discount:disc,total:net,paid:net,remaining:0,
     status:'مدفوع',method,fromAppt:apptId,commission:comm,commissionPct:doc?.commission||0,branch:a.branch||''
   });
-  // 3. Deduct inventory
-  deductInventory(svcName);
+  // 3. Deduct inventory — نبحث عن serviceId من جدول services بالاسم أو من الموعد مباشرةً
+  const svcRecord = DB.get('services').find(s => s.name === svcName) || DB.get('services').find(s => s.id === a.serviceId);
+  deductInventory(svcRecord?.id || a.serviceId, 1);
   // 4. تحديث ملف العميل — ✅ spent يُحدَّث تلقائيًا عبر EventBus('invoices:created') في 00-core.js
   // sessions: نحسب من الـ sessions collection + عدد الاستشارات المكتملة من appointments
   // بدل +1 اليدوية لتجنب التعارض مع sessions:updated hook في 00-core.js

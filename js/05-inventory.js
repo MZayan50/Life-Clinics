@@ -23,39 +23,23 @@ EventBus.on('transfers:deleted',  () => { if(window.renderTransfers) renderTrans
 
 // ══════════════════════════════════════════
 // 📦 INVENTORY AUTO-DEDUCT FROM SESSIONS
+// يقرأ linkedProductId وconsumeQty من جدول services مباشرةً
 // ══════════════════════════════════════════
-function deductInventory(serviceName){
-  const serviceToProduct = {
-    'هيدرافيشل': 'سيروم فيتامين C',
-    'ليزر إزالة شعر': null,
-    'بوتكس': null,
-    'بلازما': null,
-    'تنظيف بشرة': 'كريم ترطيب SPF50',
-    'جلسات شعر': 'شامبو بروتين'
-  };
-  const product = serviceToProduct[serviceName];
-  if(!product) return;
-  const inv = DB.get('inventory');
-  const item = inv.find(i => i.name === product);
-  if(item && item.qty > 0){
-    const newQty = item.qty - 1;
-    const newStatus = newQty === 0 ? 'نفذ' : newQty <= item.reorder ? 'منخفض' : 'متوفر';
-    // DB.upd يُطلق inventory:updated → EventBus → renderInv تلقائياً
-    DB.upd('inventory', item.id, { qty: newQty, status: newStatus });
-    if(newQty <= item.reorder){
-      showToast('warning', `⚠️ مخزون منخفض: ${product}`, `متبقي ${newQty} وحدة`);
-    }
+function deductInventory(serviceId, qty){
+  if(!serviceId) return;
+  const svc = DB.get('services').find(s => s.id === serviceId);
+  if(!svc || !svc.linkedProductId) return;
+  const consumeQty = (svc.consumeQty || 1) * (qty || 1);
+  const inv  = DB.get('inventory');
+  const item = inv.find(i => i.id === svc.linkedProductId);
+  if(!item) return;
+  const newQty    = Math.max(0, item.qty - consumeQty);
+  const newStatus = newQty === 0 ? 'نفذ' : newQty <= item.reorder ? 'منخفض' : 'متوفر';
+  // DB.upd يُطلق inventory:updated → EventBus → renderInv تلقائياً
+  DB.upd('inventory', item.id, { qty: newQty, status: newStatus });
+  if(newQty <= item.reorder){
+    showToast('warning', `⚠️ مخزون منخفض: ${item.name}`, `متبقي ${newQty} وحدة`);
   }
-}
-
-// Patch saveInv to deduct inventory
-const _origSaveInv = window.saveInv;
-if(_origSaveInv){
-  window.saveInv = function(){
-    const svc = document.getElementById('im-svc')?.value?.split(' - ')[0];
-    _origSaveInv();
-    if(svc) deductInventory(svc);
-  };
 }
 
 // ══════════════════════════════════════════
@@ -181,7 +165,7 @@ function openPurchaseModal(id){
 function fillPurchaseSuppliers(){
   const sel = document.getElementById('pur-supplier'); if(!sel) return;
   const sups = DB.get('suppliers') || [];
-  sel.innerHTML = '<option value="">-- اختر مورد --</option>' + sups.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+  sel.innerHTML = '<option value="">-- اختر مورد --</option>' + sups.map(s => `<option value="${s.id}" data-name="${s.name}">${s.name}</option>`).join('');
 }
 
 function calcPurTotal(){
@@ -196,7 +180,10 @@ function savePurchase(){
   const qty = parseInt(gv('pur-qty'))||0;
   const unitPrice = parseFloat(gv('pur-unit-price'))||0;
   const id = gv('pur-id');
-  const data = { product, supplier:gv('pur-supplier'), qty, unitPrice, total:qty*unitPrice,
+  const purSel = document.getElementById('pur-supplier');
+  const supplierId = purSel?.value || '';
+  const supplierName = purSel?.options[purSel?.selectedIndex]?.dataset?.name || supplierId;
+  const data = { product, supplierId, supplier:supplierName, qty, unitPrice, total:qty*unitPrice,
                  orderDate:gv('pur-order-date'), deliveryDate:gv('pur-delivery-date'),
                  branch:gv('pur-branch'), status:gv('pur-status') };
   if(!DB.get('purchases').length) DB.set('purchases',[]);
@@ -211,10 +198,17 @@ function recvPurchase(id){
   if(!pur){ showToast('error','❌ الطلبية غير موجودة'); return; }
   if(pur.status === 'مستلم'){ showToast('warning','⚠️ هذه الطلبية مستلمة بالفعل'); return; }
   // ✅ تحديث المخزون يحصل تلقائياً عبر EventBus('purchases:updated') في 00-core.js
-  // لا تحديث يدوي هنا لتجنب الاحتساب المضاعف للكميات
   const itemCount = (DB.get('purchase_items')||[]).filter(i => i.purchaseId === id).length;
   // DB.upd يُطلق purchases:updated → 00-core hook يضيف الكميات → EventBus → renderInv تلقائياً
   DB.upd('purchases', id, { status:'مستلم', deliveryDate: new Date().toISOString().split('T')[0] });
+  // ── تحديث مستحقات المورد تلقائياً ──
+  if(pur.supplierId){
+    const sup = DB.get('suppliers').find(s => s.id === pur.supplierId);
+    if(sup){
+      const newOwed = (sup.owed || 0) + (pur.total || 0);
+      DB.upd('suppliers', sup.id, { owed: newOwed });
+    }
+  }
   showToast('success', `✅ تم استلام الطلبية وتحديث ${itemCount} منتج في المخزون`);
 }
 

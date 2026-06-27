@@ -312,9 +312,14 @@ function payStaffSalary(id){
 
 function renderSvcs(){
   const tb = document.getElementById('svc-tbody'); if(!tb) return;
+  const invMap = {};
+  DB.get('inventory').forEach(p => { invMap[p.id] = p.name; });
   tb.innerHTML = DB.get('services').map(s => {
     const pr = s.price - s.cost;
     const pt = s.price ? Math.round(pr / s.price * 100) : 0;
+    const prodLabel = s.linkedProductId && invMap[s.linkedProductId]
+      ? `${invMap[s.linkedProductId]} × ${s.consumeQty || 1}`
+      : '<span style="color:var(--text-muted)">—</span>';
     return `<tr>
       <td style="font-weight:600">${s.name}</td>
       <td><span class="tag tg-teal">${s.cat}</span></td>
@@ -323,6 +328,7 @@ function renderSvcs(){
       <td>${s.cost} ج</td>
       <td style="color:var(--emerald)">${pr} ج (${pt}%)</td>
       <td style="font-size:12px">${s.doctor}</td>
+      <td style="font-size:12px">${prodLabel}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs"  onclick="openSvcModal('${s.id}')">✏️</button>
         <button class="btn btn-danger btn-xs" onclick="delSvc('${s.id}')">🗑</button>
@@ -362,6 +368,15 @@ function openSvcModal(id){
       + DB.get('equipment').map(e => `<option>${e.name}</option>`).join('');
     equipSel.value = s ? s.equipment || '' : '';
   }
+  // ── المنتج المرتبط والكمية المستهلكة ──
+  const prodSel = document.getElementById('sv-prod');
+  if(prodSel){
+    prodSel.innerHTML = '<option value="">— لا يوجد —</option>'
+      + DB.get('inventory').map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    prodSel.value = s ? s.linkedProductId || '' : '';
+  }
+  const qtySel = document.getElementById('sv-qty');
+  if(qtySel) qtySel.value = s ? s.consumeQty ?? 1 : 1;
   openModal('service-modal');
 }
 
@@ -371,13 +386,15 @@ function saveSvc(){
   const id   = gv('sv-id');
   const data = {
     name,
-    cat:       gv('sv-cat'),
-    doctor:    gv('sv-doc'),
-    price:     parseFloat(gv('sv-price')) || 0,
-    cost:      parseFloat(gv('sv-cost'))  || 0,
-    duration:  parseInt(gv('sv-dur'))     || 60,
-    room:      gv('sv-room'),
-    equipment: gv('sv-equip'),
+    cat:             gv('sv-cat'),
+    doctor:          gv('sv-doc'),
+    price:           parseFloat(gv('sv-price'))  || 0,
+    cost:            parseFloat(gv('sv-cost'))   || 0,
+    duration:        parseInt(gv('sv-dur'))       || 60,
+    room:            gv('sv-room'),
+    equipment:       gv('sv-equip'),
+    linkedProductId: gv('sv-prod') || null,
+    consumeQty:      parseFloat(gv('sv-qty'))    || 1,
   };
   if(id){ DB.upd('services', id, data); showToast('success', `✅ تم تحديث "${name}"`); }
   else  { DB.push('services', data);    showToast('success', `✅ تم إضافة "${name}"`); }
