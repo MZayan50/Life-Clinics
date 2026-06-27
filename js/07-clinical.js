@@ -55,8 +55,7 @@ function renderPhotos(q){
 }
 function delPhoto(id){
   if(confirm('حذف هذه الصور؟')){
-    const photos=DB.get('photos').filter(p=>p.id!==id);
-    DB.set('photos',photos);
+    DB.del('photos', id);
     showToast('info','🗑 تم الحذف');
     renderPhotos();
   }

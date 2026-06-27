@@ -208,8 +208,8 @@ function delInstallment(id){
   if(confirm('حذف خطة الأقساط؟')){
     const plan=(DB.get('installments')||[]).find(p=>p.id===id);
     if(plan){
-      // حذف من القائمة مباشرة
-      DB.set('installments',(DB.get('installments')||[]).filter(p=>p.id!==id));
+      // حذف من localStorage وFirestore معاً
+      DB.del('installments', id);
       // إعادة حساب balance للعميل بعد الحذف
       const pat = DB.get('patients').find(p=>String(p.id)===String(plan.patientId));
       if(pat){

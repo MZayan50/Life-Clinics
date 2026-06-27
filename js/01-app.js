@@ -540,8 +540,10 @@ function init(){
   txt('badge-leads',DB.get('leads').filter(l=>l.status==='جديد').length);
   const ua=DB.get('invoices').filter(i=>i.status!=='مدفوع').reduce((s,i)=>s+(i.remaining||0),0);txt('kpi-pend',ua.toLocaleString());
   const tr=DB.get('invoices').filter(i=>i.date===new Date().toISOString().split('T')[0]).reduce((s,i)=>s+(i.paid||0),0);txt('kpi-rev',tr.toLocaleString());
-  // conn status
-  txt('conn-txt','وضع محلي 💾');const d=document.getElementById('conn-dot');if(d)d.style.background='#F59E0B';
+  // conn status — لا نكتب "وضع محلي" لو Firebase متصل بالفعل
+  if(!window._fbReady){
+    txt('conn-txt','وضع محلي 💾');const d=document.getElementById('conn-dot');if(d)d.style.background='#F59E0B';
+  }
   // Set today date on inputs
   const td=new Date().toISOString().split('T')[0];
   ['am-date','im-date'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=td;});

@@ -118,12 +118,30 @@ async function initFirebase(cfg){
       'patients','appointments','inventory','invoices','invoice_items',
       'services','leads','doctors','staff','expenses','branches',
       'campaigns','packages','sessions','waitlist','rooms','equipment',
-      'suppliers','purchases','purchase_items','visits','inventory_transactions'
+      'suppliers','purchases','purchase_items','visits','inventory_transactions',
+      'cashlog','installments','photos','audit_log','transfers'
     ];
     COLLECTIONS.forEach(col => attachFirestoreSync(col));
 
     // Load shared settings (API key, clinic name, etc.) from Firestore
     await loadSettingsFromFirestore();
+
+    // ── مزامنة المستخدمين في الوقت الفعلي ──
+    // لو جهاز ثاني أضاف/عدّل مستخدم، يتحدث تلقائياً عند تسجيل الدخول
+    if(window._fbListeners['users']) window._fbListeners['users']();
+    window._fbListeners['users'] = window._firestore.collection('users')
+      .onSnapshot(snapshot => {
+        if(snapshot.empty) return;
+        const usersObj = {};
+        snapshot.forEach(doc => {
+          const u = doc.data();
+          if(u.username) usersObj[u.username] = u;
+        });
+        // دمج مع المحلي (المحلي أقدم — Firestore يفوز)
+        const local = getUsersDB();
+        const merged = {...local, ...usersObj};
+        localStorage.setItem(USERS_KEY, JSON.stringify(merged));
+      }, err => console.warn('Firestore users listener error:', err.message));
 
   } catch(err) {
     console.error('Firebase init error:', err);
@@ -158,8 +176,16 @@ function attachFirestoreSync(col){
       // ✅ لو Firestore رجّع بيانات فعلية (مش فاضية) → اكتب فوق localStorage
       // لو فاضية وعندنا بيانات محلية → اسيب المحلية (أمان لو collection جديدة فارغة)
       const local = DB.get(col);
+      const changed = docs.length !== local.length ||
+        JSON.stringify(docs.map(d=>d.id).sort()) !== JSON.stringify(local.map(d=>d.id).sort());
       if(docs.length > 0 || local.length === 0){
         DB.set(col, docs);
+      }
+      // أطلق أحداث EventBus حتى يتحدث الـ UI وتعمل Business Logic hooks
+      // (هذا يحدث فقط لو كانت التغييرات من جهاز آخر — الكتابة المحلية تطلق الأحداث مسبقاً)
+      if(changed && window._fbFirstSync && window._fbFirstSync[col]){
+        EventBus.emit(col + ':remote-sync', { docs });
+        EventBus.emit('db:changed', { collection: col, action: 'remote-sync' });
       }
       _scheduleUIRefresh(col);
       // أول sync → شيل loading indicator لو موجود
@@ -297,7 +323,8 @@ async function uploadSeedToFirestore(){
   const SEED_COLS = [
     'patients','appointments','inventory','invoices','invoice_items',
     'services','leads','doctors','staff','expenses','branches',
-    'rooms','equipment','suppliers','purchases','purchase_items'
+    'rooms','equipment','suppliers','purchases','purchase_items',
+    'sessions','packages','cashlog','installments','photos','transfers','audit_log'
   ];
   let total = 0;
   showToast('info','☁️ جارٍ رفع البيانات إلى Firebase...');
@@ -317,6 +344,18 @@ async function uploadSeedToFirestore(){
       total += chunk.length;
     }
   }
+  // رفع المستخدمين إلى Firestore حتى يتمكن الجهاز الثاني من تسجيل الدخول
+  try {
+    const usersObj = getUsersDB();
+    const batch = window._firestore.batch();
+    Object.entries(usersObj).forEach(([username, userData]) => {
+      const ref = window._firestore.collection('users').doc(username);
+      batch.set(ref, {...userData, username}, {merge: true});
+    });
+    await batch.commit();
+    total += Object.keys(usersObj).length;
+  } catch(e){ console.warn('Users seed error:', e.message); }
+
   showToast('success', `☁️ تم رفع ${total} سجل إلى Firebase`);
 }
 
@@ -334,7 +373,8 @@ async function migrateToFirestore(){
     'patients','appointments','inventory','invoices','invoice_items',
     'services','leads','doctors','staff','expenses','branches',
     'rooms','equipment','suppliers','purchases','purchase_items',
-    'visits','sessions','packages','waitlist','campaigns','audit_log'
+    'visits','sessions','packages','waitlist','campaigns','audit_log',
+    'transfers','cashlog','installments','photos'
   ];
 
   // Step 1: Wipe existing Firestore docs
@@ -463,7 +503,7 @@ function disconnectFirebase(){
 })();
 function toggleSw(el){const on=el.style.background.includes('2DD4BF')||el.style.background.includes('teal');el.style.background=on?'var(--glass-border)':'var(--teal)';const k=el.querySelector('div');if(k)k.style.cssText=`width:19px;height:19px;background:#fff;border-radius:50%;position:absolute;top:2px;transition:.2s;${on?'left:2px':'right:2px'}`;}
 function exportAll(){
-  const ALL_COLS=['patients','appointments','inventory','invoices','invoice_items','services','leads','doctors','staff','expenses','branches','rooms','equipment','suppliers','purchases','purchase_items','sessions','packages','waitlist','campaigns'];
+  const ALL_COLS=['patients','appointments','inventory','invoices','invoice_items','services','leads','doctors','staff','expenses','branches','rooms','equipment','suppliers','purchases','purchase_items','sessions','packages','waitlist','campaigns','transfers','cashlog','installments','photos','audit_log'];
   const d={};
   ALL_COLS.forEach(k=>{d[k]=DB.get(k);});
   d.settings=DB.obj('settings');
@@ -474,7 +514,7 @@ function exportAll(){
   showToast('success','📥 تم تصدير البيانات (Schema v2)');
 }
 function clearAll(){if(confirm('⚠️ هذا سيحذف كل البيانات المحلية! متأكد؟')){
-  ['patients','appointments','inventory','invoices','invoice_items','services','leads','doctors','staff','expenses','branches','rooms','equipment','suppliers','purchases','purchase_items','sessions','packages','waitlist','campaigns','visits','inventory_transactions','audit_log'].forEach(k=>DB.set(k,[]));
+  ['patients','appointments','inventory','invoices','invoice_items','services','leads','doctors','staff','expenses','branches','rooms','equipment','suppliers','purchases','purchase_items','sessions','packages','waitlist','campaigns','visits','inventory_transactions','audit_log','transfers','cashlog','installments','photos'].forEach(k=>DB.set(k,[]));
   localStorage.removeItem('ha_seeded');
   localStorage.removeItem('ha_seeded_v2');
   showToast('warning','🗑️ تم مسح كل البيانات المحلية');
@@ -778,7 +818,16 @@ const USERS_KEY = 'ha_users_db';
 function getUsersDB(){
   try { return JSON.parse(localStorage.getItem(USERS_KEY)||'{}'); } catch(e){return{};}
 }
-function saveUsersDB(db){ localStorage.setItem(USERS_KEY, JSON.stringify(db)); }
+function saveUsersDB(db){
+  localStorage.setItem(USERS_KEY, JSON.stringify(db));
+  // تزامن المستخدمين مع Firestore حتى تستطيع الأجهزة الأخرى تسجيل الدخول
+  if(window._firestore){
+    Object.entries(db).forEach(([username, userData]) => {
+      window._firestore.collection('users').doc(username).set({...userData, username}, {merge:true})
+        .catch(e => console.warn('Firestore users sync error:', e.message));
+    });
+  }
+}
 
 // ── Seed مبكر ومتزامن عند تحميل الملف (قبل checkAuth) ──
 // يضمن وجود ha_users_db حتى لو seedDefaultUsers الـ async لم تكتمل بعد

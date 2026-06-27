@@ -83,7 +83,7 @@ const DB = {
     'services', 'leads', 'doctors', 'staff', 'expenses', 'branches',
     'campaigns', 'packages', 'sessions', 'waitlist', 'rooms', 'equipment',
     'suppliers', 'purchases', 'purchase_items', 'visits',
-    'inventory_transactions', 'audit_log',
+    'inventory_transactions', 'audit_log', 'transfers',
     'photos', 'installments', 'cashlog'
   ],
 
@@ -262,9 +262,13 @@ function _flushUIRefresh(){
     if(_pendingRefresh.has('cashlog')      && active==='accounts')     { if(typeof renderAccounts==='function') renderAccounts(); }
     if(_pendingRefresh.has('invoices')     && active==='accounts')     { if(typeof renderAccounts==='function') renderAccounts(); }
     if(_pendingRefresh.has('purchases')    && active==='purchases')    renderPurchases();
+    if(_pendingRefresh.has('transfers')    && active==='transfers')    renderTransfers();
     if(_pendingRefresh.has('sessions')     && active==='sessions')     renderSessions();
     if(_pendingRefresh.has('services')     && active==='services')     renderSvcs();
     if(_pendingRefresh.has('leads')        && active==='leads')        renderLeads();
+    if(_pendingRefresh.has('photos')       && active==='photos')       renderPhotos();
+    if(_pendingRefresh.has('sessions')     && active==='sessions')     renderSessions();
+    if(_pendingRefresh.has('sessions')     && active==='packages')     renderPackages();
   } catch(e){ console.warn('[UI Refresh]', e); }
   _pendingRefresh.clear();
 }
@@ -313,6 +317,13 @@ EventBus.on('services:created',     () => _scheduleUIRefresh('services'));
 EventBus.on('services:updated',     () => _scheduleUIRefresh('services'));
 EventBus.on('leads:created',        () => _scheduleUIRefresh('leads'));
 EventBus.on('leads:updated',        () => _scheduleUIRefresh('leads'));
+EventBus.on('transfers:created',    () => _scheduleUIRefresh('transfers'));
+EventBus.on('transfers:updated',    () => _scheduleUIRefresh('transfers'));
+EventBus.on('transfers:deleted',    () => _scheduleUIRefresh('transfers'));
+EventBus.on('photos:created',       () => _scheduleUIRefresh('photos'));
+EventBus.on('photos:deleted',       () => _scheduleUIRefresh('photos'));
+EventBus.on('packages:created',     () => _scheduleUIRefresh('sessions'));
+EventBus.on('packages:updated',     () => _scheduleUIRefresh('sessions'));
 
 // ══════════════════════════════════════════
 // 🔗 LOOKUP HELPERS
