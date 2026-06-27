@@ -1,0 +1,1861 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="عيادات الحياة">
+<meta name="theme-color" content="#0A0D14" id="theme-color-meta">
+<title>HAYAH Medical Care Center</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&amp;display=swap" crossorigin>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap');
+:root{
+  --bg-primary:#0A0D14;--bg-secondary:#0F1420;
+  --bg-card:rgba(255,255,255,.04);--bg-card-hover:rgba(255,255,255,.07);
+  --glass:rgba(255,255,255,.06);--glass-border:rgba(255,255,255,.10);
+  --sidebar-bg:linear-gradient(180deg,#0D1525,#0A0D14);
+  --topbar-bg:rgba(10,13,20,.88);--modal-bg:#0F1825;--input-bg:rgba(255,255,255,.06);
+  --gold:#C4A882;--gold-light:#D4B896;--teal:#2DD4BF;--teal-dark:#14B8A6;
+  --purple:#8B5CF6;--rose:#F43F5E;--emerald:#10B981;--amber:#F59E0B;--blue:#3B82F6;
+  --text-primary:#F1F5F9;--text-secondary:#94A3B8;--text-muted:#475569;
+  --shadow:0 8px 32px rgba(0,0,0,.5);--sidebar-w:262px;--radius:16px;--radius-sm:10px;
+}
+html.light{
+  --bg-primary:#F0F4F8;--bg-secondary:#E8EEF5;
+  --bg-card:rgba(255,255,255,.9);--bg-card-hover:#fff;
+  --glass:rgba(255,255,255,.75);--glass-border:rgba(0,0,0,.09);
+  --sidebar-bg:linear-gradient(180deg,#fff,#F0F4F8);
+  --topbar-bg:rgba(240,244,248,.92);--modal-bg:#fff;--input-bg:rgba(0,0,0,.04);
+  --gold:#7A5C38;--gold-light:#5E4428;--teal:#0D9488;--teal-dark:#0F766E;
+  --purple:#6D28D9;--rose:#BE123C;--emerald:#047857;--amber:#B45309;--blue:#1D4ED8;
+  --text-primary:#0F172A;--text-secondary:#1E293B;--text-muted:#64748B;
+  --shadow:0 4px 20px rgba(0,0,0,.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'Tajawal',sans-serif;background:var(--bg-primary);color:var(--text-primary);font-size:14px;transition:background .3s,color .3s;}
+.sidebar{position:fixed;top:0;right:0;width:var(--sidebar-w);height:100vh;background:var(--sidebar-bg);border-left:1px solid var(--glass-border);z-index:200;display:flex;flex-direction:column;overflow:hidden;transition:transform .3s cubic-bezier(.4,0,.2,1);}
+.sidebar-logo{padding:18px 16px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:10px;}
+.logo-icon{width:42px;height:42px;background:linear-gradient(135deg,var(--gold),var(--teal));border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.logo-text h1{font-size:13px;font-weight:800;background:linear-gradient(135deg,var(--gold-light),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.3;}
+.logo-text span{font-size:10px;color:var(--text-muted);}
+.conn-bar{display:flex;align-items:center;gap:6px;padding:6px 16px;font-size:10.5px;color:var(--text-muted);border-bottom:1px solid var(--glass-border);}
+.conn-dot{width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0;transition:background .3s;}
+.sidebar-search{padding:10px 12px;border-bottom:1px solid var(--glass-border);}
+.sidebar-search input{width:100%;padding:7px 10px;background:var(--input-bg);border:1px solid var(--glass-border);border-radius:8px;color:var(--text-primary);font-family:'Tajawal',sans-serif;font-size:12.5px;outline:none;direction:rtl;}
+.sidebar-search input::placeholder{color:var(--text-muted);}
+.sidebar-nav{flex:1;overflow-y:auto;padding:6px 0;scrollbar-width:thin;scrollbar-color:var(--glass-border) transparent;}
+.nav-label{font-size:9.5px;font-weight:800;letter-spacing:1.5px;color:var(--text-muted);text-transform:uppercase;padding:10px 18px 3px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 14px;margin:1px 7px;border-radius:var(--radius-sm);cursor:pointer;transition:all .18s;color:var(--text-secondary);position:relative;border:1px solid transparent;}
+.nav-item:hover{background:var(--glass);color:var(--text-primary);}
+.nav-item.active{background:linear-gradient(135deg,rgba(196,168,130,.13),rgba(45,212,191,.08));color:var(--gold-light);border-color:rgba(196,168,130,.18);}
+.nav-item.active::before{content:'';position:absolute;right:-7px;top:50%;transform:translateY(-50%);width:3px;height:22px;background:linear-gradient(var(--gold),var(--teal));border-radius:2px;}
+.nav-icon{font-size:17px;width:20px;text-align:center;flex-shrink:0;}
+.nav-text{flex:1;font-size:13px;font-weight:500;}
+.nb{font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px;min-width:18px;text-align:center;}
+.nb-rose{background:var(--rose);color:#fff;}
+.nb-teal{background:var(--teal);color:var(--bg-primary);}
+.nb-amber{background:var(--amber);color:var(--bg-primary);}
+.nb-green{background:var(--emerald);color:#fff;}
+.sidebar-footer{padding:10px 12px;border-top:1px solid var(--glass-border);}
+.user-card{display:flex;align-items:center;gap:9px;padding:9px 11px;background:var(--glass);border-radius:var(--radius-sm);cursor:pointer;}
+.user-ava{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--teal));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.user-info p{font-size:12.5px;font-weight:700;}
+.user-info span{font-size:10.5px;color:var(--text-muted);}
+.online-dot{width:7px;height:7px;border-radius:50%;background:var(--emerald);margin-right:auto;box-shadow:0 0 6px var(--emerald);}
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);z-index:199;}
+.sb-overlay.open{display:block;}
+.topbar{position:fixed;top:0;left:0;right:var(--sidebar-w);height:60px;background:var(--topbar-bg);backdrop-filter:blur(20px);border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:12px;padding:0 20px;z-index:100;}
+.hamburger{display:none;width:36px;height:36px;border-radius:9px;background:var(--glass);border:1px solid var(--glass-border);align-items:center;justify-content:center;cursor:pointer;font-size:19px;flex-shrink:0;}
+.topbar-title{font-size:15px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.topbar-date{font-size:11.5px;color:var(--text-muted);font-weight:400;margin-right:8px;}
+.topbar-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.icon-btn{width:36px;height:36px;border-radius:9px;background:var(--glass);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:var(--text-secondary);transition:all .2s;position:relative;flex-shrink:0;}
+.icon-btn:hover{background:var(--bg-card-hover);color:var(--text-primary);}
+.ndot{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--rose);border:2px solid var(--bg-primary);}
+.theme-btn{width:36px;height:36px;border-radius:9px;background:var(--glass);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px;transition:all .25s;flex-shrink:0;}
+.theme-btn:hover{transform:rotate(20deg);}
+.sync-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:9px;background:var(--glass);border:1px solid var(--glass-border);font-size:11.5px;font-weight:600;color:var(--text-secondary);cursor:pointer;transition:all .2s;white-space:nowrap;}
+.sync-btn:hover{background:rgba(45,212,191,.12);color:var(--teal);border-color:rgba(45,212,191,.3);}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes aiPulse{0%,100%{opacity:.3;transform:scale(.85);}50%{opacity:1;transform:scale(1);}}
+.ai-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);display:inline-block;animation:aiPulse 1.2s ease-in-out infinite;}
+.spin{animation:spin 1s linear infinite;}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:9px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .18s;white-space:nowrap;}
+.btn-primary{background:linear-gradient(135deg,var(--gold),#9A7050);color:#fff;box-shadow:0 3px 14px rgba(196,168,130,.3);}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 5px 20px rgba(196,168,130,.4);}
+.btn-ghost{background:var(--glass);color:var(--text-secondary);border:1px solid var(--glass-border);}
+.btn-ghost:hover{background:var(--bg-card-hover);color:var(--text-primary);}
+.btn-teal{background:linear-gradient(135deg,var(--teal),var(--teal-dark));color:var(--bg-primary);}
+.btn-danger{background:linear-gradient(135deg,var(--rose),#BE123C);color:#fff;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.btn-xs{padding:3px 9px;font-size:11px;}
+.main{position:fixed;top:60px;left:0;right:var(--sidebar-w);bottom:0;overflow-y:auto;padding:22px;scrollbar-width:thin;scrollbar-color:var(--glass-border) transparent;}
+.screen{display:none;animation:fadeUp .28s ease;}
+.screen.active{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+.card{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px;transition:background .2s;}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.card-title{font-size:14.5px;font-weight:700;}
+.card-sub{font-size:11.5px;color:var(--text-muted);}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:20px;}
+.kpi-card{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden;transition:all .22s;}
+.kpi-card:hover{background:var(--bg-card-hover);transform:translateY(-2px);}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.kc-gold::before{background:linear-gradient(90deg,var(--gold),var(--gold-light));}
+.kc-teal::before{background:linear-gradient(90deg,var(--teal),#67E8F9);}
+.kc-purple::before{background:linear-gradient(90deg,var(--purple),#A78BFA);}
+.kc-rose::before{background:linear-gradient(90deg,var(--rose),#FB7185);}
+.kc-emerald::before{background:linear-gradient(90deg,var(--emerald),#34D399);}
+.kc-amber::before{background:linear-gradient(90deg,var(--amber),#FCD34D);}
+.kpi-icon{font-size:24px;margin-bottom:10px;display:inline-block;}
+.kpi-value{font-size:26px;font-weight:900;line-height:1;margin-bottom:3px;}
+.kpi-label{font-size:12px;color:var(--text-muted);}
+.kpi-chg{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;margin-top:7px;padding:2px 7px;border-radius:5px;}
+.kpi-up{background:rgba(16,185,129,.12);color:var(--emerald);}
+.kpi-dn{background:rgba(244,63,94,.12);color:var(--rose);}
+.g2{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:18px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:18px;}
+.g2c{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.chart-bar{display:flex;align-items:flex-end;gap:7px;height:110px;padding-top:8px;}
+.bar{flex:1;border-radius:5px 5px 0 0;transition:height .5s ease;cursor:pointer;}
+.bar:hover{opacity:.75;}
+.blbl{font-size:10px;color:var(--text-muted);text-align:center;margin-top:5px;}
+.clbls{display:flex;gap:7px;margin-top:2px;}
+.appt-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--glass-border);}
+.appt-item:last-child{border-bottom:none;}
+.appt-time{font-size:11.5px;font-weight:700;color:var(--gold-light);width:44px;text-align:center;flex-shrink:0;}
+.appt-ava{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.appt-info p{font-size:13px;font-weight:600;}
+.appt-info span{font-size:11.5px;color:var(--text-muted);}
+.ast{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+.sc{background:rgba(16,185,129,.13);color:var(--emerald);}
+.sp{background:rgba(245,158,11,.13);color:var(--amber);}
+.sw{background:rgba(59,130,246,.13);color:var(--blue);}
+.sd{background:rgba(148,163,184,.1);color:var(--text-secondary);}
+.sx{background:rgba(244,63,94,.13);color:var(--rose);}
+.s-upcoming{background:rgba(59,130,246,.13);color:var(--blue);}
+.s-waiting{background:rgba(245,158,11,.18);color:var(--amber);}
+.s-checkin{background:rgba(45,212,191,.13);color:var(--teal);}
+.s-consult{background:rgba(139,92,246,.15);color:var(--purple);}
+.s-late{background:rgba(244,63,94,.18);color:var(--rose);}
+.s-noshow{background:rgba(148,163,184,.13);color:var(--text-secondary);}
+.s-rescheduled{background:rgba(196,168,130,.13);color:var(--gold-light);}
+/* Waitlist queue card */
+.wq-card{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;transition:all .2s;position:relative;overflow:hidden;}
+.wq-card:hover{background:var(--bg-card-hover);}
+.wq-card.wq-late{border-color:rgba(244,63,94,.35);background:rgba(244,63,94,.04);}
+.wq-card.wq-consult{border-color:rgba(139,92,246,.35);background:rgba(139,92,246,.04);}
+.wq-card.wq-checkin{border-color:rgba(45,212,191,.35);background:rgba(45,212,191,.04);}
+.wq-rank{width:28px;height:28px;border-radius:50%;background:var(--glass);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--text-muted);flex-shrink:0;}
+.wq-ava{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.wq-info{flex:1;min-width:0;}
+.wq-name{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wq-meta{font-size:11.5px;color:var(--text-muted);margin-top:2px;}
+.wq-timer{font-size:12px;font-weight:700;color:var(--amber);min-width:60px;text-align:center;}
+.wq-timer.wq-timer-ok{color:var(--emerald);}
+.wq-actions{display:flex;gap:6px;flex-shrink:0;}
+.wq-pulse{animation:wqPulse 1.5s ease-in-out infinite;}
+@keyframes wqPulse{0%,100%{opacity:.6;}50%{opacity:1;}}
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+thead th{background:rgba(255,255,255,.03);padding:11px 13px;text-align:right;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--glass-border);white-space:nowrap;}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.03);transition:background .13s;}
+tbody tr:hover{background:rgba(255,255,255,.025);}
+tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
+.tdava{width:33px;height:33px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+.sbox{display:flex;align-items:center;gap:7px;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:8px 12px;flex:1;min-width:180px;}
+.sbox input{background:none;border:none;outline:none;color:var(--text-primary);font-family:'Tajawal',sans-serif;font-size:13px;flex:1;direction:rtl;}
+.sbox input::placeholder{color:var(--text-muted);}
+.selbox{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text-primary);font-family:'Tajawal',sans-serif;font-size:13px;outline:none;cursor:pointer;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);z-index:300;display:none;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--modal-bg);border:1px solid var(--glass-border);border-radius:20px;width:100%;max-width:680px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;animation:mIn .28s ease;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+@keyframes mIn{from{opacity:0;transform:scale(.95);}to{opacity:1;transform:scale(1);}}
+.mhdr{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--glass-border);}
+.mtitle{font-size:16px;font-weight:700;}
+.mclose{width:32px;height:32px;border-radius:8px;background:var(--glass);border:none;color:var(--text-secondary);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.mclose:hover{background:rgba(244,63,94,.15);color:var(--rose);}
+.mbody{padding:22px;overflow-y:auto;flex:1;}
+.mfoot{padding:14px 22px;border-top:1px solid var(--glass-border);display:flex;gap:9px;justify-content:flex-end;}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.fgrp{display:flex;flex-direction:column;gap:5px;}
+.fgrp.full{grid-column:1/-1;}
+.flbl{font-size:12px;font-weight:600;color:var(--text-secondary);}
+.fctl{background:var(--input-bg);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:9px 12px;color:var(--text-primary);font-family:'Tajawal',sans-serif;font-size:13px;outline:none;transition:border .18s;direction:rtl;width:100%;}
+.fctl:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(196,168,130,.12);}
+.fctl.ta{min-height:80px;resize:vertical;}
+.fdivider{grid-column:1/-1;border:none;border-top:1px solid var(--glass-border);margin:2px 0;}
+.fsec{grid-column:1/-1;font-size:12.5px;font-weight:700;color:var(--gold-light);padding-top:2px;}
+.tabs{display:flex;gap:3px;padding:3px;background:var(--glass);border-radius:var(--radius-sm);margin-bottom:18px;border:1px solid var(--glass-border);width:fit-content;overflow-x:auto;max-width:100%;}
+.tab{padding:7px 16px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--text-muted);transition:all .18s;white-space:nowrap;flex-shrink:0;}
+.tab.active{background:var(--bg-secondary);color:var(--text-primary);box-shadow:0 2px 8px rgba(0,0,0,.25);}
+.cal-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.cal-nav{background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;padding:6px 11px;cursor:pointer;color:var(--text-secondary);font-size:15px;}
+.cal-nav:hover{background:var(--bg-card-hover);color:var(--text-primary);}
+.cal-mn{font-size:17px;font-weight:700;flex:1;text-align:center;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-dh{text-align:center;font-size:11px;font-weight:700;color:var(--text-muted);padding:7px;}
+.cal-d{aspect-ratio:1;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:5px;cursor:pointer;transition:all .18s;border:1px solid transparent;font-size:12.5px;}
+.cal-d:hover{background:var(--glass);}
+.cal-d.other{color:var(--text-muted);opacity:.4;}
+.cal-d.today{border-color:var(--gold);background:rgba(196,168,130,.08);color:var(--gold-light);font-weight:700;}
+.cal-d.selected{background:linear-gradient(135deg,rgba(196,168,130,.18),rgba(45,212,191,.1));border-color:var(--teal);}
+.cal-d.has-ev::after{content:'';width:5px;height:5px;border-radius:50%;background:var(--teal);margin-top:2px;}
+.prog{height:6px;background:var(--glass);border-radius:3px;overflow:hidden;margin-top:4px;}
+.prog-f{height:100%;border-radius:3px;transition:width .5s ease;}
+.tag{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid;}
+.tg-gold{background:rgba(196,168,130,.12);border-color:rgba(196,168,130,.28);color:var(--gold-light);}
+.tg-teal{background:rgba(45,212,191,.09);border-color:rgba(45,212,191,.24);color:var(--teal);}
+.tg-purple{background:rgba(139,92,246,.09);border-color:rgba(139,92,246,.24);color:var(--purple);}
+.tg-green{background:rgba(16,185,129,.09);border-color:rgba(16,185,129,.24);color:var(--emerald);}
+.stk{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;}
+.stk-ok{background:rgba(16,185,129,.13);color:var(--emerald);}
+.stk-low{background:rgba(245,158,11,.13);color:var(--amber);}
+.stk-out{background:rgba(244,63,94,.13);color:var(--rose);}
+.pay-g{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:14px;}
+.pay-m{padding:11px 8px;border-radius:var(--radius-sm);border:2px solid var(--glass-border);text-align:center;cursor:pointer;transition:all .2s;font-size:12.5px;font-weight:600;}
+.pay-m:hover{border-color:var(--gold);}
+.pay-m.sel{border-color:var(--teal);background:rgba(45,212,191,.08);color:var(--teal);}
+.pay-ic{font-size:22px;margin-bottom:3px;}
+.phero{background:linear-gradient(135deg,rgba(139,92,246,.09),rgba(45,212,191,.07));border:1px solid var(--glass-border);border-radius:var(--radius);padding:22px;margin-bottom:18px;display:flex;align-items:center;gap:18px;}
+.pphoto{width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--teal));display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;border:3px solid rgba(255,255,255,.12);}
+.pdetails h2{font-size:19px;font-weight:800;}
+.pdetails p{font-size:12.5px;color:var(--text-muted);margin-top:2px;}
+.ptags{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap;}
+.pstats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+.sbox2{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:13px 14px;text-align:center;}
+.sval{font-size:20px;font-weight:800;}
+.slbl{font-size:11.5px;color:var(--text-muted);}
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start;}
+.kcol{background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius);padding:13px;}
+.kcol-t{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:11px;display:flex;justify-content:space-between;align-items:center;}
+.lcard{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:11px;margin-bottom:7px;cursor:pointer;transition:all .18s;}
+.lcard:hover{background:var(--bg-card-hover);transform:translateY(-1px);}
+.lname{font-size:12.5px;font-weight:600;}
+.lsvc{font-size:11.5px;color:var(--text-muted);margin-top:3px;}
+.ltime{font-size:10.5px;color:var(--text-muted);margin-top:5px;}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;}
+.rcard{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:10px;cursor:pointer;transition:all .22s;}
+.rcard:hover{background:var(--bg-card-hover);transform:translateY(-2px);}
+.bgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
+.bcard{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px;transition:all .22s;}
+.bcard:hover{transform:translateY(-2px);border-color:rgba(196,168,130,.28);}
+.drow{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--glass-border);}
+.drow:last-child{border-bottom:none;}
+.drank{font-size:13px;font-weight:800;color:var(--gold-light);width:22px;}
+.dava{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;}
+.ali{display:flex;align-items:flex-start;gap:11px;padding:11px;margin-bottom:7px;border-radius:var(--radius-sm);border:1px solid;}
+.ali-w{background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.2);}
+.ali-d{background:rgba(244,63,94,.07);border-color:rgba(244,63,94,.2);}
+.ali-i{background:rgba(59,130,246,.07);border-color:rgba(59,130,246,.2);}
+.ai-ico{font-size:18px;}
+.ai-txt p{font-size:12.5px;font-weight:600;}
+.ai-txt span{font-size:11.5px;color:var(--text-muted);}
+.toast-c{position:fixed;bottom:20px;left:20px;z-index:400;display:flex;flex-direction:column;gap:9px;}
+.toast{background:var(--modal-bg);border:1px solid var(--glass-border);border-radius:12px;padding:13px 16px;display:flex;align-items:center;gap:11px;min-width:270px;max-width:340px;box-shadow:var(--shadow);animation:tIn .3s ease;}
+@keyframes tIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.toast.success{border-right:3px solid var(--emerald);}
+.toast.error{border-right:3px solid var(--rose);}
+.toast.info{border-right:3px solid var(--blue);}
+.toast.warning{border-right:3px solid var(--amber);}
+.ticon{font-size:19px;}
+.ttxt p{font-size:13px;font-weight:600;}
+.ttxt span{font-size:11.5px;color:var(--text-muted);}
+.tclose{cursor:pointer;color:var(--text-muted);padding:0 3px;font-size:15px;margin-right:auto;}
+.setup{display:none;position:fixed;inset:0;background:var(--bg-primary);z-index:500;align-items:center;justify-content:center;padding:20px;}
+.setup.show{display:flex;}
+.setup-box{background:var(--modal-bg);border:1px solid var(--glass-border);border-radius:24px;padding:32px;width:100%;max-width:540px;box-shadow:var(--shadow);}
+.step{display:flex;gap:12px;align-items:flex-start;padding:11px 13px;background:var(--glass);border-radius:var(--radius-sm);border:1px solid var(--glass-border);margin-bottom:10px;}
+.snum{width:25px;height:25px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--teal));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--bg-primary);flex-shrink:0;}
+.stxt{font-size:12.5px;line-height:1.6;color:var(--text-secondary);}
+.stxt strong{color:var(--text-primary);}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--glass-border);border-radius:3px;}
+@media(max-width:900px){
+  .sidebar{transform:translateX(110%);box-shadow:none;}
+  .sidebar.open{transform:translateX(0);box-shadow:-6px 0 30px rgba(0,0,0,.45);}
+  .hamburger{display:flex;}
+  .main{right:0;padding:12px;}
+  .topbar{right:0;padding:0 12px;}
+  .topbar-date{display:none;}
+  .sync-btn span{display:none;}
+  .g2,.g3,.g2c{grid-template-columns:1fr;}
+  .kanban{grid-template-columns:1fr;}
+  .fg,.fg3{grid-template-columns:1fr;}
+  .kpi-grid{grid-template-columns:repeat(2,1fr);}
+  .pstats{grid-template-columns:repeat(2,1fr);}
+  .rgrid{grid-template-columns:repeat(2,1fr);}
+  .bgrid{grid-template-columns:1fr;}
+  .pay-g{grid-template-columns:repeat(2,1fr);}
+  .btn-primary.hm{display:none;}
+  .modal{max-width:100%!important;max-height:90vh;margin:auto 0 0;border-radius:20px 20px 0 0;}
+  .modal-overlay{align-items:flex-end;padding:0;}
+}
+@media(max-width:480px){
+  .kpi-grid{grid-template-columns:1fr 1fr;gap:9px;}
+  .kpi-value{font-size:20px;}
+  .main{padding:10px;}
+  .phero{flex-direction:column;text-align:center;}
+  .ptags{justify-content:center;}
+}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+<!-- FIREBASE SETUP -->
+<div class="setup" id="setup-screen">
+  <div class="setup-box">
+    <div style="font-size:44px;margin-bottom:14px">🔥</div>
+    <div style="font-size:20px;font-weight:800;margin-bottom:6px;background:linear-gradient(135deg,var(--gold-light),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">ربط Firebase للمزامنة السحابية</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;line-height:1.7;">لتزامن البيانات بين الكمبيوتر والموبايل تلقائياً، اربط النظام بـ Firebase مجاناً.</div>
+    <div class="step"><div class="snum">1</div><div class="stxt">اذهب إلى <strong>console.firebase.google.com</strong> وسجل دخول بـ Google</div></div>
+    <div class="step"><div class="snum">2</div><div class="stxt">اضغط <strong>Add project</strong> → اكتب الاسم → Create</div></div>
+    <div class="step"><div class="snum">3</div><div class="stxt">اضغط أيقونة <strong>Web &lt;/&gt;</strong> → Register → انسخ firebaseConfig</div></div>
+    <div class="step"><div class="snum">4</div><div class="stxt">اذهب لـ <strong>Firestore Database</strong> → Create database → Test mode</div></div>
+    <div class="step"><div class="snum">5</div><div class="stxt">افتح الإعدادات ⚙️ في البرنامج → تبويب Firebase → الصق البيانات</div></div>
+    <div style="display:flex;gap:10px;margin-top:18px;">
+      <button class="btn btn-primary" style="flex:1" onclick="document.getElementById('setup-screen').classList.remove('show')">✅ فهمت</button>
+      <a href="https://console.firebase.google.com" target="_blank" class="btn btn-ghost" style="text-decoration:none">🔥 Firebase</a>
+    </div>
+    <div style="text-align:center;margin-top:12px;">
+      <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="document.getElementById('setup-screen').classList.remove('show')">💾 متابعة بالتخزين المحلي</button>
+    </div>
+  </div>
+</div>
+
+<!-- SIDEBAR OVERLAY -->
+<div class="sb-overlay" id="sb-overlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon" style="background:none;border:none;padding:0;overflow:hidden;"><img src="data:image/jpeg;base64,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" style="width:100%;height:100%;object-fit:contain;" alt="Hayah"></div>
+    <div class="logo-text"><h1>HAYAH<br>Medical Care</h1><span>نظام الإدارة المتكامل</span></div>
+  </div>
+  <div class="conn-bar">
+    <div class="conn-dot" id="conn-dot"></div>
+    <span id="conn-txt">وضع محلي 💾</span>
+    <span style="margin-right:auto;cursor:pointer;font-size:11px;color:var(--teal)" onclick="document.getElementById('setup-screen').classList.add('show')">إعداد ☁️</span>
+  </div>
+  <div class="sidebar-search"><input type="text" placeholder="🔍 بحث سريع..." oninput="globalSearch(this.value)"></div>
+  <div class="sidebar-nav">
+    <div class="nav-label">الرئيسية</div>
+    <div class="nav-item active" onclick="showScreen('dashboard')"><span class="nav-icon">🏠</span><span class="nav-text">لوحة التحكم</span></div>
+    <div class="nav-label">العملاء</div>
+    <div class="nav-item" onclick="showScreen('patients')"><span class="nav-icon">👥</span><span class="nav-text">قائمة العملاء</span><span class="nb nb-teal" id="badge-patients">0</span></div>
+    <div class="nav-item" onclick="showScreen('photos')"><span class="nav-icon">📸</span><span class="nav-text">الصور قبل/بعد</span></div>
+    <div class="nav-label">المواعيد</div>
+    <div class="nav-item" onclick="showScreen('reception')"><span class="nav-icon">🖥️</span><span class="nav-text">شاشة الاستقبال</span></div>
+    <div class="nav-item" onclick="showScreen('doctor-view')"><span class="nav-icon">🩺</span><span class="nav-text">شاشة الطبيب</span></div>
+    <div class="nav-item" onclick="showScreen('calendar')"><span class="nav-icon">📅</span><span class="nav-text">التقويم</span><span class="nb nb-rose" id="badge-appts">0</span></div>
+    <div class="nav-item" onclick="showScreen('appointments')"><span class="nav-icon">🕐</span><span class="nav-text">قائمة المواعيد</span></div>
+    <div class="nav-item" onclick="showScreen('waitlist')"><span class="nav-icon">⏳</span><span class="nav-text">قائمة الانتظار</span></div>
+    <div class="nav-label">الجلسات والخدمات</div>
+    <div class="nav-item" onclick="showScreen('sessions')"><span class="nav-icon">✨</span><span class="nav-text">الجلسات العلاجية</span></div>
+    <div class="nav-item" onclick="showScreen('services')"><span class="nav-icon">💅</span><span class="nav-text">الخدمات والأسعار</span></div>
+    <div class="nav-item" onclick="showScreen('packages')"><span class="nav-icon">🎁</span><span class="nav-text">الباقات العلاجية</span></div>
+    <div class="nav-label">الفريق الطبي</div>
+    <div class="nav-item" onclick="showScreen('doctors')"><span class="nav-icon">👨‍⚕️</span><span class="nav-text">الأطباء</span></div>
+    <div class="nav-item" onclick="showScreen('staff')"><span class="nav-icon">👩‍💼</span><span class="nav-text">الموظفون</span></div>
+    <div class="nav-label">المالية</div>
+    <div class="nav-item" onclick="showScreen('invoices')"><span class="nav-icon">🧾</span><span class="nav-text">الفواتير</span></div>
+    <div class="nav-item" onclick="showScreen('payments')"><span class="nav-icon">💳</span><span class="nav-text">المدفوعات</span></div>
+    <div class="nav-item" onclick="showScreen('installments')"><span class="nav-icon">📆</span><span class="nav-text">الأقساط</span><span class="nb nb-amber" id="badge-inst">0</span></div>
+    <div class="nav-item" onclick="showScreen('expenses')"><span class="nav-icon">💸</span><span class="nav-text">المصروفات</span></div>
+    <div class="nav-item" onclick="showScreen('treasury')"><span class="nav-icon">🏦</span><span class="nav-text">الخزينة</span></div>
+    <div class="nav-item" onclick="showScreen('accounts')"><span class="nav-icon">📊</span><span class="nav-text">الحسابات</span></div>
+    <div class="nav-label">المخزون</div>
+    <div class="nav-item" onclick="showScreen('inventory')"><span class="nav-icon">📦</span><span class="nav-text">المنتجات</span><span class="nb nb-rose" id="badge-stock">0</span></div>
+    <div class="nav-item" onclick="showScreen('suppliers')"><span class="nav-icon">🚚</span><span class="nav-text">الموردون</span></div>
+    <div class="nav-item" onclick="showScreen('purchases')"><span class="nav-icon">🛒</span><span class="nav-text">المشتريات</span></div>
+    <div class="nav-item" onclick="showScreen('transfers')"><span class="nav-icon">🔄</span><span class="nav-text">تحويل المخزون</span></div>
+    <div class="nav-label">التسويق</div>
+    <div class="nav-item" onclick="showScreen('leads')"><span class="nav-icon">🎯</span><span class="nav-text">العملاء المحتملون</span><span class="nb nb-rose" id="badge-leads">0</span></div>
+    <div class="nav-item" onclick="showScreen('campaigns')"><span class="nav-icon">📣</span><span class="nav-text">الحملات</span></div>
+    <div class="nav-item" onclick="showScreen('whatsapp')"><span class="nav-icon">💬</span><span class="nav-text">واتساب</span></div>
+    <div class="nav-label">إدارة</div>
+    <div class="nav-item" onclick="showScreen('branches')"><span class="nav-icon">🏢</span><span class="nav-text">الفروع</span></div>
+    <div class="nav-item" onclick="showScreen('resources')"><span class="nav-icon">🏗️</span><span class="nav-text">الغرف والأجهزة</span></div>
+    <div class="nav-item" onclick="showScreen('reports')"><span class="nav-icon">📈</span><span class="nav-text">التقارير</span></div>
+    <div class="nav-item" onclick="showScreen('ai')"><span class="nav-icon">🤖</span><span class="nav-text">المساعد الذكي</span></div>
+    <div class="nav-item" onclick="showScreen('settings')"><span class="nav-icon">⚙️</span><span class="nav-text">الإعدادات</span></div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="user-ava">👩‍⚕️</div>
+      <div class="user-info"><p id="user-name">د. سارة محمد</p><span id="user-role">مدير النظام</span></div>
+      <div class="online-dot"></div>
+    </div>
+  </div>
+</nav>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="hamburger" onclick="toggleSidebar()">☰</div>
+  <div class="topbar-title" id="topbar-title">لوحة التحكم <span class="topbar-date" id="topbar-date"></span></div>
+  <div class="topbar-actions">
+    <div class="sync-btn" onclick="syncData()"><span id="sync-icon">☁️</span><span>مزامنة</span></div>
+    <div class="icon-btn" onclick="showScreen('whatsapp')">💬<div class="ndot"></div></div>
+    <div class="icon-btn" onclick="toggleNotifDropdown(this)">🔔<div class="ndot" id="notif-dot"></div></div>
+    <div id="notif-dropdown" style="display:none;position:fixed;top:66px;left:70px;background:var(--modal-bg);border:1px solid var(--glass-border);border-radius:14px;padding:14px;z-index:400;min-width:280px;max-width:320px;max-height:400px;overflow-y:auto;box-shadow:var(--shadow);">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--text-secondary);">🔔 الإشعارات</div>
+      <div id="notif-list"></div>
+    </div>
+    <div class="theme-btn" id="theme-btn" onclick="toggleTheme()">🌙</div>
+    <div class="icon-btn" onclick="showScreen('settings')">⚙️</div>
+    <button class="btn btn-primary hm" onclick="openApptModal()">+ موعد جديد</button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="main" id="main-area">
+
+<!-- DASHBOARD -->
+<div class="screen active" id="screen-dashboard">
+  <div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+    <div><h2 style="font-size:22px;font-weight:800;">مرحباً 👋 <span id="dash-uname">د. سارة</span></h2><p style="color:var(--text-muted);font-size:13px;margin-top:3px;" id="dash-sub"></p></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <select class="selbox"><option>كل الفروع</option><option>مدينة نصر</option><option>المهندسين</option></select>
+      <button class="btn btn-primary" onclick="openApptModal()">+ موعد جديد</button>
+    </div>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card kc-gold"><div class="kpi-icon">👥</div><div class="kpi-value" id="kpi-pat">0</div><div class="kpi-label">إجمالي العملاء</div><div class="kpi-chg kpi-up">↑ 12% هذا الشهر</div></div>
+    <div class="kpi-card kc-teal"><div class="kpi-icon">📅</div><div class="kpi-value" id="kpi-appt">0</div><div class="kpi-label">مواعيد اليوم</div><div class="kpi-chg kpi-up">↑ 8% عن أمس</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">💰</div><div class="kpi-value" id="kpi-rev">0</div><div class="kpi-label">إيرادات اليوم (ج)</div><div class="kpi-chg kpi-up">↑ 23% عن أمس</div></div>
+    <div class="kpi-card kc-purple"><div class="kpi-icon">📊</div><div class="kpi-value" id="kpi-mrev">0</div><div class="kpi-label">إيرادات الشهر (ج)</div><div class="kpi-chg kpi-up" id="kpi-mrev-chg">↑ محسوبة من الفواتير</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">⚠️</div><div class="kpi-value" id="kpi-stk">0</div><div class="kpi-label">منتجات ناقصة</div><div class="kpi-chg kpi-dn">تحتاج إعادة طلب</div></div>
+    <div class="kpi-card kc-amber"><div class="kpi-icon">💸</div><div class="kpi-value" id="kpi-pend">0</div><div class="kpi-label">مدفوعات معلقة (ج)</div><div class="kpi-chg kpi-dn">أقساط متأخرة</div></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-hdr"><div><div class="card-title">📈 الإيرادات الشهرية</div><div class="card-sub">آخر 7 أشهر</div></div></div>
+      <div class="chart-bar" id="revenue-chart"></div>
+      <div class="clbls" id="revenue-labels"></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">📅 مواعيد اليوم</div><button class="btn btn-ghost btn-sm" onclick="showScreen('calendar')">الكل</button></div>
+      <div id="today-appts"></div>
+    </div>
+  </div>
+  <div class="g3">
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">🏆 أفضل الأطباء</div><span class="card-sub">هذا الشهر</span></div>
+      <div id="dash-top-doctors">
+        <div style="text-align:center;color:var(--text-muted);padding:16px;font-size:13px">جارٍ تحميل البيانات...</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">🔔 تنبيهات</div><span class="card-sub" id="alerts-count"></span></div>
+      <div id="dash-alerts">
+        <div style="text-align:center;color:var(--text-muted);padding:16px;font-size:13px">جارٍ تحميل التنبيهات...</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">📊 توزيع الخدمات</div></div>
+      <div id="dash-svc-dist" style="display:flex;flex-direction:column;gap:9px;">
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>ليزر شعر</span><span style="color:var(--teal);font-weight:700">34%</span></div><div class="prog"><div class="prog-f" style="width:34%;background:var(--teal)"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>هيدرافيشل</span><span style="color:var(--purple);font-weight:700">22%</span></div><div class="prog"><div class="prog-f" style="width:22%;background:var(--purple)"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>بوتكس وفيلر</span><span style="color:var(--gold-light);font-weight:700">18%</span></div><div class="prog"><div class="prog-f" style="width:18%;background:var(--gold)"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>جلسات شعر</span><span style="color:var(--rose);font-weight:700">14%</span></div><div class="prog"><div class="prog-f" style="width:14%;background:var(--rose)"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>أخرى</span><span style="color:var(--amber);font-weight:700">12%</span></div><div class="prog"><div class="prog-f" style="width:12%;background:var(--amber)"></div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PATIENTS -->
+<div class="screen" id="screen-patients">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث بالاسم أو الهاتف..." oninput="filterPat(this.value)"></div>
+    <select class="selbox"><option>كل الفروع</option><option>مدينة نصر</option><option>المهندسين</option></select>
+    <select class="selbox" onchange="filterPatSt(this.value)"><option value="">كل العملاء</option><option value="نشط">نشط</option><option value="قسط">قسط</option><option value="غير نشط">غير نشط</option></select>
+    <button class="btn btn-primary" onclick="openPatModal()">+ عميل جديد</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportPat()">📊 تصدير</button>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">قائمة العملاء</div><span class="card-sub" id="pat-count-lbl">0 عميل</span></div>
+    <div class="table-wrap"><table><thead><tr><th>العميل</th><th>الهاتف</th><th>نوع البشرة</th><th>آخر زيارة</th><th>الجلسات</th><th>الرصيد</th><th>الحالة</th><th></th></tr></thead><tbody id="pat-tbody"></tbody></table></div>
+  </div>
+</div>
+
+<!-- PATIENT PROFILE -->
+<div class="screen" id="screen-patient-profile">
+  <div style="display:flex;gap:9px;margin-bottom:18px;flex-wrap:wrap;">
+    <button class="btn btn-ghost btn-sm" onclick="showScreen('patients')">← رجوع</button>
+    <button class="btn btn-primary btn-sm" onclick="openApptModal()">+ موعد</button>
+    <button class="btn btn-ghost btn-sm">📸 صور</button>
+    <button class="btn btn-ghost btn-sm" onclick="openPatWA()">💬 واتساب</button>
+    <button class="btn btn-ghost btn-sm" onclick="printProfile()">🖨️ طباعة</button>
+    <button class="btn btn-danger btn-sm" onclick="deleteCurrentPat()">🗑️ حذف</button>
+  </div>
+  <div class="phero">
+    <div class="pphoto" id="pp-photo">👧</div>
+    <div class="pdetails">
+      <h2 id="pp-name">—</h2>
+      <p id="pp-contact">—</p>
+      <p id="pp-meta" style="margin-top:4px;font-size:12px;"></p>
+      <div class="ptags" id="pp-tags"></div>
+    </div>
+  </div>
+  <div class="pstats">
+    <div class="sbox2"><div class="sval" id="pp-sessions" style="color:var(--teal)">0</div><div class="slbl">الجلسات</div></div>
+    <div class="sbox2"><div class="sval" id="pp-spent" style="color:var(--gold-light)">0</div><div class="slbl">إجمالي الإنفاق</div></div>
+    <div class="sbox2"><div class="sval" id="pp-balance" style="color:var(--emerald)">0</div><div class="slbl">المديونية</div></div>
+    <div class="sbox2"><div class="sval" id="pp-plans" style="color:var(--purple)">0</div><div class="slbl">خطط علاجية</div></div>
+  </div>
+  <div class="tabs" id="ptabs">
+    <div class="tab active" onclick="stab(this,'ptabs','t-med')">الملف الطبي</div>
+    <div class="tab" onclick="stab(this,'ptabs','t-ses')">الجلسات</div>
+    <div class="tab" onclick="stab(this,'ptabs','t-inv')">الفواتير</div>
+    <div class="tab" onclick="stab(this,'ptabs','t-ph')">الصور</div>
+    <div class="tab" onclick="stab(this,'ptabs','t-hist')">السجل</div>
+  </div>
+  <div id="t-med">
+    <div class="g2c">
+      <div class="card"><div class="card-hdr"><div class="card-title">💆 البشرة</div></div><div id="med-skin" style="display:flex;flex-direction:column;gap:8px;font-size:13px;"></div></div>
+      <div class="card"><div class="card-hdr"><div class="card-title">💇 الشعر</div></div><div id="med-hair" style="display:flex;flex-direction:column;gap:8px;font-size:13px;"></div></div>
+    </div>
+  </div>
+  <div id="t-ses" style="display:none"><div class="card"><div class="card-hdr"><div class="card-title">✨ خطط العلاج</div><button class="btn btn-ghost btn-sm" onclick="openSessionModal()">+ خطة</button></div>
+    <div id="pp-sessions-content"><div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px">جارٍ التحميل...</div></div>
+  </div>
+  <div class="card" style="margin-top:14px;"><div class="card-hdr"><div class="card-title">🎁 الباقات العلاجية</div><button class="btn btn-ghost btn-sm" onclick="openPackageModal()">+ باقة</button></div>
+    <div id="pp-packages-content"><div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px">جارٍ التحميل...</div></div>
+  </div></div>
+  <div id="t-inv" style="display:none"><div class="card"><div class="card-hdr"><div class="card-title">🧾 الفواتير</div></div><div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الخدمة</th><th>المبلغ</th><th>طريقة الدفع</th><th>الحالة</th><th></th></tr></thead><tbody id="p-inv-tbody"></tbody></table></div></div></div>
+  <div id="t-ph" style="display:none"><div class="card"><div class="card-hdr"><div class="card-title">📸 الصور</div><button class="btn btn-teal btn-sm">+ رفع</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;"><div style="border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--glass-border);"><div style="background:linear-gradient(135deg,#1a1a2e,#16213e);height:120px;display:flex;align-items:center;justify-content:center;font-size:36px;">📷</div><div style="padding:7px;font-size:12px;"><div style="font-weight:600">قبل - يناير 2025</div><div style="color:var(--text-muted)">ليزر جلسة 1</div></div></div><div style="border-radius:var(--radius-sm);overflow:hidden;border:1px solid rgba(45,212,191,.3);"><div style="background:linear-gradient(135deg,#0d2137,#0d3340);height:120px;display:flex;align-items:center;justify-content:center;font-size:36px;">📸</div><div style="padding:7px;font-size:12px;"><div style="font-weight:600;color:var(--teal)">بعد - مارس 2025</div><div style="color:var(--text-muted)">ليزر جلسة 5</div></div></div></div></div></div>
+  <div id="t-hist" style="display:none"><div class="card"><div class="card-hdr"><div class="card-title">📋 السجل</div></div><div style="display:flex;flex-direction:column;gap:10px;" id="hist-list"></div></div></div>
+</div>
+
+<!-- RECEPTION SCREEN -->
+<div class="screen" id="screen-reception">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+    <div>
+      <h2 style="font-size:17px;font-weight:800;">🖥️ شاشة الاستقبال</h2>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="rec-date-lbl"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <select class="selbox" id="rec-doc-filter" onchange="renderReception()"><option value="">كل الأطباء</option></select>
+      <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--teal);"><div class="ai-dot"></div> تحديث تلقائي</div>
+      <button class="btn btn-primary" onclick="openApptModal()">+ موعد جديد</button>
+    </div>
+  </div>
+  <!-- KPIs -->
+  <div class="kpi-grid" style="margin-bottom:18px;">
+    <div class="kpi-card kc-amber"><div class="kpi-icon">📅</div><div class="kpi-value" id="rec-kpi-total">0</div><div class="kpi-label">مواعيد اليوم</div></div>
+    <div class="kpi-card kc-teal"><div class="kpi-icon">✅</div><div class="kpi-value" id="rec-kpi-checkin">0</div><div class="kpi-label">سجّلوا وصولهم</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">⏰</div><div class="kpi-value" id="rec-kpi-late">0</div><div class="kpi-label">متأخرون</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">✔</div><div class="kpi-value" id="rec-kpi-done">0</div><div class="kpi-label">مكتملون</div></div>
+  </div>
+  <!-- Queue cards -->
+  <div class="card">
+    <div class="card-hdr">
+      <div class="card-title">👥 المرضى — مرتبون بوقت الموعد</div>
+      <span class="card-sub" id="rec-count-lbl"></span>
+    </div>
+    <div id="rec-queue" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+</div>
+
+<!-- DOCTOR VIEW SCREEN -->
+<div class="screen" id="screen-doctor-view">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+    <div>
+      <h2 style="font-size:17px;font-weight:800;">🩺 شاشة الطبيب</h2>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="dv-date-lbl"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <select class="selbox" id="dv-doc-select" onchange="renderDoctorView()">
+        <option value="">-- اختر طبيب --</option>
+      </select>
+      <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--teal);"><div class="ai-dot"></div> تحديث تلقائي</div>
+    </div>
+  </div>
+  <!-- Doctor KPIs -->
+  <div class="kpi-grid" style="margin-bottom:18px;">
+    <div class="kpi-card kc-teal"><div class="kpi-icon">📋</div><div class="kpi-value" id="dv-kpi-today">0</div><div class="kpi-label">مرضى اليوم</div></div>
+    <div class="kpi-card kc-purple"><div class="kpi-icon">💬</div><div class="kpi-value" id="dv-kpi-waiting">0</div><div class="kpi-label">ينتظرون الآن</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">✔</div><div class="kpi-value" id="dv-kpi-done">0</div><div class="kpi-label">أنهيت اليوم</div></div>
+    <div class="kpi-card kc-gold"><div class="kpi-icon">💰</div><div class="kpi-value" id="dv-kpi-comm">0</div><div class="kpi-label">عمولتي (ج)</div></div>
+  </div>
+  <!-- Patient queue for doctor -->
+  <div class="card">
+    <div class="card-hdr">
+      <div class="card-title">🗂️ مرضاي اليوم — مرتبون بوقت الوصول الفعلي</div>
+      <span class="card-sub" id="dv-count-lbl"></span>
+    </div>
+    <div id="dv-queue" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+</div>
+
+<!-- CONSULTATION COMPLETE MODAL -->
+<div class="modal-overlay" id="consult-done-modal">
+  <div class="modal" style="max-width:560px;">
+    <div class="mhdr">
+      <div class="mtitle">✅ إنهاء الاستشارة</div>
+      <button class="mclose" onclick="closeModal('consult-done-modal')">✕</button>
+    </div>
+    <div class="mbody">
+      <input type="hidden" id="cd-appt-id">
+      <!-- Patient & visit summary -->
+      <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:14px;margin-bottom:16px;" id="cd-summary"></div>
+      <div class="fg">
+        <div class="fgrp full"><label class="flbl">ملاحظات الاستشارة</label><textarea class="fctl ta" id="cd-notes" placeholder="تشخيص، توصيات، ملاحظات..."></textarea></div>
+        <div class="fgrp full"><label class="flbl">الخدمات المُنفَّذة</label><select class="fctl" id="cd-svc" onchange="onCdSvcChange()"></select></div>
+        <div class="fgrp"><label class="flbl">السعر (ج)</label><input class="fctl" type="number" id="cd-price" oninput="calcCdTotal()"></div>
+        <div class="fgrp"><label class="flbl">الخصم (ج)</label><input class="fctl" type="number" id="cd-disc" value="0" oninput="calcCdTotal()"></div>
+        <div class="fgrp full" style="background:var(--glass);border:1px solid var(--glass-border);border-radius:10px;padding:12px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;"><span style="color:var(--text-muted)">الصافي:</span><span id="cd-net" style="font-weight:800;color:var(--gold-light);">0 ج</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--text-muted)">عمولة الطبيب:</span><span id="cd-comm-display" style="color:var(--teal);">0 ج</span></div>
+        </div>
+        <div class="fgrp full"><label class="flbl">طريقة الدفع</label>
+          <div class="pay-g" style="grid-template-columns:repeat(5,1fr);">
+            <div class="pay-m sel" onclick="selPay(this)"><div class="pay-ic">💵</div>كاش</div>
+            <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">💳</div>فيزا</div>
+            <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">📱</div>إنستاباي</div>
+            <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">📱</div>فودافون</div>
+            <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">📆</div>أقساط</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeModal('consult-done-modal')">إلغاء</button>
+      <button class="btn btn-primary" onclick="finalizeConsultation()">✅ إنهاء وإصدار الفاتورة</button>
+    </div>
+  </div>
+</div>
+
+<!-- CALENDAR -->
+<div class="screen" id="screen-calendar">
+  <div style="display:grid;grid-template-columns:1fr 300px;gap:18px;align-items:start;">
+    <div class="card">
+      <div class="cal-hdr">
+        <button class="cal-nav" id="cal-prev">◀</button>
+        <div class="cal-mn" id="cal-mn">—</div>
+        <button class="cal-nav" id="cal-next">▶</button>
+        <div class="tabs" style="margin-bottom:0;margin-right:auto;"><div class="tab active">شهري</div><div class="tab">أسبوعي</div><div class="tab">يومي</div></div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title" id="cal-sel-date">اليوم</div><button class="btn btn-primary btn-sm" onclick="openApptModal()">+</button></div>
+      <div id="cal-day-appts"></div>
+    </div>
+  </div>
+</div>
+
+<!-- APPOINTMENTS -->
+<div class="screen" id="screen-appointments">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث..." oninput="filterAppts(this.value)"></div>
+    <select class="selbox" onchange="filterApptSt(this.value)"><option value="">كل الحالات</option><option value="مؤكد">مؤكد</option><option value="قادم">قادم</option><option value="انتظار">انتظار</option><option value="وصل">وصل</option><option value="في الاستشارة">في الاستشارة</option><option value="متأخر">متأخر</option><option value="مكتمل">مكتمل</option><option value="ملغي">ملغي</option><option value="لم يحضر">لم يحضر</option><option value="محول">محول</option></select>
+    <input type="date" class="selbox" onchange="filterApptDate(this.value)">
+    <button class="btn btn-primary" onclick="openApptModal()">+ موعد جديد</button>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>العميل</th><th>التاريخ</th><th>الوقت</th><th>الخدمة</th><th>الطبيب</th><th>الفرع</th><th>الحالة</th><th></th></tr></thead><tbody id="appts-tbody"></tbody></table></div></div>
+</div>
+
+<!-- SERVICES -->
+<div class="screen" id="screen-services">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث عن خدمة..."></div>
+    <select class="selbox"><option>كل الأقسام</option><option>البشرة</option><option>الشعر</option><option>الليزر</option><option>حقن</option></select>
+    <button class="btn btn-primary" onclick="openSvcModal()">+ خدمة جديدة</button>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>الخدمة</th><th>القسم</th><th>السعر</th><th>المدة</th><th>التكلفة</th><th>الربح</th><th>الطبيب</th><th></th></tr></thead><tbody id="svc-tbody"></tbody></table></div></div>
+</div>
+
+<!-- INVENTORY -->
+<div class="screen" id="screen-inventory">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث عن منتج..." oninput="filterInv(this.value)"></div>
+    <select class="selbox" onchange="filterInvSt(this.value)"><option value="">الكل</option><option value="متوفر">متوفر</option><option value="منخفض">منخفض</option><option value="نفذ">نفذ</option></select>
+    <button class="btn btn-primary" onclick="openProductModal()">+ منتج جديد</button>
+  </div>
+  <div class="kpi-grid" style="margin-bottom:14px;">
+    <div class="kpi-card kc-teal"><div class="kpi-icon">📦</div><div class="kpi-value" id="inv-total">0</div><div class="kpi-label">إجمالي المنتجات</div></div>
+    <div class="kpi-card kc-amber"><div class="kpi-icon">⚠️</div><div class="kpi-value" id="inv-low">0</div><div class="kpi-label">مخزون منخفض</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">🚫</div><div class="kpi-value" id="inv-out">0</div><div class="kpi-label">نفذ من المخزون</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">💰</div><div class="kpi-value" id="inv-val">0</div><div class="kpi-label">قيمة المخزون (ج)</div></div>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>المنتج</th><th>الكمية</th><th>حد إعادة الطلب</th><th>الصلاحية</th><th>سعر البيع</th><th>الحالة</th><th></th></tr></thead><tbody id="inv-tbody"></tbody></table></div></div>
+</div>
+
+<!-- INVOICES -->
+<div class="screen" id="screen-invoices">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث..." oninput="filterInvs(this.value)"></div>
+    <select class="selbox" onchange="filterInvsSt(this.value)"><option value="">كل الحالات</option><option value="مدفوع">مدفوع</option><option value="معلق">معلق</option><option value="جزئي">جزئي</option></select>
+    <button class="btn btn-primary" onclick="openInvModal()">+ فاتورة جديدة</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportInvoices()">📊 تصدير Excel</button>
+  </div>
+  <div class="kpi-grid" style="margin-bottom:14px;">
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">✅</div><div class="kpi-value" id="inv-paid">0</div><div class="kpi-label">مدفوع (ج)</div></div>
+    <div class="kpi-card kc-amber"><div class="kpi-icon">⏳</div><div class="kpi-value" id="inv-pend2">0</div><div class="kpi-label">معلق (ج)</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">🔢</div><div class="kpi-value" id="inv-cnt">0</div><div class="kpi-label">عدد الفواتير</div></div>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>#</th><th>العميل</th><th>التاريخ</th><th>الخدمة</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th></th></tr></thead><tbody id="invs-tbody"></tbody></table></div></div>
+</div>
+
+<!-- LEADS -->
+<div class="screen" id="screen-leads">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+    <div><h2 style="font-size:17px;font-weight:800;">العملاء المحتملون</h2><p style="font-size:12.5px;color:var(--text-muted)" id="leads-lbl">0 lead</p></div>
+    <button class="btn btn-primary" onclick="openModal('lead-modal')">+ Lead جديد</button>
+  </div>
+  <div class="kanban" id="leads-kanban"></div>
+</div>
+
+<!-- AI -->
+<div class="screen" id="screen-ai">
+  <div style="max-width:780px;margin:0 auto;">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,var(--gold),var(--teal));display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;">🤖</div>
+        <div>
+          <div style="font-size:20px;font-weight:800;background:linear-gradient(135deg,var(--gold-light),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">المساعد الذكي</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">تحليل · توصيات · إجابات فورية</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);border-radius:20px;padding:5px 12px;font-size:12px;color:var(--emerald);">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--emerald);display:inline-block;box-shadow:0 0 6px var(--emerald);"></span>
+          متصل
+        </div>
+        <button id="ai-clear-btn" onclick="aiClearChat()" style="display:none;background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.2);border-radius:10px;padding:6px 14px;color:var(--rose);cursor:pointer;font-size:12px;font-family:'Tajawal',sans-serif;font-weight:600;">🗑 مسح المحادثة</button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:4px;padding:4px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;margin-bottom:20px;width:fit-content;">
+      <div id="ai-tab-chat" onclick="aiSwitchTab('chat')" style="padding:7px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:var(--bg-secondary);color:var(--text-primary);box-shadow:0 2px 8px rgba(0,0,0,.25);transition:all .18s;">💬 المحادثة</div>
+      <div id="ai-tab-prompts" onclick="aiSwitchTab('prompts')" style="padding:7px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-muted);transition:all .18s;">✨ اقتراحات</div>
+    </div>
+
+    <!-- Prompts Tab -->
+    <div id="ai-panel-prompts" style="display:none;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:20px;"></div>
+
+    <!-- Chat Tab -->
+    <div id="ai-panel-chat">
+      <!-- Messages -->
+      <div id="ai-chat" style="min-height:280px;max-height:480px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:18px;margin-bottom:14px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
+        <div id="ai-empty" style="margin:auto;text-align:center;color:var(--text-muted);">
+          <div style="font-size:40px;margin-bottom:12px;">🤖</div>
+          <div style="font-size:14px;font-weight:600;margin-bottom:6px;color:#64748B;">كيف يمكنني مساعدتك اليوم؟</div>
+          <div style="font-size:12.5px;">اكتب سؤالك أو اختر من الاقتراحات السريعة</div>
+        </div>
+      </div>
+
+      <!-- Quick chips -->
+      <div id="ai-chips" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;"></div>
+
+      <!-- Input -->
+      <div id="ai-input-wrap" style="display:flex;gap:10px;align-items:flex-end;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:10px 14px;transition:border-color .18s;"
+        onfocus="this.style.borderColor='rgba(196,168,130,.4)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'">
+        <span style="font-size:20px;flex-shrink:0;padding-bottom:2px;">💬</span>
+        <textarea id="ai-inp" placeholder="اكتب سؤالك هنا... (Enter للإرسال، Shift+Enter لسطر جديد)"
+          rows="1"
+          style="flex:1;background:none;border:none;outline:none;color:var(--text-primary);font-family:'Tajawal',sans-serif;font-size:13.5px;direction:rtl;min-height:28px;max-height:120px;line-height:1.6;resize:none;"
+          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiSend();}"></textarea>
+        <button id="ai-send-btn" onclick="aiSend()"
+          style="background:rgba(255,255,255,.06);border:none;border-radius:10px;padding:8px 16px;color:#475569;cursor:not-allowed;font-size:13px;font-weight:700;font-family:'Tajawal',sans-serif;flex-shrink:0;transition:all .18s;">
+          إرسال ↩
+        </button>
+      </div>
+
+      <div style="text-align:center;font-size:11px;color:#334155;margin-top:10px;">المساعد الذكي يعمل بـ Claude AI · البيانات محمية ومشفرة</div>
+    </div>
+  </div>
+</div>
+
+<!-- REPORTS -->
+<div class="screen" id="screen-reports">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+    <h2 style="font-size:17px;font-weight:800;">التقارير والإحصاءات</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <select class="selbox"><option>يونيو 2025</option><option>مايو 2025</option></select>
+      <button class="btn btn-ghost btn-sm" onclick="showToast('info','📊 جارٍ التصدير...')">📊 Excel</button>
+      <button class="btn btn-ghost btn-sm" onclick="showToast('info','📄 جارٍ إنشاء PDF...')">📄 PDF</button>
+    </div>
+  </div>
+  <div class="rgrid">
+    <div class="rcard" onclick="showReport('patients')" style="cursor:pointer;"><div style="font-size:30px;">👥</div><div style="font-weight:700;font-size:13.5px;">تقرير العملاء</div><div style="font-size:12px;color:var(--text-muted);">جدد، نشطين، غيابات</div><button class="btn btn-ghost btn-sm" style="width:fit-content;" onclick="event.stopPropagation();showReport('patients')">عرض</button></div>
+    <div class="rcard" onclick="showReport('revenue')" style="cursor:pointer;"><div style="font-size:30px;">💰</div><div style="font-weight:700;font-size:13.5px;">تقرير الإيرادات</div><div style="font-size:12px;color:var(--text-muted);">المبيعات والأرباح</div><button class="btn btn-ghost btn-sm" style="width:fit-content;" onclick="event.stopPropagation();showReport('revenue')">عرض</button></div>
+    <div class="rcard" onclick="showReport('doctors')" style="cursor:pointer;"><div style="font-size:30px;">👨‍⚕️</div><div style="font-weight:700;font-size:13.5px;">تقرير الأطباء</div><div style="font-size:12px;color:var(--text-muted);">الأداء والعمولات</div><button class="btn btn-ghost btn-sm" style="width:fit-content;" onclick="event.stopPropagation();showReport('doctors')">عرض</button></div>
+    <div class="rcard" onclick="showReport('appointments')" style="cursor:pointer;"><div style="font-size:30px;">✨</div><div style="font-weight:700;font-size:13.5px;">تقرير الجلسات</div><div style="font-size:12px;color:var(--text-muted);">خطط العلاج</div><button class="btn btn-ghost btn-sm" style="width:fit-content;" onclick="event.stopPropagation();showReport('appointments')">عرض</button></div>
+    <div class="rcard" onclick="showReport('inventory')" style="cursor:pointer;"><div style="font-size:30px;">📦</div><div style="font-weight:700;font-size:13.5px;">تقرير المخزون</div><div style="font-size:12px;color:var(--text-muted);">المنتجات والمبيعات</div><button class="btn btn-ghost btn-sm" style="width:fit-content;" onclick="event.stopPropagation();showReport('inventory')">عرض</button></div>
+    <div class="rcard" onclick="showReport('branches')" style="cursor:pointer;"><div style="font-size:30px;">🏢</div><div style="font-weight:700;font-size:13.5px;">تقرير الفروع</div><div style="font-size:12px;color:var(--text-muted);">مقارنة الأداء</div><button class="btn btn-ghost btn-sm" style="width:fit-content;" onclick="event.stopPropagation();showReport('branches')">عرض</button></div>
+    <div class="rcard" onclick="showReport('campaigns')" style="cursor:pointer;"><div style="font-size:30px;">📣</div><div style="font-weight:700;font-size:13.5px;">تقرير التسويق</div><div style="font-size:12px;color:var(--text-muted);">الحملات والـ Leads</div><button class="btn btn-ghost btn-sm" style="width:fit-content;" onclick="event.stopPropagation();showReport('campaigns')">عرض</button></div>
+    <div class="rcard" onclick="showScreen('accounts')" style="cursor:pointer;"><div style="font-size:30px;">📊</div><div style="font-weight:700;font-size:13.5px;">الأرباح والخسائر</div><div style="font-size:12px;color:var(--text-muted);">الميزانية الكاملة</div><button class="btn btn-ghost btn-sm" style="width:fit-content;" onclick="event.stopPropagation();showScreen('accounts')">عرض</button></div>
+  </div>
+</div>
+
+<!-- BRANCHES -->
+<div class="screen" id="screen-branches">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+    <h2 style="font-size:17px;font-weight:800;">إدارة الفروع</h2>
+    <button class="btn btn-primary" onclick="openBranchModal()">+ فرع جديد</button>
+  </div>
+  <div class="bgrid" id="branches-grid">
+    <div style="text-align:center;color:var(--text-muted);padding:30px;font-size:13px">جارٍ تحميل الفروع...</div>
+  </div>
+</div>
+
+<!-- ROOMS & EQUIPMENT -->
+<div class="screen" id="screen-resources">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <h2 style="font-size:17px;font-weight:800;">🏗️ الغرف والأجهزة</h2>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <h3 style="font-size:14px;font-weight:700;color:var(--text-secondary);">🚪 الغرف</h3>
+    <button class="btn btn-primary btn-sm" onclick="openRoomModal()">+ غرفة جديدة</button>
+  </div>
+  <div class="bgrid" id="rooms-grid"></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px;">
+    <h3 style="font-size:14px;font-weight:700;color:var(--text-secondary);">🔌 الأجهزة</h3>
+    <button class="btn btn-primary btn-sm" onclick="openEquipModal()">+ جهاز جديد</button>
+  </div>
+  <div class="bgrid" id="equip-grid"></div>
+</div>
+
+<div class="modal-overlay" id="room-modal">
+  <div class="modal" style="max-width:420px"><div class="mhdr"><div class="mtitle" id="room-modal-title">🚪 غرفة جديدة</div><button class="mclose" onclick="closeModal('room-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <input type="hidden" id="rm-id">
+    <div class="fgrp full"><label class="flbl">اسم الغرفة *</label><input class="fctl" id="rm-name" placeholder="مثال: غرفة كشف 1"></div>
+    <div class="fgrp full"><label class="flbl">الفرع</label><select class="fctl" id="rm-branch"></select></div>
+    <div class="fgrp full"><label class="flbl">الحالة</label><select class="fctl" id="rm-status"><option>متاحة</option><option>تحت الصيانة</option></select></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('room-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveRoom()">💾 حفظ</button></div></div>
+</div>
+
+<div class="modal-overlay" id="equip-modal">
+  <div class="modal" style="max-width:420px"><div class="mhdr"><div class="mtitle" id="equip-modal-title">🔌 جهاز جديد</div><button class="mclose" onclick="closeModal('equip-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <input type="hidden" id="eq-id">
+    <div class="fgrp full"><label class="flbl">اسم الجهاز *</label><input class="fctl" id="eq-name" placeholder="مثال: جهاز ليزر إزالة الشعر"></div>
+    <div class="fgrp full"><label class="flbl">الفرع</label><select class="fctl" id="eq-branch"></select></div>
+    <div class="fgrp full"><label class="flbl">الحالة</label><select class="fctl" id="eq-status"><option>شغال</option><option>تحت الصيانة</option></select></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('equip-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveEquip()">💾 حفظ</button></div></div>
+</div>
+
+<!-- SETTINGS -->
+<div class="screen" id="screen-settings">
+  <div class="tabs" id="settabs">
+    <div class="tab active" onclick="stab(this,'settabs','se-gen')">عام</div>
+    <div class="tab" onclick="stab(this,'settabs','se-fb')">Firebase ☁️</div>
+    <div class="tab" onclick="stab(this,'settabs','se-perm')" id="tab-users">المستخدمون 👤</div>
+    <div class="tab" onclick="stab(this,'settabs','se-notif')">الإشعارات</div>
+    <div class="tab" onclick="stab(this,'settabs','se-data')">البيانات</div>
+  </div>
+  <div id="se-gen">
+    <div class="g2c">
+      <div class="card"><div class="card-hdr"><div class="card-title">⚙️ إعدادات العيادة</div></div>
+        <div class="fg" style="gap:12px;">
+          <div class="fgrp"><label class="flbl">اسم العيادة</label><input class="fctl" id="s-cname" value="عيادات الحياة للتجميل"></div>
+          <div class="fgrp"><label class="flbl">الهاتف</label><input class="fctl" id="s-cphone" value="0100-000-0000"></div>
+          <div class="fgrp"><label class="flbl">اسم المدير</label><input class="fctl" id="s-mname" value="د. سارة محمد"></div>
+          <div class="fgrp"><label class="flbl">الدور</label><input class="fctl" id="s-mrole" value="مدير النظام"></div>
+          <div class="fgrp full"><label class="flbl">🤖 مفتاح Anthropic API <span style="font-size:10px;color:var(--text-muted);">(للمساعد الذكي)</span></label><input class="fctl" id="s-anthropic-key" type="password" placeholder="sk-ant-api03-..."></div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:14px;" onclick="saveSettings()">💾 حفظ</button>
+      </div>
+      <div class="card"><div class="card-hdr"><div class="card-title">🎨 المظهر</div></div>
+        <div style="display:flex;flex-direction:column;gap:11px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">الثيم الحالي</div><div style="font-size:12px;color:var(--text-muted)" id="theme-lbl">داكن 🌙</div></div><button class="btn btn-ghost btn-sm" onclick="toggleTheme()">تبديل</button></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">ثيم الجهاز تلقائي</div><div style="font-size:12px;color:var(--text-muted)">يتابع إعداد الجهاز</div></div><button class="btn btn-ghost btn-sm" onclick="useSysTheme()">تفعيل</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="se-fb" style="display:none;">
+    <div class="card"><div class="card-hdr"><div class="card-title">🔥 إعداد Firebase</div></div>
+      <div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-sm);padding:13px;margin-bottom:14px;font-size:13px;color:var(--amber);">⚡ بعد الإعداد، البيانات تُزامَن فوراً بين كل الأجهزة</div>
+      <div class="fg" style="gap:12px;">
+        <div class="fgrp full"><label class="flbl">API Key</label><input class="fctl" id="fb-key" placeholder="AIzaSy..."></div>
+        <div class="fgrp"><label class="flbl">Auth Domain</label><input class="fctl" id="fb-auth" placeholder="project.firebaseapp.com"></div>
+        <div class="fgrp"><label class="flbl">Project ID</label><input class="fctl" id="fb-proj" placeholder="my-clinic"></div>
+        <div class="fgrp"><label class="flbl">Storage Bucket</label><input class="fctl" id="fb-stor" placeholder="project.appspot.com"></div>
+        <div class="fgrp"><label class="flbl">Messaging Sender ID</label><input class="fctl" id="fb-send" placeholder="123456789"></div>
+        <div class="fgrp"><label class="flbl">App ID</label><input class="fctl" id="fb-app" placeholder="1:123:web:abc..."></div>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:14px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="saveFB()">💾 حفظ وتفعيل</button>
+        <button class="btn btn-teal btn-sm" onclick="uploadSeedToFirestore()" title="يرفع البيانات المحلية إلى Firestore">☁️ رفع للسحابة</button>
+        <button class="btn btn-ghost btn-sm" onclick="flushOfflineQueue()">🔄 مزامنة المعلقة</button>
+        <button class="btn btn-ghost btn-sm" onclick="testFBConnection()">🧪 اختبار الاتصال</button>
+        <button class="btn btn-ghost btn-sm" onclick="disconnectFirebase()" style="color:var(--rose);">🔌 قطع</button>
+      </div>
+
+      <!-- MIGRATION TOOL -->
+      <div style="margin-top:18px;background:rgba(139,92,246,.07);border:1px solid rgba(139,92,246,.25);border-radius:var(--radius-sm);padding:16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:18px;">🔧</span>
+          <div style="font-weight:700;font-size:13.5px;color:var(--purple);">أداة الترحيل — Schema v2</div>
+        </div>
+        <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px;line-height:1.7;">
+          تمسح بيانات Firestore القديمة وترفع بيانات جديدة بـ UUID حقيقي وعلاقات صحيحة (patientId بدل الاسم، invoice_items منفصل، audit fields، suppliers، purchases).
+        </div>
+        <div style="display:flex;gap:9px;">
+          <button class="btn btn-sm" style="background:linear-gradient(135deg,var(--purple),#6D28D9);color:#fff;" onclick="migrateToFirestore()">
+            🚀 ترحيل البيانات الآن
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="showSchemaInfo()">📋 تفاصيل Schema v2</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="se-perm" style="display:none;">
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title">👤 إدارة المستخدمين</div>
+        <button class="btn btn-primary btn-sm" onclick="openUserModal()">+ مستخدم جديد</button>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>اسم المستخدم</th><th>الاسم</th><th>الدور</th><th>الفرع</th><th>الشاشات</th><th>إجراءات</th></tr></thead>
+        <tbody id="users-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+  <div id="se-notif" style="display:none;">
+    <div class="card"><div class="card-hdr"><div class="card-title">🔔 الإشعارات</div></div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">تذكير المواعيد (واتساب)</div><div style="font-size:12px;color:var(--text-muted)">قبل 24 ساعة</div></div><div onclick="toggleSw(this)" style="width:42px;height:23px;background:var(--teal);border-radius:12px;cursor:pointer;position:relative;"><div style="width:19px;height:19px;background:#fff;border-radius:50%;position:absolute;top:2px;right:2px;transition:.2s;"></div></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">تنبيه مخزون منخفض</div><div style="font-size:12px;color:var(--text-muted)">عند حد إعادة الطلب</div></div><div onclick="toggleSw(this)" style="width:42px;height:23px;background:var(--teal);border-radius:12px;cursor:pointer;position:relative;"><div style="width:19px;height:19px;background:#fff;border-radius:50%;position:absolute;top:2px;right:2px;transition:.2s;"></div></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">تنبيه الأقساط المتأخرة</div><div style="font-size:12px;color:var(--text-muted)">عند تأخر القسط</div></div><div onclick="toggleSw(this)" style="width:42px;height:23px;background:var(--glass-border);border-radius:12px;cursor:pointer;position:relative;"><div style="width:19px;height:19px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:.2s;"></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div id="se-data" style="display:none;">
+    <div class="card"><div class="card-hdr"><div class="card-title">💾 إدارة البيانات</div></div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:13px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">استيراد بيانات (JSON)</div><div style="font-size:12px;color:var(--text-muted)">استعادة من نسخة احتياطية</div></div><button class="btn btn-ghost btn-sm" onclick="importData()">📤 استيراد</button></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:13px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">تصدير كل البيانات</div><div style="font-size:12px;color:var(--text-muted)">نسخة احتياطية JSON</div></div><button class="btn btn-ghost btn-sm" onclick="exportAll()">📥 تصدير</button></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:13px;background:rgba(244,63,94,.06);border:1px solid rgba(244,63,94,.15);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;color:var(--rose);">حذف كل البيانات</div><div style="font-size:12px;color:var(--text-muted)">لا يمكن التراجع!</div></div><button class="btn btn-danger btn-sm" onclick="clearAll()">🗑️ مسح</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- USER MANAGEMENT MODAL -->
+<div class="modal-overlay" id="user-modal">
+  <div class="modal" style="max-width:620px">
+    <div class="mhdr">
+      <div class="mtitle" id="user-modal-title">👤 مستخدم جديد</div>
+      <button class="mclose" onclick="closeModal('user-modal')">✕</button>
+    </div>
+    <div class="mbody" style="overflow-y:auto;max-height:72vh;">
+      <input type="hidden" id="um-id">
+      <div class="fg" style="gap:12px;margin-bottom:16px;">
+        <div class="fgrp">
+          <label class="flbl">اسم المستخدم (للدخول) *</label>
+          <input class="fctl" id="um-username" placeholder="مثال: doctor2" dir="ltr">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">الاسم الكامل *</label>
+          <input class="fctl" id="um-name" placeholder="د. أحمد محمد">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">كلمة المرور <span id="um-pass-hint" style="color:var(--text-muted);font-size:11px;">(اتركها فارغة للإبقاء على القديمة)</span></label>
+          <div style="position:relative;">
+            <input class="fctl" id="um-password" type="password" placeholder="كلمة المرور الجديدة" dir="ltr" style="padding-left:40px;">
+            <span onclick="toggleUmPass()" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;color:var(--text-muted);" id="um-eye">👁️</span>
+          </div>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">الدور</label>
+          <select class="fctl" id="um-role">
+            <option value="admin">مدير النظام</option>
+            <option value="branch_manager">مدير فرع</option>
+            <option value="doctor">طبيب</option>
+            <option value="receptionist">استقبال</option>
+            <option value="accountant">محاسب</option>
+          </select>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">الفرع</label>
+          <select class="fctl" id="um-branch">
+            <option value="all">كل الفروع</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="font-weight:700;font-size:13px;color:var(--text-secondary);margin-bottom:10px;border-bottom:1px solid var(--glass-border);padding-bottom:8px;">🔐 الشاشات المتاحة</div>
+      <div id="um-screens-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;"></div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="umSelectAll(true)">تحديد الكل</button>
+        <button class="btn btn-ghost btn-sm" onclick="umSelectAll(false)">إلغاء الكل</button>
+        <button class="btn btn-ghost btn-sm" onclick="umApplyRole()">تطبيق صلاحيات الدور</button>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeModal('user-modal')">إلغاء</button>
+      <button class="btn btn-danger btn-sm" id="um-del-btn" onclick="deleteUser()" style="display:none;">🗑️ حذف</button>
+      <button class="btn btn-primary" onclick="saveUser()">💾 حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- WHATSAPP -->
+<div class="screen" id="screen-whatsapp">
+  <div style="display:grid;grid-template-columns:300px 1fr;gap:14px;height:calc(100vh - 100px);">
+    <div class="card" style="overflow:hidden;display:flex;flex-direction:column;padding:0;">
+      <div style="padding:14px;border-bottom:1px solid var(--glass-border);">
+        <div style="font-size:14px;font-weight:700;margin-bottom:9px;">📱 إرسال واتساب</div>
+        <div class="sbox"><span>🔍</span><input type="text" id="wa-search" placeholder="بحث عن عميل..." oninput="renderWAContacts(this.value)"></div>
+      </div>
+      <div style="flex:1;overflow-y:auto;" id="wa-contacts"></div>
+    </div>
+    <div class="card" style="overflow:hidden;display:flex;flex-direction:column;padding:0;">
+      <div style="padding:14px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:11px;">
+        <div class="appt-ava" style="background:linear-gradient(135deg,#25D366,#128C7E)">💬</div>
+        <div><div style="font-weight:700;font-size:13.5px;" id="wa-selected-name">اختر عميلاً</div><div style="font-size:11.5px;color:var(--text-muted)" id="wa-selected-phone">—</div></div>
+        <div style="margin-right:auto;display:flex;gap:7px;">
+          <button class="btn btn-ghost btn-sm" onclick="sendWAReminder()">📅 تذكير موعد</button>
+          <button class="btn btn-ghost btn-sm" onclick="sendWABalance()">💳 تذكير دفعة</button>
+        </div>
+      </div>
+      <div style="flex:1;padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;" id="wa-templates">
+        <div style="text-align:center;padding:30px;color:var(--text-muted);">
+          <div style="font-size:42px;margin-bottom:12px;">💬</div>
+          <div style="font-size:15px;font-weight:700;margin-bottom:6px;">إرسال واتساب للعملاء</div>
+          <div style="font-size:13px;line-height:1.8;">اختر عميلاً من القائمة، ثم اختر القالب المناسب<br>سيفتح واتساب مباشرةً بالرسالة الجاهزة</div>
+        </div>
+        <div id="wa-quick-templates" style="display:none;flex-direction:column;gap:10px;"></div>
+      </div>
+      <div style="padding:14px;border-top:1px solid var(--glass-border);">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:9px;">رسالة مخصصة:</div>
+        <div style="display:flex;gap:9px;"><textarea id="wa-custom-msg" class="fctl ta" style="min-height:60px;flex:1" placeholder="اكتب رسالة مخصصة للعميل المحدد..."></textarea>
+        <button class="btn btn-teal" style="align-self:flex-end" onclick="sendWACustom()">📤 إرسال</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ INVOICES SCREEN ══════════ -->
+<div class="screen" id="screen-invoices">
+  <div class="kpi-grid" style="margin-bottom:18px;">
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">🧾</div><div class="kpi-value" id="inv-kpi-total">0</div><div class="kpi-label">إجمالي الفواتير (ج)</div></div>
+    <div class="kpi-card kc-teal"><div class="kpi-icon">✅</div><div class="kpi-value" id="inv-kpi-paid">0</div><div class="kpi-label">مدفوعة بالكامل</div></div>
+    <div class="kpi-card kc-amber"><div class="kpi-icon">⏳</div><div class="kpi-value" id="inv-kpi-partial">0</div><div class="kpi-label">دفع جزئي</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">💸</div><div class="kpi-value" id="inv-kpi-pending">0</div><div class="kpi-label">إجمالي المتبقي (ج)</div></div>
+  </div>
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" id="inv-search-input" placeholder="بحث بالعميل أو الخدمة..." oninput="filterInvs(this.value)"></div>
+    <select class="selbox" id="inv-status-filter" onchange="renderInvs()"><option value="">كل الحالات</option><option value="مدفوع">مدفوع</option><option value="جزئي">جزئي</option><option value="معلق">معلق</option></select>
+    <select class="selbox" id="inv-method-filter" onchange="renderInvs()"><option value="">كل طرق الدفع</option><option>كاش</option><option>فيزا</option><option>إنستاباي</option><option>فودافون</option><option>تحويل</option><option>أقساط</option></select>
+    <input type="date" class="selbox" id="inv-date-filter" onchange="renderInvs()">
+    <button class="btn btn-ghost btn-sm" onclick="exportInvs()">📊 تصدير</button>
+  </div>
+  <div class="card">
+    <div class="card-hdr">
+      <div class="card-title">🧾 قائمة الفواتير</div>
+      <span class="card-sub" id="inv-count-lbl">0 فاتورة</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>العميل</th><th>الخدمة</th><th>الطبيب</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>الطريقة</th><th>التاريخ</th><th>الحالة</th><th></th></tr></thead>
+        <tbody id="inv-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SMART PAYMENT MODAL (Phase 6) ══════════ -->
+<div class="modal-overlay" id="smart-pay-modal">
+  <div class="modal" style="max-width:560px;">
+    <div class="mhdr">
+      <div class="mtitle">💳 تسوية الدفع — <span id="sp-inv-ref" style="color:var(--gold-light)"></span></div>
+      <button class="mclose" onclick="closeModal('smart-pay-modal')">✕</button>
+    </div>
+    <div class="mbody">
+      <input type="hidden" id="sp-inv-id">
+      <!-- Patient info bar -->
+      <div style="display:flex;align-items:center;gap:12px;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:18px;">
+        <div style="font-size:28px;">👤</div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px;" id="sp-pat-name">—</div>
+          <div style="font-size:12px;color:var(--text-muted);" id="sp-service-name">—</div>
+        </div>
+        <div style="text-align:left;">
+          <div style="font-size:11px;color:var(--text-muted);">رصيد العميل</div>
+          <div style="font-size:16px;font-weight:800;" id="sp-credit-display" style="color:var(--emerald)">0 ج</div>
+        </div>
+      </div>
+
+      <!-- Invoice summary -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;">
+        <div style="text-align:center;background:var(--glass);border-radius:var(--radius-sm);padding:12px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">إجمالي الفاتورة</div>
+          <div style="font-size:18px;font-weight:800;color:var(--text-primary);" id="sp-total">0 ج</div>
+        </div>
+        <div style="text-align:center;background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.15);border-radius:var(--radius-sm);padding:12px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">مدفوع سابقاً</div>
+          <div style="font-size:18px;font-weight:800;color:var(--emerald);" id="sp-paid-before">0 ج</div>
+        </div>
+        <div style="text-align:center;background:rgba(244,63,94,.07);border:1px solid rgba(244,63,94,.15);border-radius:var(--radius-sm);padding:12px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">المتبقي</div>
+          <div style="font-size:18px;font-weight:800;color:var(--rose);" id="sp-remaining-display">0 ج</div>
+        </div>
+      </div>
+
+      <!-- Smart suggestions -->
+      <div id="sp-suggestions" style="margin-bottom:16px;display:none;">
+        <div style="font-size:12px;font-weight:700;color:var(--gold-light);margin-bottom:8px;">💡 اقتراحات ذكية:</div>
+        <div id="sp-sugg-content" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+
+      <!-- Payment amount -->
+      <div class="fg" style="gap:14px;">
+        <div class="fgrp">
+          <label class="flbl">المبلغ المدفوع (ج) *</label>
+          <input class="fctl" type="number" id="sp-amount" placeholder="0" oninput="onSpAmountChange()" style="font-size:18px;font-weight:700;">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">طريقة الدفع</label>
+          <select class="fctl" id="sp-method">
+            <option value="كاش">💵 كاش</option>
+            <option value="فيزا">💳 فيزا</option>
+            <option value="إنستاباي">📱 إنستاباي</option>
+            <option value="فودافون">📱 فودافون كاش</option>
+            <option value="تحويل">🏦 تحويل بنكي</option>
+          </select>
+        </div>
+
+        <!-- Quick amount buttons -->
+        <div class="fgrp full">
+          <label class="flbl">أزرار سريعة</label>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;" id="sp-quick-btns"></div>
+        </div>
+
+        <div class="fgrp full">
+          <label class="flbl">ملاحظات</label>
+          <input class="fctl" id="sp-notes" placeholder="أي ملاحظات على الدفعة...">
+        </div>
+      </div>
+
+      <!-- Convert to installments option -->
+      <div id="sp-installment-option" style="display:none;margin-top:12px;background:rgba(196,168,130,.07);border:1px solid rgba(196,168,130,.2);border-radius:var(--radius-sm);padding:12px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <input type="checkbox" id="sp-make-installment" onchange="toggleSpInstallment()" style="width:16px;height:16px;accent-color:var(--gold);">
+          <label for="sp-make-installment" style="font-size:13px;font-weight:600;cursor:pointer;">📆 تحويل المتبقي إلى أقساط</label>
+        </div>
+        <div id="sp-inst-fields" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><label class="flbl">عدد الأقساط</label><select class="fctl" id="sp-inst-count" onchange="calcSpInstPreview()"><option value="2">2 قسط</option><option value="3" selected>3 أقساط</option><option value="4">4 أقساط</option><option value="6">6 أقساط</option><option value="12">12 قسط</option></select></div>
+          <div><label class="flbl">قسط شهري</label><div class="fctl" id="sp-inst-preview" style="background:rgba(196,168,130,.08);color:var(--gold-light);font-weight:700;">—</div></div>
+        </div>
+      </div>
+
+      <!-- Live result preview -->
+      <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:14px;margin-top:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px;">📋 ملخص العملية</div>
+        <div id="sp-preview-content" style="font-size:13px;line-height:2;color:var(--text-secondary);"></div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeModal('smart-pay-modal')">إلغاء</button>
+      <button class="btn btn-teal" onclick="processSmartPayment()" id="sp-confirm-btn">💳 تأكيد الدفع</button>
+    </div>
+  </div>
+</div>
+
+<!-- PLACEHOLDERS -->
+<!-- WAITLIST -->
+<div class="screen" id="screen-waitlist">
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+    <div>
+      <h2 style="font-size:17px;font-weight:800;">⏳ قائمة الانتظار اليومية</h2>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px;" id="wl-date-lbl"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <div class="sbox" style="min-width:160px;"><span>🔍</span><input type="text" id="wl-search" placeholder="بحث..." oninput="renderWaitlist()"></div>
+      <select class="selbox" id="wl-branch-filter" onchange="renderWaitlist()"><option value="">كل الفروع</option></select>
+      <select class="selbox" id="wl-status-filter" onchange="renderWaitlist()">
+        <option value="">كل الحالات</option>
+        <option value="قادم">قادم</option>
+        <option value="انتظار">انتظار</option>
+        <option value="وصل">وصل</option>
+        <option value="في الاستشارة">في الاستشارة</option>
+        <option value="متأخر">متأخر</option>
+        <option value="مكتمل">مكتمل</option>
+        <option value="لم يحضر">لم يحضر</option>
+      </select>
+      <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--teal);" id="wl-auto-lbl">
+        <div class="ai-dot"></div> تحديث تلقائي
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid" style="margin-bottom:18px;">
+    <div class="kpi-card kc-amber"><div class="kpi-icon">📅</div><div class="kpi-value" id="wl-kpi-today">0</div><div class="kpi-label">مواعيد اليوم</div></div>
+    <div class="kpi-card kc-teal"><div class="kpi-icon">🏃</div><div class="kpi-value" id="wl-kpi-active">0</div><div class="kpi-label">في العيادة الآن</div></div>
+    <div class="kpi-card kc-purple"><div class="kpi-icon">💬</div><div class="kpi-value" id="wl-kpi-consult">0</div><div class="kpi-label">في الاستشارة</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">⏰</div><div class="kpi-value" id="wl-kpi-late">0</div><div class="kpi-label">متأخرون</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">✅</div><div class="kpi-value" id="wl-kpi-done">0</div><div class="kpi-label">مكتملون اليوم</div></div>
+  </div>
+
+  <!-- Queue list -->
+  <div class="card">
+    <div class="card-hdr">
+      <div class="card-title">🗂️ طابور الانتظار</div>
+      <span class="card-sub" id="wl-count-lbl">يتم التحميل...</span>
+    </div>
+    <div id="wl-queue-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+</div>
+<div class="modal-overlay" id="waitlist-modal">
+  <div class="modal" style="max-width:480px"><div class="mhdr"><div class="mtitle">⏳ إضافة لقائمة الانتظار</div><button class="mclose" onclick="closeModal('waitlist-modal')">✕</button></div>
+  <div class="mbody">
+    <input type="hidden" id="wl-id"><div class="fg">
+    <input type="hidden" id="wl-id">
+    <div class="fgrp full"><label class="flbl">العميل *</label><select class="fctl" id="wl-pat"><option value="">-- اختر عميل --</option></select></div>
+    <div class="fgrp"><label class="flbl">الخدمة المطلوبة</label><select class="fctl" id="wl-service"><option>هيدرافيشل</option><option>ليزر إزالة شعر</option><option>بوتكس</option><option>بلازما</option><option>تنظيف بشرة</option></select></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="wl-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp"><label class="flbl">الأولوية</label><select class="fctl" id="wl-priority"><option value="عادي">عادي</option><option value="عاجل">عاجل</option><option value="VIP">VIP</option></select></div>
+    <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="wl-notes" placeholder="أسباب الانتظار أو طلبات خاصة..."></textarea></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('waitlist-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveWaitlist()">💾 إضافة</button></div></div>
+</div>
+
+<!-- SESSIONS -->
+<div class="screen" id="screen-sessions">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" id="sess-search" placeholder="بحث عن جلسة أو عميل..." oninput="renderSessions()"></div>
+    <select class="selbox" id="sess-status-filter" onchange="renderSessions()"><option value="">كل الحالات</option><option value="جارية">جارية</option><option value="مكتملة">مكتملة</option><option value="متوقفة">متوقفة</option></select>
+    <button class="btn btn-primary" onclick="openSessionModal()">+ خطة جلسات</button>
+  </div>
+  <div class="kpi-grid" style="margin-bottom:18px;">
+    <div class="kpi-card kc-teal"><div class="kpi-icon">✨</div><div class="kpi-value" id="sess-kpi-active">0</div><div class="kpi-label">خطط جارية</div></div>
+    <div class="kpi-card kc-gold"><div class="kpi-icon">📋</div><div class="kpi-value" id="sess-kpi-total">0</div><div class="kpi-label">إجمالي الخطط</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">✅</div><div class="kpi-value" id="sess-kpi-done">0</div><div class="kpi-label">جلسات مكتملة</div></div>
+    <div class="kpi-card kc-purple"><div class="kpi-icon">⏳</div><div class="kpi-value" id="sess-kpi-remaining">0</div><div class="kpi-label">جلسات متبقية</div></div>
+  </div>
+  <div class="bgrid" id="sess-grid"></div>
+</div>
+<div class="modal-overlay" id="session-modal">
+  <div class="modal" style="max-width:520px"><div class="mhdr"><div class="mtitle" id="sess-modal-title">✨ خطة جلسات جديدة</div><button class="mclose" onclick="closeModal('session-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <input type="hidden" id="sess-id">
+    <div class="fgrp full"><label class="flbl">العميل *</label><select class="fctl" id="sess-pat"><option value="">-- اختر عميل --</option></select></div>
+    <div class="fgrp"><label class="flbl">نوع العلاج</label><select class="fctl" id="sess-type"><option>ليزر إزالة شعر</option><option>تجديد بشرة</option><option>شعر</option><option>بوتكس دوري</option><option>هيدرافيشل</option></select></div>
+    <div class="fgrp"><label class="flbl">الطبيب المعالج</label><select class="fctl" id="sess-doc"></select></div>
+    <div class="fgrp"><label class="flbl">عدد الجلسات الكلي</label><input class="fctl" type="number" id="sess-total-count" placeholder="6" min="1"></div>
+    <div class="fgrp"><label class="flbl">الجلسات المنجزة</label><input class="fctl" type="number" id="sess-done-count" placeholder="0" min="0"></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="sess-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp"><label class="flbl">تاريخ البداية</label><input class="fctl" type="date" id="sess-start"></div>
+    <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="sess-status"><option>جارية</option><option>مكتملة</option><option>متوقفة</option></select></div>
+    <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="sess-notes" placeholder="تفاصيل الخطة العلاجية..."></textarea></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('session-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveSession()">💾 حفظ</button></div></div>
+</div>
+
+<!-- PACKAGES -->
+<div class="screen" id="screen-packages">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" id="pkg-search" placeholder="بحث عن باقة..." oninput="renderPackages()"></div>
+    <select class="selbox" id="pkg-status-filter" onchange="renderPackages()"><option value="">كل الحالات</option><option value="نشطة">نشطة</option><option value="منتهية">منتهية</option><option value="معلقة">معلقة</option></select>
+    <button class="btn btn-primary" onclick="openPackageModal()">+ باقة جديدة</button>
+  </div>
+  <div class="kpi-grid" style="margin-bottom:18px;">
+    <div class="kpi-card kc-gold"><div class="kpi-icon">🎁</div><div class="kpi-value" id="pkg-kpi-total">0</div><div class="kpi-label">إجمالي الباقات</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">✅</div><div class="kpi-value" id="pkg-kpi-active">0</div><div class="kpi-label">باقات نشطة</div></div>
+    <div class="kpi-card kc-teal"><div class="kpi-icon">💰</div><div class="kpi-value" id="pkg-kpi-revenue">0</div><div class="kpi-label">إيرادات الباقات (ج)</div></div>
+    <div class="kpi-card kc-purple"><div class="kpi-icon">👥</div><div class="kpi-value" id="pkg-kpi-clients">0</div><div class="kpi-label">عملاء مشتركون</div></div>
+  </div>
+  <div class="bgrid" id="pkg-grid"></div>
+</div>
+<div class="modal-overlay" id="package-modal">
+  <div class="modal" style="max-width:520px"><div class="mhdr"><div class="mtitle" id="pkg-modal-title">🎁 باقة علاجية جديدة</div><button class="mclose" onclick="closeModal('package-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <input type="hidden" id="pkg-id">
+    <div class="fgrp full"><label class="flbl">العميل *</label><select class="fctl" id="pkg-pat"><option value="">-- اختر عميل --</option></select></div>
+    <div class="fgrp full"><label class="flbl">اسم الباقة *</label><input class="fctl" id="pkg-name" placeholder="مثال: باقة ليزر 6 جلسات"></div>
+    <div class="fgrp"><label class="flbl">الخدمات المضمنة</label><input class="fctl" id="pkg-services" placeholder="ليزر، هيدرافيشل..."></div>
+    <div class="fgrp"><label class="flbl">عدد الجلسات</label><input class="fctl" type="number" id="pkg-sessions-count" placeholder="6"></div>
+    <div class="fgrp"><label class="flbl">السعر الإجمالي (ج)</label><input class="fctl" type="number" id="pkg-price" placeholder="0"></div>
+    <div class="fgrp"><label class="flbl">المدفوع (ج)</label><input class="fctl" type="number" id="pkg-paid" placeholder="0"></div>
+    <div class="fgrp"><label class="flbl">تاريخ البداية</label><input class="fctl" type="date" id="pkg-start"></div>
+    <div class="fgrp"><label class="flbl">تاريخ الانتهاء</label><input class="fctl" type="date" id="pkg-end"></div>
+    <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="pkg-status"><option>نشطة</option><option>معلقة</option><option>منتهية</option></select></div>
+    <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="pkg-notes" placeholder="تفاصيل الباقة..."></textarea></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('package-modal')">إلغاء</button><button class="btn btn-primary" onclick="savePackage()">💾 حفظ الباقة</button></div></div>
+</div>
+<div class="screen" id="screen-doctors">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" id="doc-search" placeholder="بحث عن طبيب..." oninput="renderDocs()"></div>
+    <select class="selbox" id="doc-branch-filter" onchange="renderDocs()"><option value="">كل الفروع</option><option value="مدينة نصر">مدينة نصر</option><option value="المهندسين">المهندسين</option></select>
+    <button class="btn btn-primary" onclick="openDocModal()">+ طبيب جديد</button>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card kc-gold"><div class="kpi-icon">👨‍⚕️</div><div class="kpi-value" id="doc-kpi-total">0</div><div class="kpi-label">إجمالي الأطباء</div></div>
+    <div class="kpi-card kc-teal"><div class="kpi-icon">📅</div><div class="kpi-value" id="doc-kpi-today">0</div><div class="kpi-label">مواعيد اليوم</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">💰</div><div class="kpi-value" id="doc-kpi-revenue">0</div><div class="kpi-label">إيرادات الأطباء (ج)</div></div>
+    <div class="kpi-card kc-amber"><div class="kpi-icon">🧾</div><div class="kpi-value" id="doc-kpi-comm">0</div><div class="kpi-label">عمولات مستحقة (ج)</div></div>
+  </div>
+  <div class="bgrid" id="doc-grid"></div>
+</div>
+
+<div class="modal-overlay" id="doctor-modal">
+  <div class="modal" style="max-width:500px"><div class="mhdr"><div class="mtitle" id="doc-modal-title">👨‍⚕️ طبيب جديد</div><button class="mclose" onclick="closeModal('doctor-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <input type="hidden" id="doc-id">
+    <div class="fgrp full"><label class="flbl">الاسم *</label><input class="fctl" id="doc-name" placeholder="د. الاسم الكامل"></div>
+    <div class="fgrp"><label class="flbl">التخصص</label><input class="fctl" id="doc-specialty" placeholder="مثال: بشرة وجلدية"></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="doc-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp"><label class="flbl">الهاتف</label><input class="fctl" id="doc-phone" placeholder="01X-XXX-XXXX"></div>
+    <div class="fgrp"><label class="flbl">البريد الإلكتروني</label><input class="fctl" id="doc-email" placeholder="email@example.com"></div>
+    <div class="fgrp"><label class="flbl">نسبة العمولة (%)</label><input class="fctl" type="number" id="doc-commission" placeholder="15"></div>
+    <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="doc-status"><option>نشط</option><option>غير نشط</option></select></div>
+    <div class="fgrp"><label class="flbl">بداية الدوام</label><input class="fctl" type="time" id="doc-workstart" value="09:00"></div>
+    <div class="fgrp"><label class="flbl">نهاية الدوام</label><input class="fctl" type="time" id="doc-workend" value="17:00"></div>
+    <div class="fgrp"><label class="flbl">يوم الإجازة الأسبوعية</label><select class="fctl" id="doc-offday"><option value="">بدون</option><option>الجمعة</option><option>السبت</option><option>الأحد</option><option>الإثنين</option><option>الثلاثاء</option><option>الأربعاء</option><option>الخميس</option></select></div>
+    <div class="fgrp full"><label class="flbl">إجازات محددة (تواريخ مفصولة بفاصلة)</label><input class="fctl" id="doc-leaves" placeholder="2026-07-01, 2026-07-05"></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('doctor-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveDoc()">💾 حفظ</button></div></div>
+</div>
+<div class="screen" id="screen-staff">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" id="st-search" placeholder="بحث عن موظف..." oninput="renderStaff()"></div>
+    <select class="selbox" id="st-role-filter" onchange="renderStaff()"><option value="">كل الأدوار</option><option value="استقبال">استقبال</option><option value="محاسب">محاسب</option><option value="مدير فرع">مدير فرع</option><option value="أخرى">أخرى</option></select>
+    <button class="btn btn-primary" onclick="openStaffModal()">+ موظف جديد</button>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card kc-gold"><div class="kpi-icon">👩‍💼</div><div class="kpi-value" id="st-kpi-total">0</div><div class="kpi-label">إجمالي الموظفين</div></div>
+    <div class="kpi-card kc-teal"><div class="kpi-icon">✅</div><div class="kpi-value" id="st-kpi-active">0</div><div class="kpi-label">نشطون</div></div>
+    <div class="kpi-card kc-amber"><div class="kpi-icon">💰</div><div class="kpi-value" id="st-kpi-salaries">0</div><div class="kpi-label">إجمالي الرواتب (ج)</div></div>
+    <div class="kpi-card kc-purple"><div class="kpi-icon">🏢</div><div class="kpi-value" id="st-kpi-branches">0</div><div class="kpi-label">عدد الفروع المغطاة</div></div>
+  </div>
+  <div class="bgrid" id="st-grid"></div>
+</div>
+
+<div class="modal-overlay" id="staff-modal">
+  <div class="modal" style="max-width:500px"><div class="mhdr"><div class="mtitle" id="st-modal-title">👩‍💼 موظف جديد</div><button class="mclose" onclick="closeModal('staff-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <input type="hidden" id="st-id">
+    <div class="fgrp full"><label class="flbl">الاسم *</label><input class="fctl" id="st-name" placeholder="الاسم الكامل"></div>
+    <div class="fgrp"><label class="flbl">الدور الوظيفي</label><select class="fctl" id="st-role"><option>استقبال</option><option>محاسب</option><option>مدير فرع</option><option>أخرى</option></select></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="st-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp"><label class="flbl">الهاتف</label><input class="fctl" id="st-phone" placeholder="01X-XXX-XXXX"></div>
+    <div class="fgrp"><label class="flbl">البريد الإلكتروني</label><input class="fctl" id="st-email" placeholder="email@example.com"></div>
+    <div class="fgrp"><label class="flbl">الراتب الشهري (ج)</label><input class="fctl" type="number" id="st-salary" placeholder="5000"></div>
+    <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="st-status"><option>نشط</option><option>غير نشط</option></select></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('staff-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveStaff()">💾 حفظ</button></div></div>
+</div>
+<div class="screen" id="screen-payments">
+  <div class="kpi-grid" style="margin-bottom:18px;">
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">💵</div><div class="kpi-value" id="pay-kpi-total">0</div><div class="kpi-label">إجمالي المحصل (ج)</div></div>
+    <div class="kpi-card kc-teal"><div class="kpi-icon">📅</div><div class="kpi-value" id="pay-kpi-today">0</div><div class="kpi-label">محصل اليوم (ج)</div></div>
+    <div class="kpi-card kc-gold"><div class="kpi-icon">💳</div><div class="kpi-value" id="pay-kpi-visa">0</div><div class="kpi-label">فيزا (ج)</div></div>
+    <div class="kpi-card kc-purple"><div class="kpi-icon">💵</div><div class="kpi-value" id="pay-kpi-cash">0</div><div class="kpi-label">كاش (ج)</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">📱</div><div class="kpi-value" id="pay-kpi-transfer">0</div><div class="kpi-label">تحويل إلكتروني (ج)</div></div>
+  </div>
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث بالعميل أو الخدمة..." oninput="renderPayments(this.value)"></div>
+    <select class="selbox" id="pay-method-filter" onchange="renderPayments()"><option value="">كل طرق الدفع</option><option>كاش</option><option>فيزا</option><option>إنستاباي</option><option>فودافون</option><option>تحويل</option></select>
+    <input type="date" class="selbox" id="pay-date-filter" onchange="renderPayments()">
+    <button class="btn btn-ghost btn-sm" onclick="showToast('info','📊 جارٍ التصدير...')">📊 تصدير</button>
+  </div>
+  <div class="card">
+    <div class="card-hdr">
+      <div class="card-title">سجل المدفوعات</div>
+      <span class="card-sub" id="pay-count-lbl">0 عملية</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>العميل</th><th>الخدمة</th><th>المبلغ</th><th>طريقة الدفع</th><th>التاريخ</th><th>المرجع</th><th>الحالة</th></tr></thead>
+        <tbody id="pay-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div class="screen" id="screen-installments">
+  <div class="kpi-grid" style="margin-bottom:18px;">
+    <div class="kpi-card kc-amber"><div class="kpi-icon">📆</div><div class="kpi-value" id="inst-kpi-total">0</div><div class="kpi-label">إجمالي الأقساط المتبقية (ج)</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">⚠️</div><div class="kpi-value" id="inst-kpi-overdue">0</div><div class="kpi-label">أقساط متأخرة</div></div>
+    <div class="kpi-card kc-teal"><div class="kpi-icon">✅</div><div class="kpi-value" id="inst-kpi-paid">0</div><div class="kpi-label">مكتملة هذا الشهر</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">👥</div><div class="kpi-value" id="inst-kpi-clients">0</div><div class="kpi-label">عملاء بأقساط</div></div>
+  </div>
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث بالعميل..." oninput="renderInstallments(this.value)"></div>
+    <select class="selbox" id="inst-status-filter" onchange="renderInstallments()"><option value="">كل الحالات</option><option value="نشط">نشط</option><option value="متأخر">متأخر</option><option value="مكتمل">مكتمل</option></select>
+    <button class="btn btn-primary" onclick="openInstModal()">+ قسط جديد</button>
+  </div>
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-hdr"><div class="card-title">📆 خطط الأقساط النشطة</div><span class="card-sub" id="inst-count-lbl">0 خطة</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>العميل</th><th>الخدمة</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>الأقساط</th><th>القسط القادم</th><th>الحالة</th><th></th></tr></thead>
+        <tbody id="inst-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">📋 سجل مدفوعات الأقساط</div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>العميل</th><th>القسط</th><th>المبلغ</th><th>التاريخ</th><th>الحالة</th></tr></thead>
+        <tbody id="inst-log-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="installment-modal">
+  <div class="modal" style="max-width:540px">
+    <div class="mhdr"><div class="mtitle" id="inst-modal-title">📆 إضافة خطة أقساط</div><button class="mclose" onclick="closeModal('installment-modal')">✕</button></div>
+    <div class="mbody">
+      <div class="fg">
+        <input type="hidden" id="inst-edit-id">
+        <div class="fgrp"><label class="flbl">العميل *</label><select class="fctl" id="inst-pat"><option value="">-- اختر عميل --</option></select></div>
+        <div class="fgrp"><label class="flbl">الخدمة</label><select class="fctl" id="inst-svc"><option>هيدرافيشل</option><option>ليزر شعر</option><option>بوتكس</option><option>بلازما</option><option>باقة ليزر كاملة</option></select></div>
+        <div class="fgrp"><label class="flbl">إجمالي المبلغ (ج) *</label><input class="fctl" type="number" id="inst-total" placeholder="0" oninput="calcInstPlan()"></div>
+        <div class="fgrp"><label class="flbl">المقدم (ج)</label><input class="fctl" type="number" id="inst-down" placeholder="0" oninput="calcInstPlan()"></div>
+        <div class="fgrp"><label class="flbl">عدد الأقساط</label><select class="fctl" id="inst-count-sel" onchange="calcInstPlan()"><option value="2">2 قسط</option><option value="3">3 أقساط</option><option value="4">4 أقساط</option><option value="6">6 أقساط</option><option value="12">12 قسط</option></select></div>
+        <div class="fgrp"><label class="flbl">تاريخ البداية</label><input class="fctl" type="date" id="inst-start"></div>
+      </div>
+      <div style="background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.2);border-radius:var(--radius-sm);padding:13px;margin-top:14px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;"><span style="color:var(--text-muted)">المتبقي بعد المقدم:</span><span id="inst-preview-remain" style="font-weight:700">—</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;border-top:1px solid rgba(45,212,191,.2);padding-top:8px;"><span>قيمة كل قسط:</span><span style="color:var(--teal)" id="inst-preview-each">—</span></div>
+      </div>
+    </div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('installment-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveInstallment()">💾 إنشاء الخطة</button></div>
+  </div>
+</div>
+<div class="screen" id="screen-expenses">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" id="exp-search" placeholder="بحث عن مصروف..." oninput="renderExpenses()"></div>
+    <select class="selbox" id="exp-type-filter" onchange="renderExpenses()"><option value="">كل الأنواع</option><option value="إيجار">إيجار</option><option value="مرافق">مرافق</option><option value="رواتب">رواتب</option><option value="مخزون">مخزون</option><option value="تسويق">تسويق</option><option value="أخرى">أخرى</option></select>
+    <button class="btn btn-primary" onclick="openExpModal()">+ مصروف جديد</button>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-card kc-rose"><div class="kpi-icon">💸</div><div class="kpi-value" id="exp-kpi-total">0</div><div class="kpi-label">إجمالي المصروفات (ج)</div></div>
+    <div class="kpi-card kc-amber"><div class="kpi-icon">📅</div><div class="kpi-value" id="exp-kpi-month">0</div><div class="kpi-label">مصروفات هذا الشهر (ج)</div></div>
+    <div class="kpi-card kc-purple"><div class="kpi-icon">🏆</div><div class="kpi-value" id="exp-kpi-top">—</div><div class="kpi-label">أعلى نوع مصروف</div></div>
+    <div class="kpi-card kc-gold"><div class="kpi-icon">🧾</div><div class="kpi-value" id="exp-kpi-count">0</div><div class="kpi-label">عدد المصروفات</div></div>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>البيان</th><th>النوع</th><th>الفرع</th><th>المبلغ</th><th>التاريخ</th><th></th></tr></thead><tbody id="exp-tbody"></tbody></table></div></div>
+</div>
+
+<div class="modal-overlay" id="expense-modal">
+  <div class="modal" style="max-width:480px"><div class="mhdr"><div class="mtitle" id="exp-modal-title">💸 مصروف جديد</div><button class="mclose" onclick="closeModal('expense-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <input type="hidden" id="exp-id">
+    <div class="fgrp full"><label class="flbl">البيان *</label><input class="fctl" id="exp-name" placeholder="مثال: إيجار الفرع"></div>
+    <div class="fgrp"><label class="flbl">النوع</label><select class="fctl" id="exp-type"><option>إيجار</option><option>مرافق</option><option>رواتب</option><option>مخزون</option><option>تسويق</option><option>أخرى</option></select></div>
+    <div class="fgrp"><label class="flbl">المبلغ (ج) *</label><input class="fctl" type="number" id="exp-amount" placeholder="0"></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="exp-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp"><label class="flbl">التاريخ</label><input class="fctl" type="date" id="exp-date"></div>
+    <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="exp-notes" placeholder="أي تفاصيل إضافية..."></textarea></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('expense-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveExp()">💾 حفظ</button></div></div>
+</div>
+<div class="screen" id="screen-treasury">
+  <div id="treasury-content">
+    <div class="card" style="text-align:center;padding:40px;"><div style="font-size:44px;margin-bottom:14px">🏦</div><div style="font-size:13px;color:var(--text-muted)">جارٍ تحميل الخزينة...</div></div>
+  </div>
+</div>
+<div class="screen" id="screen-accounts">
+  <div style="margin-bottom:18px;">
+    <h2 style="font-size:17px;font-weight:800;">📊 الحسابات الكاملة</h2>
+    <p style="font-size:12.5px;color:var(--text-muted)" id="acc-period-lbl"></p>
+  </div>
+  <div class="tabs" style="margin-bottom:18px;" id="acc-tabs">
+    <div class="tab active" onclick="stab(this,'acc-tabs','acc-pl')">الأرباح والخسائر</div>
+    <div class="tab" onclick="stab(this,'acc-tabs','acc-bs')">الميزانية العمومية</div>
+    <div class="tab" onclick="stab(this,'acc-tabs','acc-cf')">التدفق النقدي</div>
+  </div>
+  <div id="acc-pl">
+    <div class="g2c" style="gap:16px;margin-bottom:16px;">
+      <div class="card" style="border-right:3px solid var(--emerald);">
+        <div class="card-hdr"><div class="card-title" style="color:var(--emerald)">📈 الإيرادات</div></div>
+        <div id="acc-revenues" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <div style="border-top:1px solid var(--glass-border);padding-top:10px;margin-top:10px;display:flex;justify-content:space-between;font-weight:800;font-size:15px;">
+          <span>إجمالي الإيرادات</span><span style="color:var(--emerald)" id="acc-total-revenue">0 ج</span>
+        </div>
+      </div>
+      <div class="card" style="border-right:3px solid var(--rose);">
+        <div class="card-hdr"><div class="card-title" style="color:var(--rose)">📉 المصروفات</div></div>
+        <div id="acc-expenses-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <div style="border-top:1px solid var(--glass-border);padding-top:10px;margin-top:10px;display:flex;justify-content:space-between;font-weight:800;font-size:15px;">
+          <span>إجمالي المصروفات</span><span style="color:var(--rose)" id="acc-total-expense">0 ج</span>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="background:linear-gradient(135deg,rgba(45,212,191,.07),rgba(196,168,130,.05));border-color:rgba(45,212,191,.2);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">صافي الربح / الخسارة</div>
+          <div style="font-size:32px;font-weight:900;" id="acc-net-profit">0 ج</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">هامش الربح</div>
+          <div style="font-size:28px;font-weight:900;color:var(--teal);" id="acc-margin">0%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="acc-bs" style="display:none;">
+    <div class="g2c" style="gap:16px;">
+      <div class="card"><div class="card-hdr"><div class="card-title">الأصول</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-muted)">النقدية في الخزينة</span><span id="bs-cash" style="font-weight:700">0 ج</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-muted)">قيمة المخزون</span><span id="bs-inventory" style="font-weight:700">0 ج</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-muted)">ذمم مدينة (أقساط)</span><span id="bs-receivables" style="font-weight:700;color:var(--amber)">0 ج</span></div>
+          <div style="border-top:1px solid var(--glass-border);padding-top:8px;display:flex;justify-content:space-between;font-weight:800;"><span>إجمالي الأصول</span><span style="color:var(--emerald)" id="bs-total-assets">0 ج</span></div>
+        </div>
+      </div>
+      <div class="card"><div class="card-hdr"><div class="card-title">الخصوم وحقوق الملكية</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-muted)">مستحقات موردين</span><span id="bs-suppliers" style="font-weight:700;color:var(--rose)">0 ج</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-muted)">رواتب مستحقة</span><span id="bs-salaries" style="font-weight:700;color:var(--rose)">0 ج</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--text-muted)">صافي حقوق الملكية</span><span id="bs-equity" style="font-weight:700;color:var(--teal)">0 ج</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="acc-cf" style="display:none;">
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">التدفق النقدي الشهري</div></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>الشهر</th><th>الوارد</th><th>الصادر</th><th>الصافي</th><th>الرصيد التراكمي</th></tr></thead>
+        <tbody id="cf-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+<div class="screen" id="screen-suppliers">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث عن مورد..." oninput="renderSuppliers(this.value)"></div>
+    <select class="selbox" id="sup-status-filter" onchange="renderSuppliers()"><option value="">كل الحالات</option><option value="نشط">نشط</option><option value="غير نشط">غير نشط</option></select>
+    <button class="btn btn-primary" onclick="openSupplierModal()">+ مورد جديد</button>
+  </div>
+  <div class="kpi-grid" style="margin-bottom:14px;">
+    <div class="kpi-card kc-teal"><div class="kpi-icon">🚚</div><div class="kpi-value" id="sup-kpi-total">0</div><div class="kpi-label">إجمالي الموردين</div></div>
+    <div class="kpi-card kc-gold"><div class="kpi-icon">💰</div><div class="kpi-value" id="sup-kpi-owed">0</div><div class="kpi-label">مستحقات لهم (ج)</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">📦</div><div class="kpi-value" id="sup-kpi-orders">0</div><div class="kpi-label">طلبات هذا الشهر</div></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">قائمة الموردين</div><span class="card-sub" id="sup-count-lbl">0 مورد</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>المورد</th><th>الفئة</th><th>الهاتف</th><th>البريد</th><th>شروط الدفع</th><th>المستحقات</th><th>الحالة</th><th></th></tr></thead>
+        <tbody id="sup-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="supplier-modal">
+  <div class="modal" style="max-width:500px">
+    <div class="mhdr"><div class="mtitle" id="sup-modal-title">🚚 مورد جديد</div><button class="mclose" onclick="closeModal('supplier-modal')">✕</button></div>
+    <div class="mbody"><div class="fg">
+      <input type="hidden" id="sup-id">
+      <div class="fgrp full"><label class="flbl">اسم المورد *</label><input class="fctl" id="sup-name" placeholder="اسم الشركة أو المورد"></div>
+      <div class="fgrp"><label class="flbl">الفئة</label><select class="fctl" id="sup-cat"><option>مستحضرات بشرة</option><option>أجهزة طبية</option><option>مستلزمات ليزر</option><option>حقن وأدوية</option><option>مستلزمات عامة</option></select></div>
+      <div class="fgrp"><label class="flbl">الهاتف</label><input class="fctl" id="sup-phone" placeholder="01X-XXX-XXXX"></div>
+      <div class="fgrp"><label class="flbl">البريد الإلكتروني</label><input class="fctl" id="sup-email" placeholder="supplier@company.com"></div>
+      <div class="fgrp"><label class="flbl">المسؤول</label><input class="fctl" id="sup-contact" placeholder="اسم مندوب المبيعات"></div>
+      <div class="fgrp"><label class="flbl">شروط الدفع</label><select class="fctl" id="sup-terms"><option>فوري</option><option>30 يوم</option><option>60 يوم</option><option>90 يوم</option></select></div>
+      <div class="fgrp"><label class="flbl">المستحقات (ج)</label><input class="fctl" type="number" id="sup-owed" placeholder="0"></div>
+      <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="sup-status"><option>نشط</option><option>غير نشط</option></select></div>
+      <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="sup-notes" placeholder="أي ملاحظات إضافية..."></textarea></div>
+    </div></div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('supplier-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveSupplier()">💾 حفظ</button></div>
+  </div>
+</div>
+<div class="screen" id="screen-purchases">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث عن طلب شراء..." oninput="renderPurchases(this.value)"></div>
+    <select class="selbox" id="pur-status-filter" onchange="renderPurchases()"><option value="">كل الحالات</option><option value="معلق">معلق</option><option value="موافق عليه">موافق عليه</option><option value="مستلم">مستلم</option><option value="ملغي">ملغي</option></select>
+    <button class="btn btn-primary" onclick="openPurchaseModal()">+ طلب شراء</button>
+  </div>
+  <div class="kpi-grid" style="margin-bottom:14px;">
+    <div class="kpi-card kc-amber"><div class="kpi-icon">🛒</div><div class="kpi-value" id="pur-kpi-pending">0</div><div class="kpi-label">طلبات معلقة</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">✅</div><div class="kpi-value" id="pur-kpi-received">0</div><div class="kpi-label">مستلمة هذا الشهر</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">💰</div><div class="kpi-value" id="pur-kpi-total">0</div><div class="kpi-label">إجمالي المشتريات (ج)</div></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">طلبات الشراء</div><span class="card-sub" id="pur-count-lbl">0 طلب</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>المنتج</th><th>المورد</th><th>الكمية</th><th>السعر الإجمالي</th><th>تاريخ الطلب</th><th>تاريخ التسليم</th><th>الحالة</th><th></th></tr></thead>
+        <tbody id="pur-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="purchase-modal">
+  <div class="modal" style="max-width:520px">
+    <div class="mhdr"><div class="mtitle" id="pur-modal-title">🛒 طلب شراء جديد</div><button class="mclose" onclick="closeModal('purchase-modal')">✕</button></div>
+    <div class="mbody"><div class="fg">
+      <input type="hidden" id="pur-id">
+      <div class="fgrp full"><label class="flbl">المنتج *</label><input class="fctl" id="pur-product" placeholder="اسم المنتج أو المادة"></div>
+      <div class="fgrp"><label class="flbl">المورد</label><select class="fctl" id="pur-supplier"><option value="">-- اختر مورد --</option></select></div>
+      <div class="fgrp"><label class="flbl">الكمية</label><input class="fctl" type="number" id="pur-qty" placeholder="0" oninput="calcPurTotal()"></div>
+      <div class="fgrp"><label class="flbl">سعر الوحدة (ج)</label><input class="fctl" type="number" id="pur-unit-price" placeholder="0" oninput="calcPurTotal()"></div>
+      <div class="fgrp"><label class="flbl">تاريخ الطلب</label><input class="fctl" type="date" id="pur-order-date"></div>
+      <div class="fgrp"><label class="flbl">تاريخ التسليم المتوقع</label><input class="fctl" type="date" id="pur-delivery-date"></div>
+      <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="pur-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+      <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="pur-status"><option>معلق</option><option>موافق عليه</option><option>مستلم</option><option>ملغي</option></select></div>
+    </div>
+    <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:11px;margin-top:12px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="color:var(--text-muted);font-size:13px;">الإجمالي:</span>
+      <span id="pur-total-preview" style="font-weight:800;font-size:16px;color:var(--gold-light)">0 ج</span>
+    </div>
+    </div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('purchase-modal')">إلغاء</button><button class="btn btn-primary" onclick="savePurchase()">💾 إرسال الطلب</button></div>
+  </div>
+</div>
+<div class="screen" id="screen-transfers">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث عن تحويل..." oninput="renderTransfers(this.value)"></div>
+    <select class="selbox" id="tr-status-filter" onchange="renderTransfers()"><option value="">كل الحالات</option><option value="معلق">معلق</option><option value="مكتمل">مكتمل</option></select>
+    <button class="btn btn-primary" onclick="openTransferModal()">+ تحويل جديد</button>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">🔄 سجل تحويلات المخزون</div><span class="card-sub" id="tr-count-lbl">0 تحويل</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>المنتج</th><th>من</th><th>إلى</th><th>الكمية</th><th>التاريخ</th><th>الموظف</th><th>الحالة</th><th></th></tr></thead>
+        <tbody id="tr-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="transfer-modal">
+  <div class="modal" style="max-width:480px">
+    <div class="mhdr"><div class="mtitle">🔄 تحويل مخزون</div><button class="mclose" onclick="closeModal('transfer-modal')">✕</button></div>
+    <div class="mbody"><div class="fg">
+      <input type="hidden" id="tr-id">
+      <div class="fgrp full"><label class="flbl">المنتج *</label><select class="fctl" id="tr-product"><option value="">-- اختر منتج --</option></select></div>
+      <div class="fgrp"><label class="flbl">من فرع</label><select class="fctl" id="tr-from"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+      <div class="fgrp"><label class="flbl">إلى فرع</label><select class="fctl" id="tr-to"><option>المهندسين</option><option>مدينة نصر</option></select></div>
+      <div class="fgrp"><label class="flbl">الكمية *</label><input class="fctl" type="number" id="tr-qty" placeholder="0"></div>
+      <div class="fgrp"><label class="flbl">التاريخ</label><input class="fctl" type="date" id="tr-date"></div>
+      <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="tr-notes" placeholder="سبب التحويل..."></textarea></div>
+    </div></div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('transfer-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveTransfer()">🔄 تنفيذ التحويل</button></div>
+  </div>
+</div>
+<div class="screen" id="screen-campaigns">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث عن حملة..." oninput="renderCampaigns(this.value)"></div>
+    <select class="selbox" id="camp-status-filter" onchange="renderCampaigns()"><option value="">كل الحالات</option><option value="نشطة">نشطة</option><option value="منتهية">منتهية</option><option value="مجدولة">مجدولة</option></select>
+    <button class="btn btn-primary" onclick="openCampaignModal()">+ حملة جديدة</button>
+  </div>
+  <div class="kpi-grid" style="margin-bottom:18px;">
+    <div class="kpi-card kc-purple"><div class="kpi-icon">📣</div><div class="kpi-value" id="camp-kpi-active">0</div><div class="kpi-label">حملات نشطة</div></div>
+    <div class="kpi-card kc-gold"><div class="kpi-icon">💰</div><div class="kpi-value" id="camp-kpi-budget">0</div><div class="kpi-label">إجمالي الميزانية (ج)</div></div>
+    <div class="kpi-card kc-teal"><div class="kpi-icon">🎯</div><div class="kpi-value" id="camp-kpi-leads">0</div><div class="kpi-label">عملاء محتملون</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">📈</div><div class="kpi-value" id="camp-kpi-conversion">0%</div><div class="kpi-label">نسبة التحويل</div></div>
+  </div>
+  <div id="camp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;"></div>
+</div>
+
+<div class="modal-overlay" id="campaign-modal">
+  <div class="modal" style="max-width:560px">
+    <div class="mhdr"><div class="mtitle" id="camp-modal-title">📣 حملة إعلانية جديدة</div><button class="mclose" onclick="closeModal('campaign-modal')">✕</button></div>
+    <div class="mbody"><div class="fg">
+      <input type="hidden" id="camp-id">
+      <div class="fgrp full"><label class="flbl">اسم الحملة *</label><input class="fctl" id="camp-name" placeholder="مثال: حملة رمضان - ليزر 50%"></div>
+      <div class="fgrp"><label class="flbl">القناة</label><select class="fctl" id="camp-channel"><option>إنستجرام</option><option>فيسبوك</option><option>واتساب</option><option>SMS</option><option>إيميل</option><option>جوجل</option></select></div>
+      <div class="fgrp"><label class="flbl">الهدف</label><select class="fctl" id="camp-goal"><option>زيادة الحجوزات</option><option>ترويج خدمة</option><option>استقطاب عملاء جدد</option><option>ولاء العملاء</option></select></div>
+      <div class="fgrp"><label class="flbl">الميزانية (ج)</label><input class="fctl" type="number" id="camp-budget" placeholder="0"></div>
+      <div class="fgrp"><label class="flbl">العملاء المحتملون</label><input class="fctl" type="number" id="camp-leads-count" placeholder="0"></div>
+      <div class="fgrp"><label class="flbl">تاريخ البداية</label><input class="fctl" type="date" id="camp-start"></div>
+      <div class="fgrp"><label class="flbl">تاريخ النهاية</label><input class="fctl" type="date" id="camp-end"></div>
+      <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="camp-status"><option>مجدولة</option><option>نشطة</option><option>منتهية</option></select></div>
+      <div class="fgrp full"><label class="flbl">وصف الحملة</label><textarea class="fctl ta" id="camp-desc" placeholder="تفاصيل الحملة والعرض..."></textarea></div>
+    </div></div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('campaign-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveCampaign()">💾 حفظ الحملة</button></div>
+  </div>
+</div>
+<div class="screen" id="screen-photos">
+  <div class="filter-bar">
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث بالعميل أو الخدمة..." oninput="renderPhotos(this.value)"></div>
+    <select class="selbox" id="photo-cat-filter" onchange="renderPhotos()"><option value="">كل الخدمات</option><option>ليزر</option><option>بوتكس</option><option>هيدرافيشل</option><option>بلازما</option></select>
+    <button class="btn btn-primary" onclick="openPhotoModal()">📸 إضافة صور</button>
+  </div>
+  <div class="kpi-grid" style="margin-bottom:18px;">
+    <div class="kpi-card kc-teal"><div class="kpi-icon">📷</div><div class="kpi-value" id="photo-kpi-total">0</div><div class="kpi-label">إجمالي الصور</div></div>
+    <div class="kpi-card kc-purple"><div class="kpi-icon">👥</div><div class="kpi-value" id="photo-kpi-patients">0</div><div class="kpi-label">عملاء لديهم صور</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">✨</div><div class="kpi-value" id="photo-kpi-pairs">0</div><div class="kpi-label">مقارنات قبل/بعد</div></div>
+  </div>
+  <div id="photo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;"></div>
+</div>
+
+<div class="modal-overlay" id="photo-modal">
+  <div class="modal" style="max-width:500px">
+    <div class="mhdr"><div class="mtitle">📸 إضافة صور قبل/بعد</div><button class="mclose" onclick="closeModal('photo-modal')">✕</button></div>
+    <div class="mbody"><div class="fg">
+      <input type="hidden" id="photo-id">
+      <div class="fgrp"><label class="flbl">العميل *</label><select class="fctl" id="photo-pat"><option value="">-- اختر عميل --</option></select></div>
+      <div class="fgrp"><label class="flbl">الخدمة</label><select class="fctl" id="photo-svc"><option>ليزر إزالة شعر</option><option>بوتكس</option><option>هيدرافيشل</option><option>بلازما</option><option>تنظيف بشرة</option></select></div>
+      <div class="fgrp"><label class="flbl">التاريخ</label><input class="fctl" type="date" id="photo-date"></div>
+      <div class="fgrp"><label class="flbl">رقم الجلسة</label><input class="fctl" type="number" id="photo-session" placeholder="1" min="1"></div>
+      <div class="fgrp full"><label class="flbl">صورة قبل (رابط أو اسم ملف)</label><input class="fctl" id="photo-before" placeholder="before.jpg"></div>
+      <div class="fgrp full"><label class="flbl">صورة بعد (رابط أو اسم ملف)</label><input class="fctl" id="photo-after" placeholder="after.jpg"></div>
+      <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="photo-notes" placeholder="تفاصيل النتيجة..."></textarea></div>
+    </div></div>
+    <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('photo-modal')">إلغاء</button><button class="btn btn-primary" onclick="savePhoto()">📸 حفظ الصور</button></div>
+  </div>
+</div>
+
+</main>
+<!-- MODALS -->
+<div class="modal-overlay" id="appt-modal">
+  <div class="modal"><div class="mhdr"><div class="mtitle" id="appt-modal-title">📅 موعد جديد</div><button class="mclose" onclick="closeModal('appt-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <input type="hidden" id="am-id">
+    <div class="fgrp full"><label class="flbl">العميل *</label><select class="fctl" id="am-pat"><option value="">-- اختر عميل --</option></select></div>
+    <div class="fgrp"><label class="flbl">نوع الموعد</label><select class="fctl" id="am-type"><option>كشف</option><option>جلسة</option><option>متابعة</option><option>ليزر</option><option>بوتكس</option></select></div>
+    <div class="fgrp"><label class="flbl">الطبيب</label><select class="fctl" id="am-doc"><option>د. منى سامي</option><option>د. أحمد رضا</option><option>د. لمياء حسن</option></select></div>
+    <div class="fgrp"><label class="flbl">التاريخ *</label><input class="fctl" type="date" id="am-date"></div>
+    <div class="fgrp"><label class="flbl">الوقت *</label><input class="fctl" type="time" id="am-time"></div>
+    <div class="fgrp"><label class="flbl">الخدمة</label><select class="fctl" id="am-svc" onchange="onApptSvcChange()"></select></div>
+    <div class="fgrp"><label class="flbl">الغرفة</label><select class="fctl" id="am-room"><option value="">— تلقائي حسب الخدمة —</option></select></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="am-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp full" id="am-conflict-box" style="display:none;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--rose);"></div>
+    <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="am-notes" placeholder="أي ملاحظات..."></textarea></div>
+    <div class="fgrp full"><label class="flbl">تذكير بـ</label><div style="display:flex;gap:14px;"><label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" checked> واتساب</label><label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox"> SMS</label><label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox"> إيميل</label></div></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('appt-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveAppt()">📅 حجز الموعد</button></div></div>
+</div>
+
+<div class="modal-overlay" id="patient-modal">
+  <div class="modal" style="max-width:740px"><div class="mhdr"><div class="mtitle" id="pat-modal-title">👥 عميل جديد</div><button class="mclose" onclick="closeModal('patient-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <input type="hidden" id="pm-id">
+    <div class="fsec">البيانات الشخصية</div>
+    <div class="fgrp"><label class="flbl">الاسم الكامل *</label><input class="fctl" id="pm-name" placeholder="الاسم بالكامل"></div>
+    <div class="fgrp"><label class="flbl">رقم الهاتف *</label><input class="fctl" id="pm-phone" placeholder="01X-XXX-XXXX"></div>
+    <div class="fgrp"><label class="flbl">واتساب</label><input class="fctl" id="pm-wa" placeholder="01X-XXX-XXXX"></div>
+    <div class="fgrp"><label class="flbl">البريد الإلكتروني</label><input class="fctl" id="pm-email" placeholder="email@example.com"></div>
+    <div class="fgrp"><label class="flbl">تاريخ الميلاد</label><input class="fctl" type="date" id="pm-dob"></div>
+    <div class="fgrp"><label class="flbl">الجنس</label><select class="fctl" id="pm-gender"><option>أنثى</option><option>ذكر</option></select></div>
+    <div class="fgrp"><label class="flbl">المهنة</label><input class="fctl" id="pm-job" placeholder="المهنة"></div>
+    <div class="fgrp"><label class="flbl">مصدر العميل</label><select class="fctl" id="pm-src"><option>فيسبوك</option><option>إنستجرام</option><option>صديق</option><option>إعلان</option><option>أخرى</option></select></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="pm-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="pm-status"><option value="نشط">نشط</option><option value="غير نشط">غير نشط</option></select></div>
+    <hr class="fdivider">
+    <div class="fsec">الملف الطبي</div>
+    <div class="fgrp"><label class="flbl">نوع البشرة</label><select class="fctl" id="pm-skin"><option>عادية</option><option>دهنية</option><option>جافة</option><option>مختلطة</option><option>حساسة</option></select></div>
+    <div class="fgrp"><label class="flbl">نوع الشعر</label><select class="fctl" id="pm-hair"><option>عادي</option><option>دهني</option><option>جاف</option><option>كيرلي</option><option>ناعم</option></select></div>
+    <div class="fgrp full"><label class="flbl">مشاكل البشرة</label><input class="fctl" id="pm-skinp" placeholder="حب شباب، بقع، تجاعيد..."></div>
+    <div class="fgrp full"><label class="flbl">مشاكل الشعر</label><input class="fctl" id="pm-hairp" placeholder="تساقط، جفاف..."></div>
+    <div class="fgrp full"><label class="flbl">الحساسية والأمراض المزمنة</label><textarea class="fctl ta" id="pm-allergy" placeholder="اكتب أي حساسية أو أمراض مزمنة..."></textarea></div>
+    <div class="fgrp"><label class="flbl">الحمل أو الرضاعة</label><select class="fctl" id="pm-preg"><option>لا</option><option>حامل</option><option>مرضعة</option></select></div>
+    <div class="fgrp"><label class="flbl">الأدوية الحالية</label><input class="fctl" id="pm-meds" placeholder="إن وجدت..."></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('patient-modal')">إلغاء</button><button class="btn btn-primary" onclick="savePat()">💾 حفظ العميل</button></div></div>
+</div>
+
+<div class="modal-overlay" id="invoice-modal">
+  <div class="modal"><div class="mhdr"><div class="mtitle" id="inv-modal-title">🧾 فاتورة جديدة</div><button class="mclose" onclick="closeModal('invoice-modal')">✕</button></div>
+  <div class="mbody">
+    <input type="hidden" id="im-id">
+    <div class="fg">
+      <div class="fgrp"><label class="flbl">العميل *</label><select class="fctl" id="im-pat"><option value="">-- اختر عميل --</option></select></div>
+      <div class="fgrp"><label class="flbl">التاريخ</label><input class="fctl" type="date" id="im-date"></div>
+      <div class="fgrp full"><label class="flbl">الخدمة</label><select class="fctl" id="im-svc" onchange="updInvTotal()"><option value="800">هيدرافيشل - 800 ج</option><option value="1200">ليزر شعر - 1,200 ج</option><option value="3500">بوتكس - 3,500 ج</option><option value="2000">بلازما - 2,000 ج</option><option value="500">تنظيف بشرة - 500 ج</option></select></div>
+      <div class="fgrp"><label class="flbl">السعر (ج)</label><input class="fctl" type="number" id="im-price" value="800" oninput="updInvTotal()"></div>
+      <div class="fgrp"><label class="flbl">الخصم (ج)</label><input class="fctl" type="number" id="im-disc" value="0" oninput="updInvTotal()"></div>
+    </div>
+    <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:13px;margin:14px 0;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:13px;"><span style="color:var(--text-muted)">الإجمالي:</span><span id="ig">800 ج</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:13px;"><span style="color:var(--text-muted)">الخصم:</span><span style="color:var(--rose)" id="id2">0 ج</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;border-top:1px solid var(--glass-border);padding-top:6px;"><span>الصافي:</span><span style="color:var(--gold-light)" id="in2">800 ج</span></div>
+    </div>
+    <label class="flbl" style="margin-bottom:9px;display:block;">طريقة الدفع</label>
+    <div class="pay-g">
+      <div class="pay-m sel" onclick="selPay(this)"><div class="pay-ic">💵</div>كاش</div>
+      <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">💳</div>فيزا</div>
+      <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">📱</div>إنستاباي</div>
+      <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">📱</div>فودافون</div>
+      <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">🏦</div>تحويل</div>
+      <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">📆</div>أقساط</div>
+    </div>
+  </div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('invoice-modal')">إلغاء</button><button class="btn btn-ghost btn-sm">💾 مسودة</button><button class="btn btn-primary" onclick="saveInv()">✅ إصدار الفاتورة</button></div></div>
+</div>
+
+<div class="modal-overlay" id="product-modal">
+  <div class="modal" style="max-width:500px"><div class="mhdr"><div class="mtitle" id="prod-modal-title">📦 منتج جديد</div><button class="mclose" onclick="closeModal('product-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <input type="hidden" id="prod-id">
+    <div class="fgrp full"><label class="flbl">اسم المنتج *</label><input class="fctl" id="prod-name" placeholder="اسم المنتج"></div>
+    <div class="fgrp"><label class="flbl">الفئة</label><select class="fctl" id="prod-cat"><option>بشرة</option><option>شعر</option><option>أدوية</option><option>مستلزمات</option></select></div>
+    <div class="fgrp"><label class="flbl">الكمية</label><input class="fctl" type="number" id="prod-qty" placeholder="0"></div>
+    <div class="fgrp"><label class="flbl">حد إعادة الطلب</label><input class="fctl" type="number" id="prod-reord" placeholder="5"></div>
+    <div class="fgrp"><label class="flbl">سعر البيع (ج)</label><input class="fctl" type="number" id="prod-price" placeholder="0"></div>
+    <div class="fgrp"><label class="flbl">تاريخ الانتهاء</label><input class="fctl" type="date" id="prod-exp"></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('product-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveProd()">💾 حفظ</button></div></div>
+</div>
+
+<div class="modal-overlay" id="service-modal">
+  <div class="modal" style="max-width:500px"><div class="mhdr"><div class="mtitle" id="svc-modal-title">💅 خدمة جديدة</div><button class="mclose" onclick="closeModal('service-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <input type="hidden" id="sv-id">
+    <div class="fgrp full"><label class="flbl">اسم الخدمة *</label><input class="fctl" id="sv-name" placeholder="اسم الخدمة"></div>
+    <div class="fgrp"><label class="flbl">القسم</label><select class="fctl" id="sv-cat"><option>البشرة</option><option>الشعر</option><option>الليزر</option><option>حقن</option></select></div>
+    <div class="fgrp"><label class="flbl">الطبيب</label><select class="fctl" id="sv-doc"><option>د. منى سامي</option><option>د. أحمد رضا</option></select></div>
+    <div class="fgrp"><label class="flbl">السعر (ج)</label><input class="fctl" type="number" id="sv-price" placeholder="0"></div>
+    <div class="fgrp"><label class="flbl">التكلفة (ج)</label><input class="fctl" type="number" id="sv-cost" placeholder="0"></div>
+    <div class="fgrp"><label class="flbl">المدة (دقيقة)</label><input class="fctl" type="number" id="sv-dur" placeholder="60"></div>
+    <div class="fgrp"><label class="flbl">الغرفة المطلوبة</label><select class="fctl" id="sv-room"><option value="">— بدون تحديد —</option></select></div>
+    <div class="fgrp"><label class="flbl">الجهاز المطلوب</label><select class="fctl" id="sv-equip"><option value="">— بدون تحديد —</option></select></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('service-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveSvc()">💾 حفظ</button></div></div>
+</div>
+
+<div class="modal-overlay" id="lead-modal">
+  <div class="modal" style="max-width:480px"><div class="mhdr"><div class="mtitle">🎯 Lead جديد</div><button class="mclose" onclick="closeModal('lead-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <div class="fgrp"><label class="flbl">الاسم *</label><input class="fctl" id="ld-name" placeholder="الاسم"></div>
+    <div class="fgrp"><label class="flbl">الهاتف</label><input class="fctl" id="ld-phone" placeholder="01X-XXX-XXXX"></div>
+    <div class="fgrp"><label class="flbl">الخدمة</label><select class="fctl" id="ld-svc"><option>ليزر شعر</option><option>هيدرافيشل</option><option>بوتكس</option><option>بلازما</option></select></div>
+    <div class="fgrp"><label class="flbl">المصدر</label><select class="fctl" id="ld-src"><option>فيسبوك</option><option>إنستجرام</option><option>واتساب</option><option>مكالمة</option></select></div>
+    <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="ld-notes" placeholder="أي تفاصيل..."></textarea></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('lead-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveLead()">إضافة</button></div></div>
+</div>
+
+
+<div class="toast-c" id="toast-c"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="js/00-core.js"></script>
+<script src="js/01-app.js"></script>
+<script src="js/02-patients.js"></script>
+<script src="js/03-appointments.js"></script>
+<script src="js/04-invoices.js"></script>
+<script src="js/05-inventory.js"></script>
+<script src="js/06-finance.js"></script>
+<script src="js/07-clinical.js"></script>
+<script src="js/08-crm.js"></script>
+<script src="js/09-hr.js"></script>
+<script src="js/10-reports.js"></script>
+<script src="js/11-settings.js"></script>
+</body>
+</html>
