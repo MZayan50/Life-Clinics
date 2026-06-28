@@ -716,16 +716,194 @@ function buildDashAlertsEnhanced(){
   buildNotifList(alerts.map(a=>({cls:'ali-w',icon:a.icon,title:a.title,sub:a.time})));
 }
 
-// Period / tab switcher for dashboard header
+// Period / tab switcher for dashboard header (legacy compat)
 function dashSetPeriod(period, btn){
   document.querySelectorAll('.dash-period-btn').forEach(b=>{b.style.color='var(--text-muted)';b.style.background='transparent';});
   if(btn){btn.style.color='var(--teal)';btn.style.background='rgba(45,212,191,.15)';}
 }
 
-// Chart filter buttons
+// Chart filter buttons (legacy compat)
 function dashChartFilter(type, btn){
   document.querySelectorAll('.dash-cf-btn').forEach(b=>{b.style.color='var(--text-muted)';b.style.background='var(--glass)';});
   if(btn){btn.style.color='var(--teal)';btn.style.background='rgba(45,212,191,.15)';}
+}
+
+// ══════════════════════════════════════════
+// 🏠 NEW UNIFIED DASHBOARD BUILDER
+// ══════════════════════════════════════════
+window._dashApptFilter = 'all';
+
+function buildDashboard(){
+  const today = new Date().toISOString().split('T')[0];
+  const branch = (document.getElementById('dash-branch-sel')?.value)||'';
+
+  // Filter helpers
+  const filterBranch = arr => branch ? arr.filter(x=>x.branch===branch||x.branchId===branch) : arr;
+
+  const allPats  = DB.get('patients');
+  const allInvs  = DB.get('invoices');
+  const allApts  = DB.get('appointments');
+  const allInv   = DB.get('inventory');
+  const cashlog  = DB.get('cashlog');
+
+  // ── KPI 1: Total Patients ──
+  const pats = filterBranch(allPats);
+  txt('kpi-pat', pats.length.toLocaleString());
+
+  // ── KPI 2: Today Appointments ──
+  const todayApts = filterBranch(allApts.filter(a=>a.date===today));
+  txt('kpi-appt', todayApts.length.toLocaleString());
+
+  // ── KPI 3: Today Revenue ──
+  const todayRevInvs = filterBranch(allInvs.filter(i=>i.date===today));
+  const todayRev = todayRevInvs.reduce((s,i)=>s+(i.paid||0),0);
+  txt('kpi-rev', todayRev.toLocaleString());
+
+  // ── KPI 4: Cash Balance from cashlog ──
+  const cashBal = cashlog.reduce((s,e)=>{
+    if(e.type==='in'||e.type==='دخل'||e.dir==='in') return s+(e.amount||0);
+    if(e.type==='out'||e.type==='مصروف'||e.dir==='out') return s-(e.amount||0);
+    return s;
+  },0);
+  txt('kpi-mrev', cashBal.toLocaleString());
+
+  // ── Sparklines ──
+  const now = new Date();
+  const days7 = Array.from({length:7},(_,i)=>{const d=new Date(now);d.setDate(d.getDate()-6+i);return d.toISOString().split('T')[0];});
+  const revData  = days7.map(d=>allInvs.filter(i=>i.date===d).reduce((s,i)=>s+(i.paid||0),0));
+  const apptData = days7.map(d=>allApts.filter(a=>a.date===d).length);
+  const patData  = days7.map(d=>allPats.filter(p=>(p.created||'').startsWith(d)).length);
+
+  function sparkline(elId, data, color){
+    const el=document.getElementById(elId);if(!el)return;
+    const max=Math.max(...data,1);
+    el.innerHTML=data.map((v,i)=>{
+      const h=Math.max(Math.round(v/max*32),2);
+      return `<div style="flex:1;height:${h}px;border-radius:2px 2px 0 0;background:${i===data.length-1?color:color+'55'};transition:height .4s;" title="${v}"></div>`;
+    }).join('');
+  }
+  sparkline('kpi-rev-sparkline',  revData,  'var(--emerald)');
+  sparkline('kpi-appt-sparkline', apptData, 'var(--rose)');
+  sparkline('kpi-pat-sparkline',  patData,  'var(--amber)');
+  sparkline('kpi-mrev-sparkline', revData,  'var(--purple)');
+
+  // ── Bottom stats ──
+  const lowStock = allInv.filter(i=>i.status==='منخفض'||i.status==='نفذ');
+  txt('kpi-stk', lowStock.length.toLocaleString());
+  const pending = allInvs.filter(i=>(i.remaining||0)>0).reduce((s,i)=>s+(i.remaining||0),0);
+  txt('kpi-pend', pending.toLocaleString());
+  const todayDone = todayRevInvs.filter(i=>i.status==='مدفوع').length;
+  txt('kpi-inv-done', todayDone.toLocaleString());
+
+  // ── Today's appointment widget (primary) ──
+  renderTodayApptsDash(todayApts);
+
+  // ── Alerts ──
+  buildDashAlertsEnhanced();
+
+  // ── Activities ──
+  buildDashActivities();
+
+  // ── Service distribution ──
+  updateServiceDistribution();
+
+  // ── Top doctors ──
+  buildTopDoctors();
+
+  // ── Date label ──
+  const sub=document.getElementById('dash-sub');
+  if(sub) sub.textContent=new Date().toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+(branch?` · فرع ${branch}`:'');
+}
+
+// Render today's appointments in the main dashboard widget
+function renderTodayApptsDash(todayApts){
+  const el = document.getElementById('dash-today-appts'); if(!el) return;
+  const filterVal = window._dashApptFilter || 'all';
+  const statusMap = {waiting:'ينتظر',inprogress:'داخل العيادة',done:'مكتمل',cancelled:'ملغي'};
+  let apts = [...todayApts].sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  if(filterVal !== 'all'){
+    const statusAr = statusMap[filterVal]||filterVal;
+    apts = apts.filter(a=>{
+      const st = (a.status||'').toLowerCase();
+      return st.includes(filterVal) || a.status===statusAr;
+    });
+  }
+  const total = todayApts.length;
+  const sub = document.getElementById('dash-appt-sub');
+  if(sub) sub.textContent = `${total} موعد اليوم — ${todayApts.filter(a=>a.status==='مكتمل'||a.status==='done').length} مكتمل`;
+
+  if(!apts.length){
+    el.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:24px;font-size:13px;">لا توجد مواعيد تطابق الفلتر</div>';
+    return;
+  }
+
+  const stCls={
+    'مكتمل':'sc','done':'sc','مكتملة':'sc',
+    'ينتظر':'sw','waiting':'sw',
+    'داخل العيادة':'sp','inprogress':'sp',
+    'ملغي':'sx','cancelled':'sx','ملغى':'sx'
+  };
+  const stAr = {'مكتمل':'مكتمل','done':'مكتمل','ينتظر':'ينتظر','waiting':'ينتظر','داخل العيادة':'داخل','inprogress':'داخل','ملغي':'ملغي','cancelled':'ملغي','ملغى':'ملغي'};
+
+  el.innerHTML = apts.slice(0,8).map(a=>{
+    const sc = stCls[a.status||'']||'sd';
+    const stLabel = stAr[a.status||'']||(a.status||'—');
+    const avatarColors=['linear-gradient(135deg,#8B5CF6,#3B82F6)','linear-gradient(135deg,#10B981,#2DD4BF)','linear-gradient(135deg,#F59E0B,#F43F5E)','linear-gradient(135deg,#C4A882,#8B5CF6)','linear-gradient(135deg,#F43F5E,#F59E0B)'];
+    const aColor = avatarColors[((a.patient||'').charCodeAt(0)||0)%avatarColors.length];
+    const initials = (a.patient||'?').charAt(0);
+    return `<div class="dash-appt-row">
+      <div style="font-size:11.5px;font-weight:800;color:var(--gold-light);width:44px;text-align:center;flex-shrink:0;">${a.time||'—'}</div>
+      <div style="width:34px;height:34px;border-radius:50%;background:${aColor};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0;color:#fff;">${initials}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.patient||'—'}</div>
+        <div style="font-size:11.5px;color:var(--text-muted);">د. ${a.doctor||'—'} ${a.service?'· '+a.service:''}</div>
+      </div>
+      <span class="ast ${sc}" style="flex-shrink:0;">${stLabel}</span>
+      <div style="display:flex;gap:4px;flex-shrink:0;">
+        <button class="btn btn-teal btn-xs" onclick="event.stopPropagation();startVisitFromDash('${a.id}')" title="بدء الزيارة">▶</button>
+        <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openEditAppt('${a.id}')" title="تعديل">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();cancelApptFromDash('${a.id}')" title="إلغاء">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+  if(apts.length > 8){
+    el.innerHTML += `<div style="text-align:center;padding:10px;"><button class="btn btn-ghost btn-sm" onclick="showScreen('calendar')" style="font-size:12px;">عرض ${apts.length-8} موعد إضافي →</button></div>`;
+  }
+}
+
+// Appointment filter in dashboard
+function dashApptFilter(filter, btn){
+  window._dashApptFilter = filter;
+  document.querySelectorAll('.dash-af-btn').forEach(b=>{
+    b.style.background='transparent';b.style.color='var(--text-muted)';b.classList.remove('active');
+  });
+  if(btn){btn.style.background='rgba(45,212,191,.15)';btn.style.color='var(--teal)';btn.classList.add('active');}
+  const today=new Date().toISOString().split('T')[0];
+  const allApts = DB.get('appointments').filter(a=>a.date===today);
+  renderTodayApptsDash(allApts);
+}
+
+// Start visit from dashboard shortcut
+function startVisitFromDash(id){
+  const a=DB.get('appointments').find(x=>x.id===id); if(!a)return;
+  DB.upd('appointments',id,{status:'داخل العيادة'});
+  showToast('success',`▶ بدأت زيارة ${a.patient}`);
+  buildDashboard();
+}
+
+// Cancel appointment from dashboard
+function cancelApptFromDash(id){
+  const a=DB.get('appointments').find(x=>x.id===id); if(!a)return;
+  if(!confirm(`إلغاء موعد ${a.patient}؟`))return;
+  DB.upd('appointments',id,{status:'ملغي'});
+  showToast('info','تم إلغاء الموعد');
+  buildDashboard();
+}
+
+// Open edit appointment (fallback to calendar screen)
+function openEditAppt(id){
+  showScreen('calendar');
+  setTimeout(()=>{ if(typeof editAppt==='function') editAppt(id); },300);
 }
 
 // HELPERS
@@ -734,7 +912,7 @@ function setDate(){const el=document.getElementById('topbar-date');if(el)el.text
 
 // INIT
 function init(){
-  buildChart();renderTodayAppts();loadSettings();setDate();buildDashAlerts();buildDashAlertsEnhanced();buildDashExtra();
+  buildDashboard();buildChart();loadSettings();setDate();
   // تحديث حالة الأقساط المتأخرة عند بدء التشغيل
   setTimeout(()=>{ if(typeof updateInstallmentStatuses==='function') updateInstallmentStatuses(); }, 1500);
   // seedDefaultUsers() حُذفت — المستخدمون من Firestore فقط

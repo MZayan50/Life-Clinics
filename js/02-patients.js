@@ -63,14 +63,24 @@ function viewPat(id){
   txt('pp-name', p.name);
   txt('pp-contact', `📞 ${p.phone}${p.email?' · 📧 '+p.email:''}`);
   txt('pp-meta', `مصدر: ${p.source||'—'} · فرع: ${p.branch||'—'}${p.dob?' · '+age(p.dob)+' سنة':''}`);
-  txt('pp-sessions', p.sessions||0);
-  txt('pp-spent', (p.spent||0).toLocaleString()+' ج');
+  // ── ملخص مالي تلقائي من الفواتير ──
+  const patInvoices = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===p.name));
+  const totalSpent   = patInvoices.reduce((s,i)=>s+(i.total||0),0);
+  const totalPaid    = patInvoices.reduce((s,i)=>s+(i.paid||0),0);
+  const totalRemain  = patInvoices.reduce((s,i)=>s+(i.remaining||0),0);
+  const lastVisitInv = patInvoices.filter(i=>i.date).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
+  const lastVisitDate = lastVisitInv ? lastVisitInv.date : '—';
+  const patSessions  = DB.get('sessions').filter(s => s.patId===id);
+  const totalVisits  = patInvoices.length;
+
+  txt('pp-sessions',  totalVisits);
+  txt('pp-spent',     totalSpent.toLocaleString()+' ج');
+  txt('pp-paid-total',totalPaid.toLocaleString()+' ج');
   const balEl = document.getElementById('pp-balance');
-  if(balEl){ balEl.textContent=(p.balance||0).toLocaleString()+' ج'; balEl.style.color=(p.balance||0)>0?'var(--rose)':'var(--emerald)'; }
-  const patSessions = DB.get('sessions').filter(s => s.patId===id);
+  if(balEl){ balEl.textContent=totalRemain.toLocaleString()+' ج'; balEl.style.color=totalRemain>0?'var(--rose)':'var(--emerald)'; }
   const patPackages = DB.get('packages').filter(pk => pk.patId===id);
-  txt('pp-plans', patSessions.length+patPackages.length);
-  txt('pp-sessions', p.sessions||patSessions.reduce((s,x)=>s+(x.done||0),0));
+  txt('pp-plans',     patInvoices.length);
+  txt('pp-last-visit',lastVisitDate);
   // Pre-render sessions tab
   const sessCont = document.getElementById('pp-sessions-content');
   if(sessCont){
@@ -142,27 +152,40 @@ function viewPat(id){
   if(sk) sk.innerHTML = `<div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">النوع:</span><span class="tag tg-gold">${p.skin}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">المشاكل:</span><span>${p.skinProbs||'—'}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">الحساسية:</span><span>${p.allergies||'—'}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">الحمل:</span><span>${p.pregnancy||'—'}</span></div>`;
   const hr = document.getElementById('med-hair');
   if(hr) hr.innerHTML = `<div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">النوع:</span><span class="tag tg-teal">${p.hair}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">المشاكل:</span><span>${p.hairProbs||'—'}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">الأدوية:</span><span>${p.meds||'لا يوجد'}</span></div>`;
-  const pinv = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===p.name));
+  // ── جدول الفواتير الموسَّع - مزامنة تلقائية ──
+  const pinv = patInvoices.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const pitb = document.getElementById('p-inv-tbody');
   if(pitb) pitb.innerHTML = pinv.map((i,idx) => {
     const num = `#${String(idx+1).padStart(3,'0')}`;
     const stCls = i.status==='مدفوع'?'sc':i.status==='جزئي'?'sp':'sd';
+    const items = i.items||[];
+    const svcs = items.filter(x=>x.type==='service'||!x.type).map(x=>x.name||x.service||'—').join('، ')||i.service||'—';
+    const prods = items.filter(x=>x.type==='product').map(x=>`${x.name||'—'} (${x.qty||1})`).join('، ')||'—';
+    const disc = (i.discount||0);
+    const tax  = (i.tax||0);
     return `<tr>
       <td style="font-size:11px;color:var(--gold-light);font-weight:700">${num}</td>
       <td style="font-size:12px;color:var(--text-muted)">${i.date||'—'}</td>
-      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${i.service||'—'}</td>
+      <td style="font-size:12px;">${i.doctor||'—'}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${svcs}">${svcs}</td>
+      <td style="font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${prods}">${prods}</td>
+      <td style="font-size:12px;color:var(--amber)">${disc>0?disc.toLocaleString()+' ج':'—'}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${tax>0?tax+'%':'—'}</td>
       <td style="font-weight:800;color:var(--gold-light)">${(i.total||0).toLocaleString()} ج</td>
       <td style="color:var(--emerald);font-weight:700">${(i.paid||0).toLocaleString()} ج</td>
       <td style="color:${(i.remaining||0)>0?'var(--rose)':'var(--text-muted)'};font-weight:700">${(i.remaining||0).toLocaleString()} ج</td>
       <td><span class="tag tg-teal" style="font-size:11px">${i.method||'—'}</span></td>
       <td><span class="ast ${stCls}">${i.status||'—'}</span></td>
-      <td style="display:flex;gap:4px;">
-        ${(i.remaining||0)>0?`<button class="btn btn-teal btn-xs" onclick="openSmartPay('${i.id}')">💳</button>`:''}
-        <button class="btn btn-ghost btn-xs" onclick="sendInvoiceWA('${i.id}')">💬</button>
-        <button class="btn btn-ghost btn-xs" onclick="printInvoice('${i.id}')">🖨️</button>
+      <td style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${i.notes||''}">${i.notes||'—'}</td>
+      <td style="white-space:nowrap;">
+        <div style="display:flex;gap:4px;">
+          ${(i.remaining||0)>0?`<button class="btn btn-teal btn-xs" onclick="openSmartPay('${i.id}')">💳</button>`:''}
+          <button class="btn btn-ghost btn-xs" onclick="sendInvoiceWA('${i.id}')">💬</button>
+          <button class="btn btn-ghost btn-xs" onclick="printInvoice('${i.id}')">🖨️</button>
+        </div>
       </td>
     </tr>`;
-  }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد فواتير</td></tr>';
+  }).join('')||'<tr><td colspan="14" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد فواتير</td></tr>';
   showScreen('patient-profile');
 }
 
@@ -188,8 +211,45 @@ function renderPatAccount(id){
   txt('pac-paid',     totalPaid.toLocaleString()+' ج');
   txt('pac-remaining',totalRemain.toLocaleString()+' ج');
   txt('pac-invcount', invoices.length);
+  txt('pac-visits',   invoices.length);
+  // آخر زيارة
+  const lastInv = invoices.filter(i=>i.date).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
+  txt('pac-lastvisit', lastInv ? lastInv.date : '—');
 
-  // ── فواتير (p-inv-tbody مُحدَّث من viewPat بالفعل) ──
+  // ── إعادة رسم جدول الفواتير بالبيانات الكاملة (مزامنة تلقائية) ──
+  const pinvFull = invoices.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const pitbFull = document.getElementById('p-inv-tbody');
+  if(pitbFull) pitbFull.innerHTML = pinvFull.map((i,idx) => {
+    const num = `#${String(idx+1).padStart(3,'0')}`;
+    const stCls = i.status==='مدفوع'?'sc':i.status==='جزئي'?'sp':'sd';
+    const items = i.items||[];
+    const svcs = items.filter(x=>x.type==='service'||!x.type).map(x=>x.name||x.service||'—').join('، ')||i.service||'—';
+    const prods = items.filter(x=>x.type==='product').map(x=>`${x.name||'—'} (${x.qty||1})`).join('، ')||'—';
+    const disc = (i.discount||0);
+    const tax  = (i.tax||0);
+    return `<tr>
+      <td style="font-size:11px;color:var(--gold-light);font-weight:700">${num}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${i.date||'—'}</td>
+      <td style="font-size:12px;">${i.doctor||'—'}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${svcs}">${svcs}</td>
+      <td style="font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${prods}">${prods}</td>
+      <td style="font-size:12px;color:var(--amber)">${disc>0?disc.toLocaleString()+' ج':'—'}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${tax>0?tax+'%':'—'}</td>
+      <td style="font-weight:800;color:var(--gold-light)">${(i.total||0).toLocaleString()} ج</td>
+      <td style="color:var(--emerald);font-weight:700">${(i.paid||0).toLocaleString()} ج</td>
+      <td style="color:${(i.remaining||0)>0?'var(--rose)':'var(--text-muted)'};font-weight:700">${(i.remaining||0).toLocaleString()} ج</td>
+      <td><span class="tag tg-teal" style="font-size:11px">${i.method||'—'}</span></td>
+      <td><span class="ast ${stCls}">${i.status||'—'}</span></td>
+      <td style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${i.notes||''}">${i.notes||'—'}</td>
+      <td style="white-space:nowrap;">
+        <div style="display:flex;gap:4px;">
+          ${(i.remaining||0)>0?`<button class="btn btn-teal btn-xs" onclick="openSmartPay('${i.id}')">💳</button>`:''}
+          <button class="btn btn-ghost btn-xs" onclick="sendInvoiceWA('${i.id}')">💬</button>
+          <button class="btn btn-ghost btn-xs" onclick="printInvoice('${i.id}')">🖨️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="14" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد فواتير</td></tr>';
 
   // ── جلسات بتفاصيل ──
   const sessCont = document.getElementById('pac-sessions-list');

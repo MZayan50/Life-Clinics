@@ -352,7 +352,7 @@ function _flushUIRefresh(){
       if(active==='waitlist')     renderWaitlist();
       if(active==='reception')    renderReception();
       if(active==='doctor-view')  renderDoctorView();
-      if(active==='dashboard')    renderTodayAppts();
+      if(active==='dashboard')    { if(typeof buildDashboard==='function') buildDashboard(); else if(typeof renderTodayAppts==='function') renderTodayAppts(); }
     }
     if(_pendingRefresh.has('patients')     && active==='patients')     renderPat();
     // ✅ تحديث لوحة العميل المفتوحة تلقائياً عند أي تغيير مالي أو جلسات
@@ -523,13 +523,8 @@ function showScreen(id){
   document.getElementById('main-area')?.scrollTo(0, 0);
 
   if (id === 'dashboard')      {
-    buildChart();
-    buildDashAlerts();
-    if(typeof buildDashAlertsEnhanced === 'function') buildDashAlertsEnhanced();
-    renderTodayAppts();
-    if(typeof buildDashExtra      === 'function') buildDashExtra();
-    if(typeof buildKpiSparklines  === 'function') buildKpiSparklines();
-    _refreshDashKPIs();
+    if(typeof buildDashboard === 'function') buildDashboard();
+    else { buildChart(); buildDashAlerts(); if(typeof buildDashAlertsEnhanced==='function') buildDashAlertsEnhanced(); if(typeof renderTodayAppts==='function') renderTodayAppts(); if(typeof buildDashExtra==='function') buildDashExtra(); _refreshDashKPIs(); }
   }
   if (id === 'patients')       renderPat();
   if (id === 'appointments')   renderAppts();
