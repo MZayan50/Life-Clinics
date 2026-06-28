@@ -85,7 +85,7 @@ body{font-family:'Tajawal',sans-serif;background:#0A0D14;color:#F1F5F9;min-heigh
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" id="login-box">
     <div id="conn-status" class="conn-badge conn-local">
       <span>🟡</span> وضع محلي — Firebase غير مهيأ
     </div>
@@ -139,9 +139,9 @@ body{font-family:'Tajawal',sans-serif;background:#0A0D14;color:#F1F5F9;min-heigh
 
   <!-- FIREBASE SETUP PANEL -->
   <div id="fb-panel" style="display:none;margin-top:16px;">
-    <div class="card">
+    <div class="card" id="setup-box">
       <div style="font-size:16px;font-weight:800;margin-bottom:6px;">🔥 إعداد Firebase</div>
-      <div style="font-size:12.5px;color:#64748B;margin-bottom:18px;line-height:1.6;">
+      <div style="font-size:12.5px;color:#64748B;margin-bottom:18px;line-height:1.6;" id="fb-panel-desc">
         الصق بيانات Firebase لتفعيل المزامنة بين PC والموبايل وكل الأجهزة
       </div>
       <div class="fgrp"><label class="flbl">API Key</label><input class="finp" id="fb-key" placeholder="AIzaSy..."></div>
@@ -186,10 +186,16 @@ try {
 if (!firebaseConfig || !firebaseConfig.apiKey) {
   const _connDot = document.getElementById('conn-status');
   if (_connDot) { _connDot.className = 'conn-badge conn-offline'; _connDot.innerHTML = '<span>🔴</span> لم يتم إعداد Firebase بعد'; }
-  // عرض واجهة الإعداد إذا كانت موجودة
+  // عرض واجهة الإعداد الموجودة بالفعل في الصفحة بدل محو الصفحة بالكامل
   const _loginBox = document.getElementById('login-box');
   const _setupBox = document.getElementById('setup-box');
-  if (_setupBox) { if(_loginBox) _loginBox.style.display='none'; _setupBox.style.display=''; }
+  const _fbPanel  = document.getElementById('fb-panel');
+  if (_setupBox && _fbPanel) {
+    if(_loginBox) _loginBox.style.display = 'none';
+    _fbPanel.style.display = '';
+    const _desc = document.getElementById('fb-panel-desc');
+    if(_desc) _desc.innerHTML = 'مرحباً 👋 هذه أول مرة تفتح فيها النظام على هذا الجهاز/المتصفح.<br>أدخل بيانات Firebase بالأسفل لتفعيل تسجيل الدخول والمزامنة.';
+  }
   else {
     document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f172a;font-family:Tajawal,sans-serif;direction:rtl">
       <div style="background:#1e293b;border-radius:16px;padding:40px;max-width:480px;text-align:center;border:1px solid #334155">
@@ -203,22 +209,22 @@ if (!firebaseConfig || !firebaseConfig.apiKey) {
   }
 }
 
-// تهيئة Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// تهيئة Firebase — فقط إذا كان الـ config موجود فعلاً
+// (لو مفيش config، نستخدم لوحة الإعداد المعروضة بدل تنفيذ الكود ده ويوقع الصفحة)
+let app = null, auth = null, db = null;
+if (firebaseConfig && firebaseConfig.apiKey) {
+  app  = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db   = getFirestore(app);
 
-// تأكيد حفظ الـ config في localStorage للنظام الرئيسي (يُمكّن autoConnect في index.html)
-if (firebaseConfig) {
+  // تأكيد حفظ الـ config في localStorage للنظام الرئيسي (يُمكّن autoConnect في index.html)
   localStorage.setItem('ha_fb_config', JSON.stringify(firebaseConfig));
   localStorage.setItem('ha_firebase_config', JSON.stringify(firebaseConfig));
+
+  // تحديث شارة الاتصال
+  const dot = document.getElementById('conn-status');
+  if (dot) { dot.className = 'conn-badge conn-cloud'; dot.innerHTML = '<span>🟢</span> متصل بـ Firebase ☁️'; }
 }
-
-// Firestore هو المصدر الوحيد للمستخدمين
-
-// تحديث شارة الاتصال
-const dot = document.getElementById('conn-status');
-if (dot) { dot.className = 'conn-badge conn-cloud'; dot.innerHTML = '<span>🟢</span> متصل بـ Firebase ☁️'; }
 
 // ============================================================
 // دالة SHA-256 (للاستخدام الداخلي)
@@ -323,6 +329,7 @@ async function getUserByUsername(username) {
 // إصلاح كلمة مرور admin مباشرة في Firestore
 // ============================================================
 window.resetAdminPassword = async function() {
+  if (!db) { alert('⚠️ لم يتم إعداد Firebase بعد. من فضلك أدخل بيانات Firebase أولاً.'); return; }
   const newPass = prompt('أدخل كلمة المرور الجديدة لـ admin:');
   if (!newPass) return;
   const hash = await sha256(newPass);
@@ -336,6 +343,7 @@ window.resetAdminPassword = async function() {
 };
 
 window.doLogin = async function() {
+  if (!auth || !db) { alert('⚠️ لم يتم إعداد Firebase بعد. من فضلك أدخل بيانات Firebase أولاً.'); return; }
   const usernameInput = document.getElementById('username').value.trim().toLowerCase();
   const password = document.getElementById('password').value;
   const errEl = document.getElementById('err-msg');
@@ -507,9 +515,9 @@ window.saveFBConfig = function() {
   localStorage.setItem('ha_fb_config', _cfgStr);
   localStorage.setItem('ha_firebase_config', _cfgStr);
   const dot = document.getElementById('conn-status');
-  if (dot) { dot.className = 'conn-badge conn-cloud'; dot.innerHTML = '<span>🟢</span> تم حفظ Firebase — أعد تحميل الصفحة'; }
+  if (dot) { dot.className = 'conn-badge conn-cloud'; dot.innerHTML = '<span>🟢</span> تم حفظ Firebase — جارٍ إعادة التحميل...'; }
   document.getElementById('fb-panel').style.display = 'none';
-  alert('✅ تم حفظ إعدادات Firebase!\nأعد تحميل الصفحة لتطبيق الإعدادات.');
+  setTimeout(() => window.location.reload(), 600);
 };
 
 window.continueSession = function() { window.location.href = 'index.html'; };
