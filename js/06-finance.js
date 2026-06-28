@@ -401,14 +401,35 @@ function renderPayments(q){
 };
 
 // ── Treasury rendering using cashlog ──
+function syncTreasury(){
+  if(!confirm('سيتم إعادة مزامنة الخزينة بناءً على البيانات الحالية.\nأي مصروف محذوف سيُحذف من الخزينة تلقائياً.\nتكملة؟')) return;
+
+  const expenses  = DB.get('expenses') || [];
+  const cashlog   = DB.get('cashlog')  || [];
+
+  // 1. احتفظ بكل الحركات الواردة + غير المصروفات
+  const nonExpOut = cashlog.filter(c => !(c.type === 'صادر' && c.source === 'مصروف'));
+
+  // 2. أعد بناء حركات المصروفات من expenses الحالية فقط
+  const expEntries = expenses.map(e => ({
+    type: 'صادر', source: 'مصروف', refId: e.id,
+    amount: e.amount || 0, method: e.method || 'كاش',
+    date: e.date || new Date().toISOString().split('T')[0],
+    timestamp: e.createdAt || new Date().toISOString(),
+    notes: e.name || 'مصروف'
+  }));
+
+  const newCashlog = [...nonExpOut, ...expEntries];
+  DB.set('cashlog', newCashlog);
+
+  renderTreasury();
+  showToast('success', '✅ تمت المزامنة', `${expEntries.length} مصروف — ${nonExpOut.filter(c=>c.type==='صادر').length} حركة صادرة أخرى`);
+}
+
 function renderTreasury(){
   const cashlog=DB.get('cashlog')||[];
   const today=new Date().toISOString().split('T')[0];
 
-  // ✅ cashlog هو المصدر الوحيد — الوارد والصادر كلاهما مسجّل فيه تلقائياً
-  // expenses:created   → يُضيف cashlog:صادر
-  // expenses:deleted   → يحذف cashlog:صادر المقابل (refId)
-  // لا نقرأ expenses مباشرة هنا لتجنب double-counting بعد الحذف
   const totalIn      = cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
   const totalOut     = cashlog.filter(c=>c.type==='صادر').reduce((s,c)=>s+(c.amount||0),0);
   const balance      = totalIn - totalOut;
@@ -416,7 +437,6 @@ function renderTreasury(){
   const todayIn  = cashlog.filter(c=>c.type==='وارد'&&c.date===today).reduce((s,c)=>s+(c.amount||0),0);
   const todayOut = cashlog.filter(c=>c.type==='صادر'&&c.date===today).reduce((s,c)=>s+(c.amount||0),0);
 
-  // ✅ الحركات من cashlog فقط — لا نضيف expenses مرة ثانية
   const movements = [...cashlog]
     .map(c=>({...c, dir: c.type==='وارد'?'in':'out'}))
     .sort((a,b)=>(b.date||'').localeCompare(a.date||''))
@@ -424,6 +444,11 @@ function renderTreasury(){
 
   const el=document.getElementById('treasury-content');if(!el)return;
   el.innerHTML=`
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+      <button class="btn btn-ghost" onclick="syncTreasury()" style="gap:7px;font-size:13px;border:1px solid var(--glass-border);">
+        🔄 مزامنة البيانات
+      </button>
+    </div>
     <div class="kpi-grid" style="margin-bottom:18px;">
       <div class="kpi-card kc-emerald"><div class="kpi-icon">🏦</div><div class="kpi-value">${balance.toLocaleString()} ج</div><div class="kpi-label">رصيد الخزينة الحالي</div></div>
       <div class="kpi-card kc-teal"><div class="kpi-icon">📥</div><div class="kpi-value">${totalIn.toLocaleString()} ج</div><div class="kpi-label">إجمالي الوارد</div></div>
