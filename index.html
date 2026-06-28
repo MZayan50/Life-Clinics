@@ -1934,6 +1934,11 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   </div>
 </div>
 <div class="screen" id="screen-photos">
+  <!-- ⚠️ تنبيه: الصور محلية فقط -->
+  <div style="background:rgba(234,179,8,0.12);border:1px solid rgba(234,179,8,0.35);border-radius:10px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-size:13px;color:#fde68a;direction:rtl;">
+    <span style="font-size:18px">⚠️</span>
+    <span><strong>الصور محلية فقط</strong> — يتم تخزينها على هذا الجهاز فقط ولا تُزامَن مع الأجهزة الأخرى عبر Firebase. لا تحذف بيانات المتصفح لتجنب فقدانها.</span>
+  </div>
   <div class="filter-bar">
     <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث بالعميل أو الخدمة..." oninput="renderPhotos(this.value)"></div>
     <select class="selbox" id="photo-cat-filter" onchange="renderPhotos()"><option value="">كل الخدمات</option><option>ليزر</option><option>بوتكس</option><option>هيدرافيشل</option><option>بلازما</option></select>
@@ -2102,6 +2107,23 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('lead-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveLead()">إضافة</button></div></div>
 </div>
 
+
+<!-- ── Modal: تحويل Lead لموعد ── -->
+<div class="modal-overlay" id="lead-convert-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="mhdr"><div class="mtitle">📅 تحديد موعد Lead</div><button class="mclose" onclick="closeModal('lead-convert-modal')">✕</button></div>
+    <div class="mbody">
+      <input type="hidden" id="cvt-lead-id">
+      <div class="fgrp"><label class="flbl">🗓️ تاريخ الموعد</label><input class="fctl" type="date" id="cvt-appt-date"></div>
+      <div class="fgrp"><label class="flbl">⏰ الوقت</label><input class="fctl" type="time" id="cvt-appt-time" value="10:00"></div>
+      <div class="fgrp"><label class="flbl">ملاحظات</label><input class="fctl" type="text" id="cvt-appt-notes" placeholder="أي تفاصيل إضافية..."></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeModal('lead-convert-modal')">إلغاء</button>
+      <button class="btn btn-primary" onclick="confirmConvertToAppt()">✅ تحويل لموعد</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast-c" id="toast-c"></div>
 

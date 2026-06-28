@@ -174,25 +174,45 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// إعدادات Firebase المباشرة
-const firebaseConfig = {
-  apiKey: "AIzaSyCSRzNyTLgcyCbFNXlIE4CbBGEJ943bMYg",
-  authDomain: "life-clinics2.firebaseapp.com",
-  projectId: "life-clinics2",
-  storageBucket: "life-clinics2.firebasestorage.app",
-  messagingSenderId: "1095839174310",
-  appId: "1:1095839174310:web:eac6d293e473cfafed6e67",
-  measurementId: "G-9TVH7J2N9E"
-};
+// ── تحميل إعدادات Firebase من localStorage (يُعيَّن من شاشة الإعدادات أو Setup Wizard)
+// لا يوجد hardcoded config هنا — الـ config يُخزَّن في localStorage بعد أول إعداد
+let firebaseConfig = null;
+try {
+  const _saved = localStorage.getItem('ha_fb_config') || localStorage.getItem('ha_firebase_config');
+  if (_saved) firebaseConfig = JSON.parse(_saved);
+} catch(e) { firebaseConfig = null; }
+
+// إذا لم يوجد config → أظهر رسالة واضحة للمستخدم بدل خطأ مبهم
+if (!firebaseConfig || !firebaseConfig.apiKey) {
+  const _connDot = document.getElementById('conn-status');
+  if (_connDot) { _connDot.className = 'conn-badge conn-offline'; _connDot.innerHTML = '<span>🔴</span> لم يتم إعداد Firebase بعد'; }
+  // عرض واجهة الإعداد إذا كانت موجودة
+  const _loginBox = document.getElementById('login-box');
+  const _setupBox = document.getElementById('setup-box');
+  if (_setupBox) { if(_loginBox) _loginBox.style.display='none'; _setupBox.style.display=''; }
+  else {
+    document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f172a;font-family:Tajawal,sans-serif;direction:rtl">
+      <div style="background:#1e293b;border-radius:16px;padding:40px;max-width:480px;text-align:center;border:1px solid #334155">
+        <div style="font-size:48px;margin-bottom:16px">🔧</div>
+        <h2 style="color:#f1f5f9;margin-bottom:8px">إعداد Firebase مطلوب</h2>
+        <p style="color:#94a3b8;margin-bottom:24px">لم يتم إعداد Firebase بعد. افتح الصفحة الرئيسية واذهب إلى <strong style="color:#60a5fa">الإعدادات → Firebase</strong> لإدخال بيانات مشروعك.</p>
+        <a href="index.html" style="display:inline-block;background:#3b82f6;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:700">الذهاب للإعدادات</a>
+      </div>
+    </div>`;
+    throw new Error('Firebase config not set — please configure via Settings');
+  }
+}
 
 // تهيئة Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// حفظ إعدادات Firebase في localStorage للنظام الرئيسي (يُمكّن autoConnect في index.html)
-localStorage.setItem('ha_fb_config', JSON.stringify(firebaseConfig));
-localStorage.setItem('ha_firebase_config', JSON.stringify(firebaseConfig));
+// تأكيد حفظ الـ config في localStorage للنظام الرئيسي (يُمكّن autoConnect في index.html)
+if (firebaseConfig) {
+  localStorage.setItem('ha_fb_config', JSON.stringify(firebaseConfig));
+  localStorage.setItem('ha_firebase_config', JSON.stringify(firebaseConfig));
+}
 
 // Firestore هو المصدر الوحيد للمستخدمين
 
