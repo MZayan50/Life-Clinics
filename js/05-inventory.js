@@ -143,11 +143,15 @@ function renderPurchases(q){
 
 function openPurchaseModal(id){
   fillPurchaseSuppliers();
+  fillPurchaseProducts();
   const p = id ? (DB.get('purchases')||[]).find(x => String(x.id) === String(id)) : null;
   const titleEl = document.getElementById('pur-modal-title');
   if(titleEl) titleEl.textContent = p ? '✏️ تعديل طلب شراء' : '🛒 طلب شراء جديد';
   document.getElementById('pur-id').value           = p ? p.id : '';
-  document.getElementById('pur-product').value      = p ? p.product : '';
+  // ملء الـ select بالمنتج المحفوظ
+  const purProdSel = document.getElementById('pur-product');
+  if(purProdSel && p) purProdSel.value = p.productId || '';
+  document.getElementById('pur-product-id').value   = p ? (p.productId||'') : '';
   document.getElementById('pur-qty').value          = p ? p.qty : '';
   document.getElementById('pur-unit-price').value   = p ? p.unitPrice : '';
   document.getElementById('pur-total-preview').textContent = p ? (p.total||0).toLocaleString()+' ج' : '0 ج';
@@ -156,6 +160,13 @@ function openPurchaseModal(id){
   const statusEl = document.getElementById('pur-status');
   if(statusEl) statusEl.value = p ? p.status : 'معلق';
   openModal('purchase-modal');
+}
+
+function fillPurchaseProducts(){
+  const sel = document.getElementById('pur-product'); if(!sel) return;
+  const items = DB.get('inventory') || [];
+  sel.innerHTML = '<option value="">-- اختر منتج من المخزون --</option>' +
+    items.map(i => `<option value="${i.id}" data-name="${i.name}" data-branch="${i.branch||''}">${i.name}${i.branch?' ('+i.branch+')':''} — مخزون: ${i.qty}</option>`).join('');
 }
 
 function fillPurchaseSuppliers(){
@@ -171,21 +182,38 @@ function calcPurTotal(){
 }
 
 function savePurchase(){
-  const product = gv('pur-product').trim();
-  if(!product){ showToast('warning','⚠️ اسم المنتج مطلوب'); return; }
+  const purSel = document.getElementById('pur-product');
+  const productId = purSel?.value || '';
+  const productName = purSel?.options[purSel?.selectedIndex]?.dataset?.name || '';
+  if(!productId || !productName){ showToast('warning','⚠️ يجب اختيار منتج من المخزون'); return; }
   const qty = parseInt(gv('pur-qty'))||0;
   const unitPrice = parseFloat(gv('pur-unit-price'))||0;
+  if(qty <= 0){ showToast('warning','⚠️ الكمية يجب أن تكون أكبر من صفر'); return; }
   const id = gv('pur-id');
-  const purSel = document.getElementById('pur-supplier');
-  const supplierId = purSel?.value || '';
-  const supplierName = purSel?.options[purSel?.selectedIndex]?.dataset?.name || supplierId;
-  const data = { product, supplierId, supplier:supplierName, qty, unitPrice, total:qty*unitPrice,
+  const supSel = document.getElementById('pur-supplier');
+  const supplierId = supSel?.value || '';
+  const supplierName = supSel?.options[supSel?.selectedIndex]?.dataset?.name || supplierId;
+  const data = { productId, product:productName, supplierId, supplier:supplierName,
+                 qty, unitPrice, total:qty*unitPrice,
                  orderDate:gv('pur-order-date'), deliveryDate:gv('pur-delivery-date'),
                  branch:gv('pur-branch'), status:gv('pur-status') };
   if(!DB.get('purchases').length) DB.set('purchases',[]);
-  if(id){ DB.upd('purchases', id, data); showToast('success', `✅ تم تحديث طلب: ${product}`); }
-  else  { DB.push('purchases', data);   showToast('success', `✅ تم إرسال طلب شراء: ${product}`); }
-  // لا داعي لاستدعاء renderPurchases يدوياً — EventBus يتولى ذلك
+  let purchaseId;
+  if(id){
+    DB.upd('purchases', id, data);
+    purchaseId = id;
+    showToast('success', `✅ تم تحديث طلب: ${productName}`);
+    // تحديث سجل purchase_items الموجود
+    const existing = (DB.get('purchase_items')||[]).filter(i => i.purchaseId !== id);
+    existing.push({ purchaseId: id, productId, productName, qty, unitPrice });
+    DB.set('purchase_items', existing);
+  } else {
+    const newPur = DB.push('purchases', data);
+    purchaseId = newPur?.id;
+    // إنشاء سجل في purchase_items
+    DB.push('purchase_items', { purchaseId, productId, productName, qty, unitPrice });
+    showToast('success', `✅ تم إرسال طلب شراء: ${productName}`);
+  }
   closeModal('purchase-modal');
 }
 
@@ -193,18 +221,14 @@ function recvPurchase(id){
   const pur = DB.get('purchases').find(p => p.id === id);
   if(!pur){ showToast('error','❌ الطلبية غير موجودة'); return; }
   if(pur.status === 'مستلم'){ showToast('warning','⚠️ هذه الطلبية مستلمة بالفعل'); return; }
-  // ✅ تحديث المخزون يحصل تلقائياً عبر EventBus('purchases:updated') في 00-core.js
+  // ✅ تحديث المخزون + مديونية المورد يحصلان تلقائياً عبر hook في 00-core.js
+  // نضيف _owedUpdated:false صراحةً حتى يعمل الـ hook على المورد
+  DB.upd('purchases', id, {
+    status: 'مستلم',
+    deliveryDate: new Date().toISOString().split('T')[0],
+    _owedUpdated: false
+  });
   const itemCount = (DB.get('purchase_items')||[]).filter(i => i.purchaseId === id).length;
-  // DB.upd يُطلق purchases:updated → 00-core hook يضيف الكميات → EventBus → renderInv تلقائياً
-  DB.upd('purchases', id, { status:'مستلم', deliveryDate: new Date().toISOString().split('T')[0] });
-  // ── تحديث مستحقات المورد تلقائياً ──
-  if(pur.supplierId){
-    const sup = DB.get('suppliers').find(s => s.id === pur.supplierId);
-    if(sup){
-      const newOwed = (sup.owed || 0) + (pur.total || 0);
-      DB.upd('suppliers', sup.id, { owed: newOwed });
-    }
-  }
   showToast('success', `✅ تم استلام الطلبية وتحديث ${itemCount} منتج في المخزون`);
 }
 
@@ -239,7 +263,8 @@ function renderTransfers(q){
 
 function openTransferModal(){
   const invSel = document.getElementById('tr-product');
-  if(invSel) invSel.innerHTML = '<option value="">-- اختر منتج --</option>' + (DB.get('inventory')||[]).map(i => `<option value="${i.name}">${i.name} (${i.qty})</option>`).join('');
+  if(invSel) invSel.innerHTML = '<option value="">-- اختر منتج --</option>' +
+    (DB.get('inventory')||[]).map(i => `<option value="${i.name}" data-branch="${i.branch||''}">${i.name}${i.branch?' ('+i.branch+')':''} — مخزون: ${i.qty}</option>`).join('');
   document.getElementById('tr-id').value   = '';
   document.getElementById('tr-date').value = new Date().toISOString().split('T')[0];
   openModal('transfer-modal');
@@ -252,7 +277,8 @@ function saveTransfer(){
   const from = gv('tr-from'), to = gv('tr-to');
   if(from === to){ showToast('warning','⚠️ الفرعان متطابقان'); return; }
   // ── التحقق من وجود الكمية في المخزون ──
-  const srcItem = DB.get('inventory').find(i => i.name === product && i.branch === from);
+  // نبحث أولاً بالاسم + الفرع، فإن لم يوجد نبحث بالاسم فقط (للمنتجات القديمة بدون branch)
+  const srcItem = DB.get('inventory').find(i => i.name === product && (i.branch === from || (!i.branch && from)));
   if(!srcItem){ showToast('error', `❌ المنتج "${product}" غير موجود في فرع ${from}`); return; }
   if((srcItem.qty||0) < qty){ showToast('error', `❌ الكمية المتاحة في ${from} هي ${srcItem.qty} فقط`); return; }
   // ── خصم من الفرع المصدر ──

@@ -23,13 +23,15 @@ function openProductModal(id){
   document.getElementById('prod-price').value=p?p.price:'';
   document.getElementById('prod-exp').value=p?p.expiry||'':'';
   const catEl=document.getElementById('prod-cat');if(catEl&&p)catEl.value=p.cat||catEl.options[0].value;
+  const brEl=document.getElementById('prod-branch');if(brEl&&p&&p.branch)brEl.value=p.branch;
   openModal('product-modal');
 }
 function saveProd(){
   const name=gv('prod-name').trim();if(!name){showToast('warning','⚠️ اسم المنتج مطلوب');return;}
   const qty=parseInt(gv('prod-qty'))||0,reorder=parseInt(gv('prod-reord'))||5;
   const id=gv('prod-id');
-  const data={name,cat:gv('prod-cat'),qty,reorder,price:parseFloat(gv('prod-price'))||0,expiry:gv('prod-exp'),status:qty===0?'نفذ':qty<=reorder?'منخفض':'متوفر'};
+  const branch=gv('prod-branch')||'مدينة نصر';
+  const data={name,cat:gv('prod-cat'),qty,reorder,price:parseFloat(gv('prod-price'))||0,expiry:gv('prod-exp'),branch,status:qty===0?'نفذ':qty<=reorder?'منخفض':'متوفر'};
   if(id){DB.upd('inventory',id,data);showToast('success',`✅ تم تحديث ${name}`);}
   else{DB.push('inventory',data);showToast('success',`✅ تم إضافة ${name}`);}
   closeModal('product-modal');renderInv();
