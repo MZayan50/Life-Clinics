@@ -252,29 +252,30 @@ function renderAccounts(){
 
   // P&L
   const cashlog=DB.get('cashlog')||[];
-  // ✅ BUG#5 FIX: مصدر الإيراد موحَّد من cashlog:وارد (نفس مصدر الخزينة) لتجنب التناقض
+  // مصدر الإيراد: cashlog:وارد فقط (موحَّد مع الداشبورد والخزينة)
   const totalRevenue=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
+  // المصروفات تشمل الرواتب المصروفة فعلاً (عبر payStaffSalary في HR) — لا double-counting
   const totalExpense=expenses.reduce((s,e)=>s+(e.amount||0),0);
-  const staffSalariesMonth=DB.get('staff').reduce((s,x)=>s+(x.salary||0),0);
-  const totalCost=totalExpense+staffSalariesMonth;
-  const netProfit=totalRevenue-totalCost;
+  const netProfit=totalRevenue-totalExpense;
   const margin=totalRevenue?Math.round(netProfit/totalRevenue*100):0;
 
-  // Revenue breakdown
+  // Revenue breakdown — من cashlog:وارد مجمَّع بالخدمة
   const revByService={};
-  invoices.forEach(i=>{revByService[i.service]=(revByService[i.service]||0)+(i.paid||0);});
+  cashlog.filter(c=>c.type==='وارد').forEach(c=>{
+    const k=c.service||c.source||'إيراد';
+    revByService[k]=(revByService[k]||0)+(c.amount||0);
+  });
   const revEl=document.getElementById('acc-revenues');
   if(revEl) revEl.innerHTML=Object.entries(revByService).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--glass-border);"><span style="color:var(--text-muted)">${k}</span><span style="font-weight:700;color:var(--emerald)">${v.toLocaleString()} ج</span></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px">لا توجد إيرادات</div>';
 
-  // Expense breakdown — تشمل المصروفات + الرواتب
+  // Expense breakdown — من expenses فقط (الرواتب المصروفة مسجَّلة هنا تلقائياً)
   const expByType={};
-  expenses.forEach(e=>{expByType[e.type]=(expByType[e.type]||0)+(e.amount||0);});
-  if(staffSalariesMonth>0) expByType['رواتب الموظفين']=(expByType['رواتب الموظفين']||0)+staffSalariesMonth;
+  expenses.forEach(e=>{expByType[e.type||e.category||'أخرى']=(expByType[e.type||e.category||'أخرى']||0)+(e.amount||0);});
   const expEl=document.getElementById('acc-expenses-list');
   if(expEl) expEl.innerHTML=Object.entries(expByType).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--glass-border);"><span style="color:var(--text-muted)">${k}</span><span style="font-weight:700;color:var(--rose)">${v.toLocaleString()} ج</span></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px">لا توجد مصروفات</div>';
 
   txt('acc-total-revenue',totalRevenue.toLocaleString()+' ج');
-  txt('acc-total-expense',totalCost.toLocaleString()+' ج');
+  txt('acc-total-expense',totalExpense.toLocaleString()+' ج');
   const npEl=document.getElementById('acc-net-profit');
   if(npEl){npEl.textContent=(netProfit>=0?'+':'')+netProfit.toLocaleString()+' ج';npEl.style.color=netProfit>=0?'var(--emerald)':'var(--rose)';}
   txt('acc-margin',margin+'%');
@@ -283,32 +284,29 @@ function renderAccounts(){
   const invValue=DB.get('inventory').reduce((s,i)=>s+(i.qty*i.price),0);
   const receivables=(DB.get('installments')||[]).reduce((s,p)=>s+(p.remaining||0),0);
   const suppliersOwed=(DB.get('suppliers')||[]).reduce((s,x)=>s+(x.owed||0),0);
-  // الكاش الفعلي = كل الوارد (من cashlog + فواتير مباشرة) ناقص كل المصروفات
-  // ✅ cashlog هو المصدر الوحيد — invoices:created hook في 00-core.js يضيف entry تلقائياً لكل فاتورة
+  // الكاش = وارد ناقص كل المصروفات الفعلية (شاملة الرواتب المصروفة)
   const cashIn=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
-  const cashBalance=Math.max(0,cashIn-totalCost);
+  const cashBalance=Math.max(0,cashIn-totalExpense);
   txt('bs-cash',cashBalance.toLocaleString()+' ج');
   txt('bs-inventory',invValue.toLocaleString()+' ج');
   txt('bs-receivables',receivables.toLocaleString()+' ج');
   txt('bs-total-assets',(cashBalance+invValue+receivables).toLocaleString()+' ج');
   txt('bs-suppliers',suppliersOwed.toLocaleString()+' ج');
-  txt('bs-salaries',staffSalariesMonth.toLocaleString()+' ج');
-  txt('bs-equity',(cashBalance+invValue+receivables-suppliersOwed-staffSalariesMonth).toLocaleString()+' ج');
+  // bs-salaries = رواتب مصروفة فعلاً من expenses (نوع رواتب)
+  const paidSalaries=expenses.filter(e=>e.type==='رواتب'||e.category==='رواتب').reduce((s,e)=>s+(e.amount||0),0);
+  txt('bs-salaries',paidSalaries.toLocaleString()+' ج');
+  txt('bs-equity',(cashBalance+invValue+receivables-suppliersOwed-paidSalaries).toLocaleString()+' ج');
 
-  // Cash flow table
+  // Cash flow table — الصادر = expenses الفعلية فقط (الرواتب ضمنها)
   const cfTb=document.getElementById('cf-tbody');if(!cfTb)return;
   const MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
   const year=new Date().getFullYear();
-  const currentMonth=new Date().getMonth(); // 0-indexed
+  const currentMonth=new Date().getMonth();
   let cumulative=0;
   cfTb.innerHTML=MONTHS.map((m,i)=>{
     const mStr=`${year}-${String(i+1).padStart(2,'0')}`;
-    // ✅ مصدر الإيراد: cashlog:وارد فقط (موحَّد مع الداشبورد والخزينة)
     const inflow=cashlog.filter(c=>c.type==='وارد'&&(c.date||'').startsWith(mStr)).reduce((s,c)=>s+(c.amount||0),0);
-    const expOutflow=expenses.filter(x=>(x.date||'').startsWith(mStr)).reduce((s,x)=>s+(x.amount||0),0);
-    // ✅ الرواتب تُحسب فقط للأشهر الحالية والمستقبلية — لا رواتب ثابتة على الماضي
-    const salaryForMonth = i <= currentMonth ? staffSalariesMonth : 0;
-    const outflow=expOutflow+salaryForMonth;
+    const outflow=expenses.filter(x=>(x.date||'').startsWith(mStr)).reduce((s,x)=>s+(x.amount||0),0);
     const net=inflow-outflow;cumulative+=net;
     return `<tr>
       <td style="font-weight:600">${m}${i===currentMonth?' <span style="font-size:10px;color:var(--gold-light)">(الحالي)</span>':''}</td>
