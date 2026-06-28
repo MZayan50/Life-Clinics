@@ -605,32 +605,68 @@ function buildDashExtra(){
   txt('kpi-inv-done', done.toLocaleString());
   buildKpiSparklines();
   buildDashActivities();
+  // ✅ إعادة تحديث KPIs الرئيسية من مصدر موحد (cashlog) عند كل فتح للداشبورد
+  if(typeof _refreshDashKPIs === 'function') _refreshDashKPIs();
 }
 
-// Activities panel — built from recent DB events
+// Activities panel — built from recent DB events (آخر 7 أيام فقط)
 function buildDashActivities(){
   const el = document.getElementById('dash-activities'); if(!el) return;
-  const inv = DB.get('invoices');
+  const inv  = DB.get('invoices');
   const apts = DB.get('appointments');
   const pats = DB.get('patients');
+  const now  = new Date();
+  // آخر 7 أيام فقط — لا بيانات قديمة
+  const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 7);
+  const cutStr = cutoff.toISOString().split('T')[0];
+
   const activities = [];
-  // Recent invoices
-  inv.slice(-3).reverse().forEach(i=>{
-    activities.push({icon:'🧾',color:'var(--teal),var(--purple)',text:`فاتورة جديدة: ${(i.patient||'عميل')} — ${(i.paid||0).toLocaleString()} ج`,time: i.date||'اليوم'});
-  });
-  // Recent appointments
-  apts.slice(-2).reverse().forEach(a=>{
-    activities.push({icon:'📅',color:'var(--gold),var(--amber)',text:`موعد: ${(a.patient||'عميل')} مع ${(a.doctor||'طبيب')}`,time:a.date||'اليوم'});
-  });
-  // Recent patients
-  pats.slice(-1).forEach(p=>{
-    activities.push({icon:'👥',color:'var(--emerald),var(--teal)',text:`عميل جديد: ${p.name}`,time:p.created||'اليوم'});
-  });
+
+  // آخر 3 فواتير خلال 7 أيام
+  inv.filter(i => (i.date||'') >= cutStr)
+     .sort((a,b) => (b.date||'').localeCompare(a.date||''))
+     .slice(0,3)
+     .forEach(i => {
+       activities.push({
+         icon:'🧾', color:'var(--teal),var(--purple)',
+         text:`فاتورة: ${(i.patient||'عميل')} — ${(i.paid||0).toLocaleString()} ج`,
+         time: i.date||'—'
+       });
+     });
+
+  // آخر 2 مواعيد خلال 7 أيام
+  apts.filter(a => (a.date||'') >= cutStr)
+      .sort((a,b) => (b.date||'').localeCompare(a.date||''))
+      .slice(0,2)
+      .forEach(a => {
+        activities.push({
+          icon:'📅', color:'var(--gold),var(--amber)',
+          text:`موعد: ${(a.patient||'عميل')} مع ${(a.doctor||'طبيب')}`,
+          time: a.date||'—'
+        });
+      });
+
+  // آخر عميل مسجَّل خلال 7 أيام
+  pats.filter(p => (p.created||'') >= cutStr)
+      .sort((a,b) => (b.created||'').localeCompare(a.created||''))
+      .slice(0,1)
+      .forEach(p => {
+        activities.push({
+          icon:'👥', color:'var(--emerald),var(--teal)',
+          text:`عميل جديد: ${p.name}`,
+          time: p.created||'—'
+        });
+      });
+
   if(!activities.length){
-    el.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:14px;font-size:12.5px">لا توجد نشاطات بعد</div>';
+    el.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:14px;font-size:12.5px">لا توجد نشاطات خلال آخر 7 أيام</div>';
     return;
   }
-  el.innerHTML = activities.slice(0,5).map(a=>`
+
+  // ترتيب حسب التاريخ (الأحدث أولاً)
+  activities.sort((a,b) => (b.time||'').localeCompare(a.time||''));
+
+  el.innerHTML = activities.slice(0,5).map(a => `
     <div class="dash-notif-item">
       <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,${a.color});display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">${a.icon}</div>
       <div style="flex:1;overflow:hidden;">
@@ -715,12 +751,9 @@ function init(){
     }
   }
   const sub=document.getElementById('dash-sub');if(sub)sub.textContent=new Date().toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' · فرع مدينة نصر';
-  const low=DB.get('inventory').filter(i=>i.status==='منخفض'||i.status==='نفذ').length;
-  txt('badge-stock',low);txt('kpi-stk',low);
-  txt('badge-patients',DB.get('patients').length);txt('kpi-pat',DB.get('patients').length);
-  txt('badge-leads',DB.get('leads').filter(l=>l.status==='جديد').length);
-  const ua=DB.get('invoices').filter(i=>i.status!=='مدفوع').reduce((s,i)=>s+(i.remaining||0),0);txt('kpi-pend',ua.toLocaleString());
-  const tr=DB.get('invoices').filter(i=>i.date===new Date().toISOString().split('T')[0]).reduce((s,i)=>s+(i.paid||0),0);txt('kpi-rev',tr.toLocaleString());
+  // ✅ KPIs الرئيسية تُحسب مرة واحدة من _refreshDashKPIs لضمان التوحيد
+  // (كانت تُحسب مرتين: مرة هنا بمصادر مختلفة ومرة في _refreshDashKPIs — تم توحيدها)
+  if(typeof _refreshDashKPIs === 'function') _refreshDashKPIs();
   // conn status — لا نكتب "وضع محلي" لو Firebase متصل بالفعل
   if(!window._fbReady){
     txt('conn-txt','وضع محلي 💾');const d=document.getElementById('conn-dot');if(d)d.style.background='#F59E0B';

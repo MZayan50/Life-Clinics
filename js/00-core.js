@@ -304,6 +304,30 @@ EventBus.on('expenses:created', function(exp){
   });
 });
 
+// ── 5b. تعديل مصروف → تحديث سجله في الخزينة لتجنب قيم قديمة ──
+EventBus.on('expenses:updated', function(exp){
+  const cashlog = DB.get('cashlog') || [];
+  const idx = cashlog.findIndex(c => c.refId === exp.id && c.source === 'مصروف');
+  if(idx !== -1){
+    cashlog[idx] = {
+      ...cashlog[idx],
+      amount: exp.amount || 0,
+      date:   exp.date   || cashlog[idx].date,
+      notes:  exp.name   || 'مصروف'
+    };
+    DB.set('cashlog', cashlog);
+  }
+});
+
+// ── 5c. حذف مصروف → حذف سجله من الخزينة ──
+EventBus.on('expenses:deleted', function(payload){
+  // payload قد يكون { id, record } أو مجرد id
+  const expId = (typeof payload === 'object' && payload !== null) ? (payload.id || payload) : payload;
+  const cashlog = DB.get('cashlog') || [];
+  const filtered = cashlog.filter(c => !(String(c.refId) === String(expId) && c.source === 'مصروف'));
+  if(filtered.length !== cashlog.length) DB.set('cashlog', filtered);
+});
+
 // ══════════════════════════════════════════
 // 🔄 UI REFRESH SCHEDULER
 // يجمع طلبات التحديث ويطبقها مرة واحدة (debounce 50ms)
@@ -488,7 +512,15 @@ function showScreen(id){
   closeSidebar();
   document.getElementById('main-area')?.scrollTo(0, 0);
 
-  if (id === 'dashboard')      { buildChart(); buildDashAlerts(); renderTodayAppts(); }
+  if (id === 'dashboard')      {
+    buildChart();
+    buildDashAlerts();
+    if(typeof buildDashAlertsEnhanced === 'function') buildDashAlertsEnhanced();
+    renderTodayAppts();
+    if(typeof buildDashExtra      === 'function') buildDashExtra();
+    if(typeof buildKpiSparklines  === 'function') buildKpiSparklines();
+    _refreshDashKPIs();
+  }
   if (id === 'patients')       renderPat();
   if (id === 'appointments')   renderAppts();
   if (id === 'calendar')       buildCal();

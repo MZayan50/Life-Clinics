@@ -488,6 +488,9 @@ function addSessionProgress(id){
   const newDone=(s.done||0)+1;
   const newStatus=newDone>=s.total?'مكتملة':s.status;
   DB.upd('sessions',id,{done:newDone,status:newStatus});
+  // ✅ BUG#4 FIX: خصم المخزون بناءً على الخدمة المرتبطة بخطة الجلسات
+  const svc = DB.get('services').find(x => x.id === s.serviceId || x.name === s.service);
+  if(svc) deductInventory(svc.id, 1);
   showToast('success',`✅ تم تسجيل الجلسة ${newDone} من ${s.total}`,newStatus==='مكتملة'?'🎉 اكتملت خطة الجلسات!':'');
   renderSessions();
 }
@@ -572,8 +575,35 @@ function savePackage(){
   if(!name){showToast('warning','⚠️ اسم الباقة مطلوب');return;}
   const id=gv('pkg-id');
   const data={patId:opt.value,patName:opt.dataset?.name||opt.text,name,services:gv('pkg-services'),sessionsCount:parseInt(gv('pkg-sessions-count'))||6,price:parseFloat(gv('pkg-price'))||0,paid:parseFloat(gv('pkg-paid'))||0,startDate:gv('pkg-start'),endDate:gv('pkg-end'),status:gv('pkg-status'),notes:gv('pkg-notes')};
-  if(id){DB.upd('packages',id,data);showToast('success','✅ تم تحديث الباقة');}
-  else{DB.push('packages',data);showToast('success',`✅ تم إنشاء باقة "${name}" لـ ${data.patName}`);}
+  if(id){
+    // تحديث باقة موجودة
+    const oldPkg = DB.get('packages').find(p=>p.id===id);
+    const oldPaid = oldPkg?.paid || 0;
+    DB.upd('packages',id,data);
+    // إذا زاد المبلغ المدفوع، سجّل الفرق في الخزينة
+    const paidDelta = Math.max(0, data.paid - oldPaid);
+    if(paidDelta > 0){
+      DB.push('cashlog',{
+        type:'وارد', source:`باقة — ${data.patName}`, refId:id,
+        amount:paidDelta, service:data.name, method:'كاش',
+        date:new Date().toISOString().split('T')[0],
+        notes:`دفعة إضافية على باقة: ${data.name}`
+      });
+    }
+    showToast('success','✅ تم تحديث الباقة');
+  } else {
+    const newPkg = DB.push('packages',data);
+    // ✅ BUG#3 FIX: تسجيل الدفعة الأولى في الخزينة عند إنشاء الباقة
+    if(data.paid > 0){
+      DB.push('cashlog',{
+        type:'وارد', source:`باقة — ${data.patName}`, refId:newPkg?.id||null,
+        amount:data.paid, service:data.name, method:'كاش',
+        date:data.startDate||new Date().toISOString().split('T')[0],
+        notes:`دفعة باقة: ${data.name}`
+      });
+    }
+    showToast('success',`✅ تم إنشاء باقة "${name}" لـ ${data.patName}`);
+  }
   closeModal('package-modal');renderPackages();
 }
 function delPackage(id){
@@ -791,13 +821,11 @@ function finalizeConsultation(){
     const apptsDone = DB.get('appointments').filter(a=>a.patId===pat.id&&a.status==='مكتمل').length;
     DB.upd('patients',pat.id,{sessions: Math.max(sesssDone, apptsDone), lastVisit:today, lastDoctor:a.doctor||''});
   }
-  // 5. Sync screens
-  renderInvs();renderTodayAppts();
+  // 5. ✅ Sync screens — EventBus يتولى renderInvs وتحديث KPIs تلقائياً
+  // نُحدِّث فقط شاشات الاستقبال/الطبيب/الانتظار التي لا تغطيها آلية _flushUIRefresh
   if(document.getElementById('screen-doctor-view')?.classList.contains('active')) renderDoctorView();
   if(document.getElementById('screen-reception')?.classList.contains('active')) renderReception();
   if(document.getElementById('screen-waitlist')?.classList.contains('active')) renderWaitlist();
-  const tr=DB.get('invoices').filter(i=>i.date===today).reduce((s,i)=>s+(i.paid||0),0);
-  txt('kpi-rev',tr.toLocaleString());
   closeModal('consult-done-modal');
   showToast('success',`✅ اكتملت استشارة ${a.patient}`,`فاتورة ${net.toLocaleString()} ج · عمولة ${comm.toLocaleString()} ج`);
 }

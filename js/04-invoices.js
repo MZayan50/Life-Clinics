@@ -52,9 +52,39 @@ function openInvModal(id){
   document.getElementById('inv-modal-title').textContent=inv?'✏️ تعديل فاتورة':'🧾 فاتورة جديدة';
   document.getElementById('im-id').value=inv?inv.id:'';
   fillPatDropdowns();
+
+  // ✅ FIX: بناء قائمة الخدمات من DB بدل الهاردكود في HTML
+  const svcSel = document.getElementById('im-svc');
+  if(svcSel){
+    const svcs = DB.get('services');
+    if(svcs.length){
+      svcSel.innerHTML = '<option value="">-- اختر الخدمة --</option>'
+        + svcs.map(s => `<option value="${s.name}" data-price="${s.price||0}">${s.name}${s.price?' — '+(s.price).toLocaleString()+' ج':''}</option>`).join('');
+    } else {
+      // لو مفيش خدمات في DB، اترك القائمة فارغة مع رسالة
+      svcSel.innerHTML = '<option value="">-- لا توجد خدمات مضافة بعد --</option>';
+    }
+    // إذا فاتورة تعديل، اختار الخدمة الموجودة
+    if(inv && inv.service){
+      const opt = Array.from(svcSel.options).find(o => o.value === inv.service);
+      if(opt) svcSel.value = inv.service;
+    }
+  }
+
+  // تحديث السعر عند تغيير الخدمة من قائمة DB
+  if(svcSel && !svcSel._patchedListener){
+    svcSel._patchedListener = true;
+    svcSel.addEventListener('change', function(){
+      const opt = this.options[this.selectedIndex];
+      const price = parseFloat(opt?.dataset?.price) || 0;
+      const priceEl = document.getElementById('im-price');
+      if(priceEl && price > 0) priceEl.value = price;
+      updInvTotal();
+    });
+  }
+
   const patSel=document.getElementById('im-pat');
   if(inv&&patSel){
-    // prefer patId, fallback to name-match for legacy records
     if(inv.patId) patSel.value=inv.patId;
     else {
       const pt=DB.get('patients').find(p=>p.name===inv.patient);
@@ -64,7 +94,7 @@ function openInvModal(id){
   const priceEl=document.getElementById('im-price');
   const discEl=document.getElementById('im-disc');
   const dateEl=document.getElementById('im-date');
-  if(priceEl)priceEl.value=inv?(inv.originalPrice||inv.total):800;
+  if(priceEl)priceEl.value=inv?(inv.originalPrice||inv.total):0;
   if(discEl)discEl.value=inv?(inv.discount||0):0;
   if(dateEl)dateEl.value=inv?inv.date:new Date().toISOString().split('T')[0];
   // reset payment method selection

@@ -195,12 +195,25 @@ function payInstallment(planId){
   DB.upd('installments',planId,plan);
   const pat=DB.get('patients').find(p=>p.id===plan.patientId);
   if(pat) DB.upd('patients',pat.id,{balance:Math.max(0,(pat.balance||0)-plan.installmentAmount)});
-  // ✅ تسجيل دفعة القسط في الخزينة — كانت غير موجودة، فدفعات الأقساط ما كانت توصل لـ cashlog إطلاقًا
+  // ✅ تسجيل دفعة القسط في الخزينة
   DB.push('cashlog',{
     type:'وارد', source:`دفعة قسط #${nextInst.num} — ${plan.patientName}`,
     service:plan.service||'', amount:plan.installmentAmount, method:'كاش',
     date:nextInst.paidDate, refId:planId, notes:`قسط ${nextInst.num}/${plan.count}`
   });
+  // ✅ BUG#2 FIX: تحديث الفاتورة الأصلية المرتبطة بخطة الأقساط
+  if(plan.fromInvId){
+    const origInv = DB.get('invoices').find(i => String(i.id) === String(plan.fromInvId));
+    if(origInv){
+      const newInvPaid = Math.min(origInv.total, (origInv.paid||0) + plan.installmentAmount);
+      const newInvRem  = Math.max(0, origInv.total - newInvPaid);
+      DB.upd('invoices', origInv.id, {
+        paid:      newInvPaid,
+        remaining: newInvRem,
+        status:    newInvRem === 0 ? 'مدفوع' : 'جزئي'
+      });
+    }
+  }
   showToast('success',`✅ تم تسجيل دفع القسط #${nextInst.num}`,`${plan.installmentAmount.toLocaleString()} ج`);
   renderInstallments();
 }
@@ -237,7 +250,8 @@ function renderAccounts(){
 
   // P&L
   const cashlog=DB.get('cashlog')||[];
-  const totalRevenue=invoices.reduce((s,i)=>s+(i.paid||0),0);
+  // ✅ BUG#5 FIX: مصدر الإيراد موحَّد من cashlog:وارد (نفس مصدر الخزينة) لتجنب التناقض
+  const totalRevenue=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
   const totalExpense=expenses.reduce((s,e)=>s+(e.amount||0),0);
   const staffSalariesMonth=DB.get('staff').reduce((s,x)=>s+(x.salary||0),0);
   const totalCost=totalExpense+staffSalariesMonth;
