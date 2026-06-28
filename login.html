@@ -131,6 +131,10 @@ body{font-family:'Tajawal',sans-serif;background:#0A0D14;color:#F1F5F9;min-heigh
     <button class="fb-setup-btn" onclick="openFBSetup()">
       🔥 إعداد Firebase للمزامنة السحابية
     </button>
+
+    <button class="fb-setup-btn" onclick="resetAdminPassword()" style="margin-top:8px;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">
+      🔑 إصلاح كلمة مرور admin
+    </button>
   </div>
 
   <!-- FIREBASE SETUP PANEL -->
@@ -168,7 +172,7 @@ body{font-family:'Tajawal',sans-serif;background:#0A0D14;color:#F1F5F9;min-heigh
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // إعدادات Firebase المباشرة
 const firebaseConfig = {
@@ -295,6 +299,22 @@ async function getUserByUsername(username) {
 // ============================================================
 // تسجيل الدخول — Firestore فقط
 // ============================================================
+// ============================================================
+// إصلاح كلمة مرور admin مباشرة في Firestore
+// ============================================================
+window.resetAdminPassword = async function() {
+  const newPass = prompt('أدخل كلمة المرور الجديدة لـ admin:');
+  if (!newPass) return;
+  const hash = await sha256(newPass);
+  try {
+    const docRef = doc(db, 'users', 'admin');
+    await setDoc(docRef, { hash }, { merge: true });
+    alert('✅ تم تحديث كلمة المرور — جرب الدخول الآن');
+  } catch(e) {
+    alert('❌ فشل: ' + e.message);
+  }
+};
+
 window.doLogin = async function() {
   const usernameInput = document.getElementById('username').value.trim().toLowerCase();
   const password = document.getElementById('password').value;
