@@ -1060,3 +1060,52 @@ function toggleUmPass(){
 
 
 // ══════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════
+// 🧹 RESET DEMO DATA — مسح بيانات التجربة
+// يمسح: عملاء، مواعيد، فواتير، باقات، جلسات، خزينة، مخزون،
+//        مصروفات، leads، حملات، transfers، installments، صور، audit
+// يحتفظ بـ: فروع، أطباء، غرف، أجهزة، خدمات، موردين
+// ══════════════════════════════════════════════════════════════════
+async function resetDemoData(){
+  // ── تأكيد مزدوج لأن العملية لا رجعة منها ──
+  const first = confirm(
+    '⚠️ تحذير: سيتم مسح جميع بيانات التجربة!\n\n' +
+    '✅ سيُحتفظ بـ: الفروع · الأطباء · الغرف · الأجهزة · الخدمات · الموردين\n\n' +
+    '❌ سيُمسح: العملاء · المواعيد · الفواتير · الباقات · الجلسات · الخزينة · المصروفات · المخزون · العملاء المحتملين · الأقساط · الصور · السجلات\n\n' +
+    'هل تريد المتابعة؟'
+  );
+  if(!first) return;
+
+  const second = confirm('⛔ تأكيد نهائي — هذه العملية لا يمكن التراجع عنها.\n\nاضغط موافق للمسح الآن.');
+  if(!second) return;
+
+  showToast('info', '🧹 جارٍ مسح بيانات التجربة...');
+
+  // Collections المطلوب مسحها
+  const COLS_TO_CLEAR = [
+    'patients','appointments','invoices','invoice_items',
+    'packages','sessions','cashlog','installments',
+    'expenses','inventory','inventory_transactions',
+    'purchases','purchase_items','leads','campaigns',
+    'waitlist','visits','transfers','photos','audit_log'
+  ];
+
+  // ── 1. مسح localStorage / Cache ──
+  COLS_TO_CLEAR.forEach(col => DB.set(col, []));
+
+  // ── 2. إعادة ضبط العدادات ──
+  localStorage.removeItem('ha_seeded');
+  localStorage.removeItem('ha_seeded_v2');
+
+  // ── 4. تحديث الـ UI ──
+  showToast('success',
+    '✅ تم مسح بيانات التجربة بنجاح',
+    'تم الاحتفاظ بـ: الفروع · الأطباء · الغرف · الأجهزة'
+  );
+  setTimeout(() => {
+    if(typeof renderPat       === 'function') renderPat();
+    if(typeof renderDashboard === 'function') renderDashboard();
+    if(typeof init            === 'function') init();
+  }, 500);
+}
