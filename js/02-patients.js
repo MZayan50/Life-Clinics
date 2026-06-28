@@ -479,17 +479,102 @@ function renderPatAccount(id){
 
 function age(d){ return d ? Math.floor((Date.now()-new Date(d))/(365.25*24*3600*1000)) : 0; }
 
+// ══════════════════════════════════════════════════════════════════
+// 🗑️ DEEP DELETE PATIENT — يحذف العميل + كل بياناته المرتبطة
+//    من Firestore وlocalStorage معاً بشكل فوري ولحظي
+// ══════════════════════════════════════════════════════════════════
 function delPat(id){
-  if(confirm('حذف العميل؟ سيتم حذف جميع باقاته وجلساته المرتبطة.')){
-    // ── حذف متتالي: الباقات والجلسات المرتبطة ──
-    DB.get('packages').filter(pk => pk.patId === id).forEach(pk => DB.del('packages', pk.id));
-    DB.get('sessions').filter(s => s.patId === id).forEach(s => DB.del('sessions', s.id));
-    DB.del('patients', id);
-    // لا داعي لـ renderPat() — EventBus يتولى ذلك
-    showToast('info','🗑️ تم حذف العميل وجميع بياناته المرتبطة');
+  const pat = DB.get('patients').find(p => p.id === id);
+  if(!pat){ showToast('error','❌ العميل غير موجود'); return; }
+
+  // إظهار مربع تأكيد مفصل
+  const invCount   = DB.get('invoices').filter(i => String(i.patId)===String(id)||i.patient===pat.name).length;
+  const pkgCount   = DB.get('packages').filter(pk => String(pk.patId)===String(id)).length;
+  const sessCount  = DB.get('sessions').filter(s => String(s.patId)===String(id)).length;
+  const apptCount  = DB.get('appointments').filter(a => String(a.patId||a.patientId)===String(id)||a.patient===pat.name).length;
+  const instCount  = (DB.get('installments')||[]).filter(p => String(p.patientId)===String(id)).length;
+  const photoCount = (DB.get('photos')||[]).filter(ph => String(ph.patId)===String(id)).length;
+
+  const msg = [
+    `⚠️ حذف العميل: ${pat.name}`,
+    `سيتم حذف جميع بياناته من Firebase بشكل نهائي:`,
+    `• ${invCount} فاتورة`,
+    `• ${pkgCount} باقة · ${sessCount} جلسة`,
+    `• ${apptCount} موعد`,
+    `• ${instCount} خطة أقساط`,
+    `• ${photoCount} صورة`,
+    ``,
+    `هل أنت متأكد؟ لا يمكن التراجع عن هذا الإجراء.`
+  ].join('\n');
+
+  if(!confirm(msg)) return;
+
+  let deleted = 0;
+
+  // ── 1. فواتير العميل ──
+  DB.get('invoices')
+    .filter(i => String(i.patId)===String(id) || i.patient===pat.name)
+    .forEach(i => { DB.del('invoices', i.id); deleted++; });
+
+  // ── 2. بنود الفواتير ──
+  (DB.get('invoice_items')||[])
+    .filter(ii => String(ii.patId)===String(id))
+    .forEach(ii => { DB.del('invoice_items', ii.id); deleted++; });
+
+  // ── 3. سجلات الخزينة المرتبطة بالعميل ──
+  (DB.get('cashlog')||[])
+    .filter(c => String(c.patId)===String(id))
+    .forEach(c => { DB.del('cashlog', c.id); deleted++; });
+
+  // ── 4. خطط الأقساط ──
+  (DB.get('installments')||[])
+    .filter(p => String(p.patientId)===String(id))
+    .forEach(p => { DB.del('installments', p.id); deleted++; });
+
+  // ── 5. الباقات ──
+  DB.get('packages')
+    .filter(pk => String(pk.patId)===String(id))
+    .forEach(pk => { DB.del('packages', pk.id); deleted++; });
+
+  // ── 6. الجلسات ──
+  DB.get('sessions')
+    .filter(s => String(s.patId)===String(id))
+    .forEach(s => { DB.del('sessions', s.id); deleted++; });
+
+  // ── 7. المواعيد ──
+  DB.get('appointments')
+    .filter(a => String(a.patId||a.patientId)===String(id) || a.patient===pat.name)
+    .forEach(a => { DB.del('appointments', a.id); deleted++; });
+
+  // ── 8. الصور ──
+  (DB.get('photos')||[])
+    .filter(ph => String(ph.patId)===String(id))
+    .forEach(ph => { DB.del('photos', ph.id); deleted++; });
+
+  // ── 9. قائمة الانتظار ──
+  (DB.get('waitlist')||[])
+    .filter(w => String(w.patId||w.patientId)===String(id) || w.patient===pat.name)
+    .forEach(w => { DB.del('waitlist', w.id); deleted++; });
+
+  // ── 10. الزيارات ──
+  (DB.get('visits')||[])
+    .filter(v => String(v.patId||v.patientId)===String(id))
+    .forEach(v => { DB.del('visits', v.id); deleted++; });
+
+  // ── 11. أخيراً: حذف العميل نفسه ──
+  DB.del('patients', id);
+  deleted++;
+
+  showToast('success', `✅ تم حذف ${pat.name} بالكامل`, `${deleted} سجل محذوف من Firebase`);
+  // EventBus يتولى تحديث الواجهة تلقائياً
+}
+
+function deleteCurrentPat(){
+  if(window._curPat){
+    delPat(window._curPat);
+    showScreen('patients');
   }
 }
-function deleteCurrentPat(){ if(window._curPat){ delPat(window._curPat); showScreen('patients'); } }
 
 // ── فتح باقة جديدة مرتبطة بالعميل الحالي من شاشة ملف العميل ──
 function openPackageFromProfile(){
@@ -639,7 +724,8 @@ function processPatientPayment(){
     if(amount > rem){ showToast('warning','⚠️ المبلغ أكبر من المتبقي'); return; }
     const newPaid = (pk.paid||0)+amount;
     DB.upd('packages',id,{ paid:newPaid });
-    DB.push('cashlog',{ type:'وارد', amount, source:`دفعة باقة — ${pk.patName||''}`, service:pk.name||'', method, date:today, patId });
+    const _patObj = DB.get('patients').find(p=>String(p.id)===String(patId));
+    DB.push('cashlog',{ type:'وارد', amount, source:`دفعة باقة — ${_patObj?.name||pk.patName||''}`, service:pk.name||'', method, date:today, patId, patient:_patObj?.name||pk.patName||'' });
     showToast('success',`✅ تم استلام ${amount.toLocaleString()} ج على الباقة "${pk.name}"`);
   }
   closeModal('patient-pay-modal');

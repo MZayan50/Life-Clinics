@@ -213,17 +213,29 @@ function attachFirestoreSync(col){
       // لو الـ collection فاضية في Firestore → نمسح الـ cache (ده قرار عمد)
       // لو مكنش فيه Firestore بيانات قبل كده → نستعمل localStorage كـ fallback أولي
       const prev = DB._cache[col] || [];
-      const changed = docs.length !== prev.length ||
-        JSON.stringify(docs.map(d=>d.id).sort()) !== JSON.stringify(prev.map(d=>d.id).sort());
-      // سواء Firestore فاضية أو لأ — هي مصدر الحقيقة، حدّث الـ cache
+      // ✅ كشف التغيير الحقيقي: عدد المستندات أو محتواها (بما فيه التعديلات)
+      const prevStr = JSON.stringify(prev.map(d=>d.id).sort());
+      const newStr  = JSON.stringify(docs.map(d=>d.id).sort());
+      const countChanged   = docs.length !== prev.length;
+      const idsChanged     = prevStr !== newStr;
+      // تحقق من تغيير المحتوى (تعديلات من أجهزة أخرى)
+      const contentChanged = !countChanged && !idsChanged && window._fbFirstSync && window._fbFirstSync[col]
+        ? JSON.stringify(docs) !== JSON.stringify(prev)
+        : false;
+      const changed = countChanged || idsChanged || contentChanged;
+      // سواء Firestore فاضية أو لأ — هي مصدر الحقيقة، حدّث الـ cache دايماً
       DB._cache[col] = docs;
       // حدّث localStorage كنسخة احتياطية offline فقط
       try { localStorage.setItem('ha_' + col, JSON.stringify(docs)); } catch(e){}
-      // أطلق أحداث EventBus حتى يتحدث الـ UI وتعمل Business Logic hooks
-      // (هذا يحدث فقط لو كانت التغييرات من جهاز آخر — الكتابة المحلية تطلق الأحداث مسبقاً)
+      // ✅ أطلق EventBus لكل تغيير (إضافة أو تعديل أو حذف) من أي جهاز آخر
       if(changed && window._fbFirstSync && window._fbFirstSync[col]){
         EventBus.emit(col + ':remote-sync', { docs });
         EventBus.emit('db:changed', { collection: col, action: 'remote-sync' });
+        // لو الباقات أو الفواتير تغيّرت من جهاز آخر → أعد حساب الماليات
+        if((col==='invoices'||col==='packages'||col==='installments')&&typeof _recalcPatFinancials==='function'){
+          const patIds = new Set(docs.map(d=>d.patId||d.patientId).filter(Boolean));
+          patIds.forEach(pid => { try{ _recalcPatFinancials(pid); }catch(e){} });
+        }
       }
       _scheduleUIRefresh(col);
       // أول sync → شيل loading indicator لو موجود
@@ -544,13 +556,62 @@ function exportAll(){
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`alhaya-backup-v2-${new Date().toLocaleDateString('en-GB').replace(/\//g,'-')}.json`;a.click();
   showToast('success','📥 تم تصدير البيانات (Schema v2)');
 }
-function clearAll(){if(confirm('⚠️ هذا سيحذف كل البيانات المحلية! متأكد؟')){
-  ['patients','appointments','inventory','invoices','invoice_items','services','leads','doctors','staff','expenses','branches','rooms','equipment','suppliers','purchases','purchase_items','sessions','packages','waitlist','campaigns','visits','inventory_transactions','audit_log','transfers','cashlog','installments','photos'].forEach(k=>DB.set(k,[]));
+// ══════════════════════════════════════════════════════════════════
+// 🗑️ CLEAR ALL — يحذف كل البيانات من Firestore + localStorage
+//    العملية لحظية: كل مجموعة تُحذف doc-by-doc عبر DB.del
+//    مما يطلق fbDel → Firestore فوراً
+// ══════════════════════════════════════════════════════════════════
+const _ALL_COLLECTIONS = [
+  'patients','appointments','invoices','invoice_items',
+  'cashlog','installments','packages','sessions','photos',
+  'inventory','inventory_transactions','purchases','purchase_items',
+  'expenses','suppliers','leads','services','doctors','staff',
+  'branches','rooms','equipment','campaigns','waitlist',
+  'visits','audit_log','transfers'
+];
+
+async function clearAll(){
+  if(!confirm('⚠️ تحذير: سيتم حذف كل البيانات من Firebase و الجهاز!\n\nهذا لا يمكن التراجع عنه. هل أنت متأكد تماماً؟')) return;
+  if(!confirm('تأكيد أخير: حذف كل بيانات العيادة من Firestore؟')) return;
+
+  showToast('info', '⏳ جارٍ حذف البيانات من Firebase...');
+
+  let totalDeleted = 0;
+
+  // ── حذف doc-by-doc من كل collection → DB.del يطلق fbDel تلقائياً ──
+  for(const col of _ALL_COLLECTIONS){
+    const records = DB.get(col)||[];
+    for(const rec of records){
+      DB.del(col, rec.id);
+      totalDeleted++;
+    }
+    // مسح الـ cache والـ localStorage مباشرة بعد حذف كل المستندات
+    DB._cache[col] = [];
+    try{ localStorage.setItem('ha_' + col, '[]'); }catch(e){}
+  }
+
+  // مسح الإعدادات والذاكرة المحلية
   localStorage.removeItem('ha_seeded');
   localStorage.removeItem('ha_seeded_v2');
-  showToast('warning','🗑️ تم مسح كل البيانات المحلية');
-  init();
-}}
+  localStorage.removeItem('ha_offline_queue');
+
+  showToast('success', `✅ تم حذف ${totalDeleted} سجل من Firebase`, 'تمت إعادة ضبط النظام بالكامل');
+
+  // إعادة التهيئة بعد ثانيتين
+  setTimeout(() => { try{ init(); }catch(e){ location.reload(); } }, 2000);
+}
+
+// ── حذف مجموعة واحدة بالكامل من Firestore ──
+async function clearCollection(col){
+  if(!col || !_ALL_COLLECTIONS.includes(col)) return;
+  const records = DB.get(col)||[];
+  if(!records.length){ showToast('info', `المجموعة ${col} فارغة`); return; }
+  if(!confirm(`حذف كل بيانات "${col}" (${records.length} سجل) من Firebase؟`)) return;
+  records.forEach(rec => DB.del(col, rec.id));
+  DB._cache[col] = [];
+  try{ localStorage.setItem('ha_' + col, '[]'); }catch(e){}
+  showToast('success', `✅ تم حذف ${records.length} سجل من "${col}"`);
+}
 
 // ══════════════════════════════════════════
 // 🏢 BRANCHES — REAL DATA FROM DB

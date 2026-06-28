@@ -221,7 +221,7 @@ function payInstallment(planId){
   if(plan.payments.every(x=>x.paid)) plan.status='مكتمل';
   DB.upd('installments',planId,plan);
   const pat=DB.get('patients').find(p=>p.id===plan.patientId);
-  if(pat) DB.upd('patients',pat.id,{balance:Math.max(0,(pat.balance||0)-plan.installmentAmount)});
+  // ✅ balance يتحدث تلقائياً عبر EventBus _recalcPatFinancials — لا طرح يدوي لتجنب احتساب مضاعف
   // ✅ تسجيل دفعة القسط في الخزينة
   DB.push('cashlog',{
     type:'وارد', source:`دفعة قسط #${nextInst.num} — ${plan.patientName}`,
