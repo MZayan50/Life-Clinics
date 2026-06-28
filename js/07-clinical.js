@@ -561,12 +561,14 @@ function renderPackages(){
     </div>`;
   }).join('')||'<div class="card" style="text-align:center;padding:40px;color:var(--text-muted);grid-column:1/-1;">لا توجد باقات مطابقة</div>';
 }
-function openPackageModal(id){
+function openPackageModal(id, presetPatId){
   const p=id?DB.get('packages').find(x=>x.id===id):null;
+  // presetPatId: معرّف العميل لو جاء الطلب من شاشة ملف العميل
+  const targetPatId = presetPatId || (p?p.patId:null) || window._curPat || null;
   document.getElementById('pkg-modal-title').textContent=p?'✏️ تعديل الباقة':'🎁 باقة علاجية جديدة';
   document.getElementById('pkg-id').value=p?p.id:'';
   const sel=document.getElementById('pkg-pat');
-  sel.innerHTML=DB.get('patients').map(pt=>`<option value="${pt.id}" data-name="${pt.name}"${p&&p.patId===pt.id?' selected':''}>${pt.name}</option>`).join('');
+  sel.innerHTML=DB.get('patients').map(pt=>`<option value="${pt.id}" data-name="${pt.name}"${String(pt.id)===String(targetPatId)?' selected':''}>${pt.name}</option>`).join('');
   if(p){
     document.getElementById('pkg-name').value=p.name||'';
     document.getElementById('pkg-services').value=p.services||'';
@@ -578,7 +580,7 @@ function openPackageModal(id){
     document.getElementById('pkg-status').value=p.status||'نشطة';
     document.getElementById('pkg-notes').value=p.notes||'';
   } else {
-    ['pkg-name','pkg-services','pkg-notes'].forEach(id=>document.getElementById(id).value='');
+    ['pkg-name','pkg-services','pkg-notes'].forEach(fid=>document.getElementById(fid).value='');
     document.getElementById('pkg-sessions-count').value=6;
     document.getElementById('pkg-price').value='';
     document.getElementById('pkg-paid').value=0;
@@ -623,7 +625,28 @@ function savePackage(){
         notes:`دفعة باقة: ${data.name}`
       });
     }
-    showToast('success',`✅ تم إنشاء باقة "${name}" لـ ${data.patName}`);
+    // ✅ إنشاء فاتورة تلقائية للمبلغ المتبقي (لو فيه متبقي)
+    const remaining = Math.max(0, data.price - data.paid);
+    if(remaining > 0){
+      DB.push('invoices',{
+        patId: data.patId, patientId: data.patId,
+        patient: data.patName,
+        service: `باقة: ${data.name}`,
+        originalPrice: data.price,
+        discount: 0,
+        total: data.price,
+        paid: data.paid,
+        remaining: remaining,
+        status: data.paid > 0 ? 'جزئي' : 'معلق',
+        method: 'كاش',
+        date: data.startDate || new Date().toISOString().split('T')[0],
+        pkgId: newPkg?.id || null,
+        notes: `فاتورة مرتبطة بالباقة — متبقي ${remaining.toLocaleString()} ج`
+      });
+      showToast('success',`✅ تم إنشاء باقة "${name}" لـ ${data.patName}`, `🧾 فاتورة بالمتبقي ${remaining.toLocaleString()} ج أُنشئت تلقائياً`);
+    } else {
+      showToast('success',`✅ تم إنشاء باقة "${name}" لـ ${data.patName}`);
+    }
   }
   closeModal('package-modal');renderPackages();
 }

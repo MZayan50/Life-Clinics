@@ -11,6 +11,11 @@ EventBus.on('patients:created', () => { if(window.renderPat) renderPat(); });
 EventBus.on('patients:updated', () => { if(window.renderPat) renderPat(); });
 EventBus.on('patients:deleted', () => { if(window.renderPat) renderPat(); });
 
+// ── تحديث شاشة الباقات تلقائياً عند أي تغيير في الباقات ──
+EventBus.on('packages:created', () => { if(typeof renderPackages==='function') renderPackages(); });
+EventBus.on('packages:updated', () => { if(typeof renderPackages==='function') renderPackages(); });
+EventBus.on('packages:deleted', () => { if(typeof renderPackages==='function') renderPackages(); });
+
 const AVA = ['linear-gradient(135deg,#8B5CF6,#3B82F6)','linear-gradient(135deg,#10B981,#2DD4BF)','linear-gradient(135deg,#F59E0B,#EF4444)','linear-gradient(135deg,#C4A882,#8B5CF6)','linear-gradient(135deg,#F43F5E,#8B5CF6)'];
 // genderAva مُعرَّفة في 00-core.js وتُستخدم هنا مباشرة
 let _pf='', _ps='';
@@ -146,13 +151,172 @@ function viewPat(id){
 function age(d){ return d ? Math.floor((Date.now()-new Date(d))/(365.25*24*3600*1000)) : 0; }
 
 function delPat(id){
-  if(confirm('حذف العميل؟')){
+  if(confirm('حذف العميل؟ سيتم حذف جميع باقاته وجلساته المرتبطة.')){
+    // ── حذف متتالي: الباقات والجلسات المرتبطة ──
+    DB.get('packages').filter(pk => pk.patId === id).forEach(pk => DB.del('packages', pk.id));
+    DB.get('sessions').filter(s => s.patId === id).forEach(s => DB.del('sessions', s.id));
     DB.del('patients', id);
     // لا داعي لـ renderPat() — EventBus يتولى ذلك
-    showToast('info','🗑️ تم حذف العميل');
+    showToast('info','🗑️ تم حذف العميل وجميع بياناته المرتبطة');
   }
 }
 function deleteCurrentPat(){ if(window._curPat){ delPat(window._curPat); showScreen('patients'); } }
+
+// ── فتح باقة جديدة مرتبطة بالعميل الحالي من شاشة ملف العميل ──
+function openPackageFromProfile(){
+  const id = window._curPat;
+  if(!id){ showToast('error','❌ لا يوجد عميل محدد'); return; }
+  if(typeof openPackageModal === 'function'){
+    openPackageModal(null, id);
+  } else {
+    showToast('error','❌ وحدة الباقات غير محملة');
+  }
+}
+
+// ── دفع المتبقي من شاشة ملف العميل ──
+function openPayFromProfile(){
+  const id = window._curPat;
+  if(!id){ showToast('error','❌ لا يوجد عميل محدد'); return; }
+  const pat = DB.get('patients').find(p => p.id === id);
+  if(!pat){ return; }
+
+  // جمع كل الفواتير غير المسددة بالكامل
+  const pendingInvs = DB.get('invoices').filter(i =>
+    (String(i.patId)===String(id) || i.patient===pat.name) &&
+    (i.remaining||0) > 0
+  );
+  // جمع الباقات بمتبقي مالي
+  const pendingPkgs = DB.get('packages').filter(pk =>
+    pk.patId===id && ((pk.price||0)-(pk.paid||0)) > 0
+  );
+
+  if(!pendingInvs.length && !pendingPkgs.length){
+    showToast('info','✅ لا يوجد مبالغ متبقية لهذا العميل');
+    return;
+  }
+
+  // بناء modal ديناميكي لاختيار الفاتورة / الباقة والدفع
+  let optionsHtml = '';
+  pendingInvs.forEach(inv => {
+    const rem = inv.remaining||0;
+    const idx = DB.get('invoices').findIndex(x=>String(x.id)===String(inv.id));
+    optionsHtml += `<div class="pay-option" data-type="invoice" data-id="${inv.id}" onclick="selectPayOption(this)"
+      style="padding:11px;background:var(--glass);border:2px solid var(--glass-border);border-radius:10px;cursor:pointer;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:700;font-size:13px;">🧾 #INV-${String(idx+1).padStart(3,'0')} — ${inv.service||'—'}</div>
+          <div style="font-size:11px;color:var(--text-muted);">فاتورة · ${inv.date||'—'}</div>
+        </div>
+        <div style="text-align:left;">
+          <div style="color:var(--rose);font-weight:800;">${rem.toLocaleString()} ج</div>
+          <div style="font-size:11px;color:var(--text-muted);">متبقي</div>
+        </div>
+      </div>
+    </div>`;
+  });
+  pendingPkgs.forEach(pk => {
+    const rem = Math.max(0,(pk.price||0)-(pk.paid||0));
+    optionsHtml += `<div class="pay-option" data-type="package" data-id="${pk.id}" onclick="selectPayOption(this)"
+      style="padding:11px;background:var(--glass);border:2px solid var(--glass-border);border-radius:10px;cursor:pointer;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:700;font-size:13px;">🎁 ${pk.name}</div>
+          <div style="font-size:11px;color:var(--text-muted);">باقة علاجية</div>
+        </div>
+        <div style="text-align:left;">
+          <div style="color:var(--rose);font-weight:800;">${rem.toLocaleString()} ج</div>
+          <div style="font-size:11px;color:var(--text-muted);">متبقي</div>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  document.getElementById('ppay-pat-name').textContent = pat.name;
+  document.getElementById('ppay-options').innerHTML = optionsHtml;
+  document.getElementById('ppay-amount').value = '';
+  document.getElementById('ppay-method').value = 'كاش';
+  document.getElementById('ppay-selected-id').value = '';
+  document.getElementById('ppay-selected-type').value = '';
+  document.getElementById('ppay-preview').textContent = 'اختر فاتورة أو باقة أعلاه ثم أدخل المبلغ';
+  openModal('patient-pay-modal');
+}
+
+function selectPayOption(el){
+  document.querySelectorAll('.pay-option').forEach(x => x.style.border='2px solid var(--glass-border)');
+  el.style.border = '2px solid var(--teal)';
+  document.getElementById('ppay-selected-id').value   = el.dataset.id;
+  document.getElementById('ppay-selected-type').value = el.dataset.type;
+  // اقتراح المبلغ الكامل
+  const type = el.dataset.type;
+  const id   = el.dataset.id;
+  if(type==='invoice'){
+    const inv = DB.get('invoices').find(i=>String(i.id)===String(id));
+    if(inv){ document.getElementById('ppay-amount').value = inv.remaining||0; }
+  } else {
+    const pk = DB.get('packages').find(p=>String(p.id)===String(id));
+    if(pk){ document.getElementById('ppay-amount').value = Math.max(0,(pk.price||0)-(pk.paid||0)); }
+  }
+  updatePatPayPreview();
+}
+
+function updatePatPayPreview(){
+  const amount = parseFloat(document.getElementById('ppay-amount')?.value)||0;
+  const type   = document.getElementById('ppay-selected-type')?.value;
+  const id     = document.getElementById('ppay-selected-id')?.value;
+  const prev   = document.getElementById('ppay-preview');
+  if(!id||!type){ if(prev) prev.textContent='اختر فاتورة أو باقة أعلاه'; return; }
+  if(amount<=0){ if(prev) prev.textContent='أدخل المبلغ'; return; }
+  if(type==='invoice'){
+    const inv = DB.get('invoices').find(i=>String(i.id)===String(id));
+    if(inv){
+      const newRem = Math.max(0,(inv.remaining||0)-amount);
+      if(prev) prev.innerHTML = `سيُضاف <b style="color:var(--emerald)">${amount.toLocaleString()} ج</b> — المتبقي: <b style="color:${newRem>0?'var(--amber)':'var(--teal)'}">${newRem.toLocaleString()} ج</b>`;
+    }
+  } else {
+    const pk = DB.get('packages').find(p=>String(p.id)===String(id));
+    if(pk){
+      const rem = Math.max(0,(pk.price||0)-(pk.paid||0));
+      const newRem = Math.max(0,rem-amount);
+      if(prev) prev.innerHTML = `سيُضاف <b style="color:var(--emerald)">${amount.toLocaleString()} ج</b> على الباقة — المتبقي: <b style="color:${newRem>0?'var(--amber)':'var(--teal)'}">${newRem.toLocaleString()} ج</b>`;
+    }
+  }
+}
+
+function processPatientPayment(){
+  const amount = parseFloat(document.getElementById('ppay-amount')?.value)||0;
+  const method = document.getElementById('ppay-method')?.value||'كاش';
+  const type   = document.getElementById('ppay-selected-type')?.value;
+  const id     = document.getElementById('ppay-selected-id')?.value;
+  const patId  = window._curPat;
+
+  if(!id||!type){ showToast('warning','⚠️ اختر فاتورة أو باقة أولاً'); return; }
+  if(amount<=0){ showToast('warning','⚠️ أدخل مبلغاً صحيحاً'); return; }
+
+  const today = new Date().toISOString().split('T')[0];
+
+  if(type==='invoice'){
+    const inv = DB.get('invoices').find(i=>String(i.id)===String(id));
+    if(!inv){ showToast('error','❌ الفاتورة غير موجودة'); return; }
+    if(amount > (inv.remaining||0)){ showToast('warning','⚠️ المبلغ أكبر من المتبقي'); return; }
+    const newPaid = (inv.paid||0)+amount;
+    const newRem  = Math.max(0,(inv.remaining||0)-amount);
+    DB.upd('invoices',id,{ paid:newPaid, remaining:newRem, status:newRem===0?'مدفوع':'جزئي', method, lastPayDate:today });
+    DB.push('cashlog',{ type:'وارد', amount, source:`دفعة فاتورة — ${inv.patient}`, service:inv.service||'', method, date:today, invId:id, patId });
+    showToast('success',`✅ تم استلام ${amount.toLocaleString()} ج`, newRem===0?'الفاتورة مغلقة بالكامل':'المتبقي: '+newRem.toLocaleString()+' ج');
+  } else {
+    const pk = DB.get('packages').find(p=>String(p.id)===String(id));
+    if(!pk){ showToast('error','❌ الباقة غير موجودة'); return; }
+    const rem = Math.max(0,(pk.price||0)-(pk.paid||0));
+    if(amount > rem){ showToast('warning','⚠️ المبلغ أكبر من المتبقي'); return; }
+    const newPaid = (pk.paid||0)+amount;
+    DB.upd('packages',id,{ paid:newPaid });
+    DB.push('cashlog',{ type:'وارد', amount, source:`دفعة باقة — ${pk.patName||''}`, service:pk.name||'', method, date:today, patId });
+    showToast('success',`✅ تم استلام ${amount.toLocaleString()} ج على الباقة "${pk.name}"`);
+  }
+  closeModal('patient-pay-modal');
+  // تحديث ملف العميل تلقائياً
+  if(window._curPat && typeof viewPat==='function') viewPat(window._curPat);
+}
 
 function exportPat(){
   const patients = DB.get('patients');
