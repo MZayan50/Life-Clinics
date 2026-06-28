@@ -232,6 +232,7 @@ EventBus.on('invoices:updated', function(inv){
 // ── 3. استلام مشتريات → تحديث المخزون + سجل الحركات ──
 EventBus.on('purchases:updated', function(purchase){
   if(purchase.status !== 'مستلم') return;
+  // ── أ. تحديث المخزون من purchase_items ──
   const items = DB.get('purchase_items').filter(pi => pi.purchaseId === purchase.id);
   items.forEach(item => {
     const prod = DB.get('inventory').find(p => p.id === item.productId);
@@ -246,6 +247,14 @@ EventBus.on('purchases:updated', function(purchase){
       notes: 'استلام مشتريات'
     });
   });
+  // ── ب. تحديث مديونية المورد تلقائياً (إن لم تُحدَّث مسبقاً) ──
+  if(purchase.supplierId && !purchase._owedUpdated){
+    const sup = DB.get('suppliers').find(s => s.id === purchase.supplierId);
+    if(sup){
+      DB.upd('suppliers', sup.id, { owed: (sup.owed||0) + (purchase.total||0) });
+      DB.upd('purchases', purchase.id, { _owedUpdated: true });
+    }
+  }
 });
 
 // ── 4. إتمام جلسة → تحديث عداد جلسات العميل ──
@@ -308,6 +317,9 @@ function _flushUIRefresh(){
     if(_pendingRefresh.has('cashlog')      && active==='accounts')     { if(typeof renderAccounts==='function') renderAccounts(); }
     if(_pendingRefresh.has('invoices')     && active==='accounts')     { if(typeof renderAccounts==='function') renderAccounts(); }
     if(_pendingRefresh.has('purchases')    && active==='purchases')    renderPurchases();
+    if(_pendingRefresh.has('purchases')    && active==='suppliers')    renderSuppliers();
+    if(_pendingRefresh.has('suppliers')    && active==='suppliers')    renderSuppliers();
+    if(_pendingRefresh.has('suppliers')    && active==='purchases')    { renderPurchases(); if(typeof fillPurchaseSuppliers==='function') fillPurchaseSuppliers(); }
     if(_pendingRefresh.has('transfers')    && active==='transfers')    renderTransfers();
     if(_pendingRefresh.has('sessions')     && active==='sessions')     renderSessions();
     if(_pendingRefresh.has('services')     && active==='services')     renderSvcs();
@@ -347,22 +359,36 @@ EventBus.on('appointments:updated', () => _scheduleUIRefresh('appointments'));
 EventBus.on('appointments:deleted', () => _scheduleUIRefresh('appointments'));
 EventBus.on('patients:created',     () => _scheduleUIRefresh('patients'));
 EventBus.on('patients:updated',     () => _scheduleUIRefresh('patients'));
+EventBus.on('patients:deleted',     () => _scheduleUIRefresh('patients'));
 EventBus.on('invoices:created',     () => _scheduleUIRefresh('invoices'));
 EventBus.on('invoices:updated',     () => _scheduleUIRefresh('invoices'));
+EventBus.on('invoices:deleted',     () => _scheduleUIRefresh('invoices'));
 EventBus.on('inventory:created',    () => _scheduleUIRefresh('inventory'));
 EventBus.on('inventory:updated',    () => _scheduleUIRefresh('inventory'));
+EventBus.on('inventory:deleted',    () => _scheduleUIRefresh('inventory'));
 EventBus.on('expenses:created',     () => _scheduleUIRefresh('expenses'));
 EventBus.on('expenses:updated',     () => _scheduleUIRefresh('expenses'));
+EventBus.on('expenses:deleted',     () => _scheduleUIRefresh('expenses'));
+EventBus.on('purchases:created',    () => _scheduleUIRefresh('purchases'));
 EventBus.on('purchases:updated',    () => _scheduleUIRefresh('purchases'));
+EventBus.on('purchases:deleted',    () => _scheduleUIRefresh('purchases'));
+EventBus.on('suppliers:created',    () => _scheduleUIRefresh('suppliers'));
+EventBus.on('suppliers:updated',    () => _scheduleUIRefresh('suppliers'));
+EventBus.on('suppliers:deleted',    () => _scheduleUIRefresh('suppliers'));
+EventBus.on('sessions:created',     () => _scheduleUIRefresh('sessions'));
 EventBus.on('sessions:updated',     () => _scheduleUIRefresh('sessions'));
+EventBus.on('sessions:deleted',     () => _scheduleUIRefresh('sessions'));
 EventBus.on('cashlog:created',      () => _scheduleUIRefresh('cashlog'));
+EventBus.on('cashlog:updated',      () => _scheduleUIRefresh('cashlog'));
 EventBus.on('installments:created', () => _scheduleUIRefresh('installments'));
 EventBus.on('installments:updated', () => _scheduleUIRefresh('installments'));
 EventBus.on('installments:deleted', () => _scheduleUIRefresh('installments'));
 EventBus.on('services:created',     () => _scheduleUIRefresh('services'));
 EventBus.on('services:updated',     () => _scheduleUIRefresh('services'));
+EventBus.on('services:deleted',     () => _scheduleUIRefresh('services'));
 EventBus.on('leads:created',        () => _scheduleUIRefresh('leads'));
 EventBus.on('leads:updated',        () => _scheduleUIRefresh('leads'));
+EventBus.on('leads:deleted',        () => _scheduleUIRefresh('leads'));
 EventBus.on('transfers:created',    () => _scheduleUIRefresh('transfers'));
 EventBus.on('transfers:updated',    () => _scheduleUIRefresh('transfers'));
 EventBus.on('transfers:deleted',    () => _scheduleUIRefresh('transfers'));
@@ -370,12 +396,21 @@ EventBus.on('photos:created',       () => _scheduleUIRefresh('photos'));
 EventBus.on('photos:deleted',       () => _scheduleUIRefresh('photos'));
 EventBus.on('packages:created',     () => _scheduleUIRefresh('sessions'));
 EventBus.on('packages:updated',     () => _scheduleUIRefresh('sessions'));
+EventBus.on('packages:deleted',     () => _scheduleUIRefresh('sessions'));
 
 // ══════════════════════════════════════════
 // 🔗 LOOKUP HELPERS
 // ══════════════════════════════════════════
 function _patName(patientId){
   return DB.get('patients').find(p => p.id == patientId)?.name || '—';
+}
+// أيقونة المريض حسب الجنس — تُستخدم في جميع الشاشات
+function genderAva(gender){ return gender==='ذكر'?'👦':'👧'; }
+// جلب جنس المريض بالـ ID أو الاسم
+function _patGender(patId, patName){
+  const p = DB.get('patients').find(x => x.id == patId) ||
+            (patName ? DB.get('patients').find(x => x.name === patName) : null);
+  return p?.gender || 'أنثى';
 }
 function _docName(doctorId){
   return DB.get('doctors').find(d => d.id == doctorId)?.name || '—';

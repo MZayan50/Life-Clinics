@@ -169,7 +169,7 @@ function renderWAContacts(q){
       .sort((a, b) => a.date.localeCompare(b.date))[0];
     const hasPhone = p.whatsapp || p.phone;
     return `<div class="appt-item" style="padding:11px 14px;cursor:pointer;border-right:3px solid ${_waSelectedPat?.id === p.id ? 'var(--teal)' : 'transparent'};transition:all .15s" onclick="selectWAPat('${p.id}')">
-      <div class="appt-ava" style="background:${AVA[i % AVA.length]};font-size:14px">👩</div>
+      <div class="appt-ava" style="background:${AVA[i % AVA.length]};font-size:14px">${genderAva(p.gender)}</div>
       <div class="appt-info" style="flex:1">
         <p style="font-size:13px">${p.name}</p>
         <span style="font-size:11px">${hasPhone ? '📱 ' + hasPhone : '❌ لا يوجد رقم'}</span>

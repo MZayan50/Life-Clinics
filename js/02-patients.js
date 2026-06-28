@@ -12,7 +12,7 @@ EventBus.on('patients:updated', () => { if(window.renderPat) renderPat(); });
 EventBus.on('patients:deleted', () => { if(window.renderPat) renderPat(); });
 
 const AVA = ['linear-gradient(135deg,#8B5CF6,#3B82F6)','linear-gradient(135deg,#10B981,#2DD4BF)','linear-gradient(135deg,#F59E0B,#EF4444)','linear-gradient(135deg,#C4A882,#8B5CF6)','linear-gradient(135deg,#F43F5E,#8B5CF6)'];
-function genderAva(g){ return g==='ذكر'?'👦':'👧'; }
+// genderAva مُعرَّفة في 00-core.js وتُستخدم هنا مباشرة
 let _pf='', _ps='';
 function filterPat(q){ _pf=q; renderPat(); }
 function filterPatSt(s){ _ps=s; renderPat(); }

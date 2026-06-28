@@ -214,7 +214,7 @@ function renderTodayAppts(){
   const el    = document.getElementById('today-appts'); if(!el) return;
   el.innerHTML = ta.slice(0,5).map((a,i) => `<div class="appt-item">
     <div class="appt-time">${a.time}</div>
-    <div class="appt-ava" style="background:${AVA[i%AVA.length]}">👩</div>
+    <div class="appt-ava" style="background:${AVA[i%AVA.length]}">${genderAva(_patGender(a.patId,a.patient))}</div>
     <div class="appt-info"><p>${_patName(a.patId)||a.patient}</p><span>${a.service}</span></div>
     <span class="ast ${ASC[a.status]||'sd'}">${a.status}</span>
   </div>`).join('') || '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">لا توجد مواعيد اليوم</div>';
@@ -256,7 +256,7 @@ function calSel(el, ds){
   const el2 = document.getElementById('cal-day-appts');
   if(el2) el2.innerHTML = da.map(a => `<div class="appt-item">
     <div class="appt-time">${a.time}</div>
-    <div class="appt-ava" style="background:linear-gradient(135deg,#8B5CF6,#3B82F6);font-size:13px">👩</div>
+    <div class="appt-ava" style="background:linear-gradient(135deg,#8B5CF6,#3B82F6);font-size:13px">${genderAva(_patGender(a.patId,a.patient))}</div>
     <div class="appt-info"><p style="font-size:12.5px">${_patName(a.patId)||a.patient}</p><span style="font-size:11px">${a.service}</span></div>
     <span class="ast ${ASC[a.status]||'sd'}" style="font-size:10px">${a.status}</span>
   </div>`).join('') || '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:12.5px">لا توجد مواعيد</div>';

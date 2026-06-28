@@ -48,11 +48,7 @@ function deductInventory(serviceId, qty){
 function renderSuppliers(q){
   q = q || '';
   const stFilter = document.getElementById('sup-status-filter')?.value || '';
-  if(!DB.get('suppliers').length) DB.set('suppliers',[
-    {id:'s1',name:'ميديكال تريد',cat:'مستحضرات بشرة',phone:'01055556666',email:'info@medicaltrade.com',contact:'أحمد سعيد',terms:'30 يوم',owed:12000,status:'نشط',notes:''},
-    {id:'s2',name:'ليزر سابلاي',cat:'مستلزمات ليزر',phone:'01033334444',email:'laser@supply.com',contact:'منى علي',terms:'60 يوم',owed:5500,status:'نشط',notes:''},
-    {id:'s3',name:'بيوتي إمبورت',cat:'حقن وأدوية',phone:'01099998888',email:'import@beauty.com',contact:'كريم حسن',terms:'فوري',owed:0,status:'نشط',notes:''},
-  ]);
+  // لا seed وهمي — البيانات تأتي من قاعدة البيانات الفعلية فقط
   let sups = DB.get('suppliers');
   if(q) sups = sups.filter(s => s.name.includes(q) || (s.cat||'').includes(q));
   if(stFilter) sups = sups.filter(s => s.status === stFilter);

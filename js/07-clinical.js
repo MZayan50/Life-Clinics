@@ -326,7 +326,7 @@ function renderWaitlist(){
     }
     return `<div class="wq-card ${cardCls}" id="wq-${a.id}">
       <div class="wq-rank">${i+1}</div>
-      <div class="wq-ava" style="background:${avaBg}">👤</div>
+      <div class="wq-ava" style="background:${avaBg}">${genderAva(_patGender(a.patId,a.patient))}</div>
       <div class="wq-info">
         <div class="wq-name">${a.patient||'—'}</div>
         <div class="wq-meta">${a.time}${a.endTime?' – '+a.endTime:''} · ${a.service||'—'} · ${a.doctor||'—'}</div>
@@ -612,7 +612,7 @@ function renderReception(){
     const isDone=['مكتمل','لم يحضر'].includes(a.status);
     const timer=_wlTimerStr(a);
     return `<div class="wq-card ${a.status==='متأخر'?'wq-late':isActive?'wq-checkin':''}">
-      <div class="wq-ava" style="background:${AVA_C[i%AVA_C.length]}">👤</div>
+      <div class="wq-ava" style="background:${AVA_C[i%AVA_C.length]}">${genderAva(_patGender(a.patId,a.patient))}</div>
       <div class="wq-info">
         <div class="wq-name">${a.patient}</div>
         <div class="wq-meta">${a.time}${a.endTime?' – '+a.endTime:''} · ${a.service||'—'} · <span style="color:var(--teal)">${a.doctor||'—'}</span></div>
@@ -679,7 +679,7 @@ function renderDoctorView(){
     const waitMin=a.checkInTime&&!inConsult&&!isDone?Math.max(0,nowMin-_timeToMin(a.checkInTime)):null;
     return `<div class="wq-card ${inConsult?'wq-consult':canCall?'wq-checkin':''}" style="${isDone?'opacity:.6':''}">
       <div style="width:28px;height:28px;border-radius:50%;background:var(--glass);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--text-muted);flex-shrink:0">${i+1}</div>
-      <div class="wq-ava" style="background:${AVA_C[i%AVA_C.length]}">👤</div>
+      <div class="wq-ava" style="background:${AVA_C[i%AVA_C.length]}">${genderAva(_patGender(a.patId,a.patient))}</div>
       <div class="wq-info">
         <div class="wq-name">${a.patient}</div>
         <div class="wq-meta">${a.service||'—'} · موعد ${a.time}${a.checkInTime?' · وصل '+a.checkInTime:''}</div>
