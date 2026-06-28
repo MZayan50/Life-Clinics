@@ -79,8 +79,6 @@ function viewPat(id){
   const balEl = document.getElementById('pp-balance');
   if(balEl){ balEl.textContent=totalRemain.toLocaleString()+' ج'; balEl.style.color=totalRemain>0?'var(--rose)':'var(--emerald)'; }
   const patPackages = DB.get('packages').filter(pk => pk.patId===id);
-  txt('pp-plans',     patInvoices.length);
-  txt('pp-last-visit',lastVisitDate);
   // Pre-render sessions tab
   const sessCont = document.getElementById('pp-sessions-content');
   if(sessCont){
@@ -207,14 +205,6 @@ function renderPatAccount(id){
   const totalPaid   = invoices.reduce((s,i)=>s+(i.paid||0),0);
   const totalRemain = invoices.reduce((s,i)=>s+(i.remaining||0),0);
   const txt = (elId,v) => { const el=document.getElementById(elId); if(el) el.textContent=v; };
-  txt('pac-total',    totalSpent.toLocaleString()+' ج');
-  txt('pac-paid',     totalPaid.toLocaleString()+' ج');
-  txt('pac-remaining',totalRemain.toLocaleString()+' ج');
-  txt('pac-invcount', invoices.length);
-  txt('pac-visits',   invoices.length);
-  // آخر زيارة
-  const lastInv = invoices.filter(i=>i.date).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
-  txt('pac-lastvisit', lastInv ? lastInv.date : '—');
 
   // ── إعادة رسم جدول الفواتير بالبيانات الكاملة (مزامنة تلقائية) ──
   const pinvFull = invoices.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
