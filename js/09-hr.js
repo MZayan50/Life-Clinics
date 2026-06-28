@@ -27,6 +27,11 @@
   EventBus.on('staff:updated', () => renderStaff());
   EventBus.on('staff:deleted', () => renderStaff());
 
+  // Advances (السلف): أي تغيير → تحديث شبكة الموظفين (لعرض رصيد السلفة المتبقي)
+  EventBus.on('advances:created', () => renderStaff());
+  EventBus.on('advances:updated', () => renderStaff());
+  EventBus.on('advances:deleted', () => renderStaff());
+
   // Services: أي تغيير → تحديث جدول الخدمات + dropdowns المواعيد
   EventBus.on('services:created', () => { renderSvcs(); fillSvcDropdowns(); });
   EventBus.on('services:updated', () => { renderSvcs(); fillSvcDropdowns(); });
@@ -239,11 +244,18 @@ function renderStaff(){
       </div>
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">📍 ${s.branch || '—'}</div>
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">📞 ${s.phone || '—'}</div>
-      <div style="font-size:13px;font-weight:700;color:var(--gold-light);margin-bottom:11px;">💰 ${(s.salary || 0).toLocaleString()} ج / شهريًا</div>
-      <div style="display:flex;gap:7px;">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">📅 استحقاق الراتب: ${s.dueDate || '<span style="color:var(--rose)">غير محدد</span>'}</div>
+      <div style="font-size:13px;font-weight:700;color:var(--gold-light);margin-bottom:6px;">💰 ${(s.salary || 0).toLocaleString()} ج / شهريًا</div>
+      ${staffOutstandingAdvance(s.id) > 0
+        ? `<div style="font-size:12px;font-weight:700;color:var(--rose);margin-bottom:11px;">🧾 سلفة مستحقة: ${staffOutstandingAdvance(s.id).toLocaleString()} ج (تُخصم من الراتب القادم)</div>`
+        : `<div style="margin-bottom:11px;"></div>`}
+      <div style="display:flex;gap:7px;margin-bottom:7px;">
         <button class="btn btn-teal btn-sm"   style="flex:1" onclick="payStaffSalary('${s.id}')">💸 صرف الراتب</button>
-        <button class="btn btn-ghost btn-sm"           onclick="openStaffModal('${s.id}')">✏️</button>
-        <button class="btn btn-danger btn-sm"          onclick="delStaff('${s.id}')">🗑</button>
+        <button class="btn btn-ghost btn-sm"           onclick="openAdvanceModal('${s.id}')">💵 سلفة</button>
+      </div>
+      <div style="display:flex;gap:7px;">
+        <button class="btn btn-ghost btn-sm"  style="flex:1" onclick="openStaffModal('${s.id}')">✏️ تعديل</button>
+        <button class="btn btn-danger btn-sm" style="flex:1" onclick="delStaff('${s.id}')">🗑 حذف</button>
       </div>
     </div>`).join('')
     || '<div class="card" style="text-align:center;padding:40px;color:var(--text-muted);">لا يوجد موظفون مطابقون</div>';
@@ -259,6 +271,7 @@ function openStaffModal(id){
   document.getElementById('st-phone').value  = s ? s.phone || '' : '';
   document.getElementById('st-email').value  = s ? s.email || '' : '';
   document.getElementById('st-salary').value = s ? s.salary || 5000 : 5000;
+  document.getElementById('st-duedate').value = s ? s.dueDate || '' : new Date().toISOString().split('T')[0];
   document.getElementById('st-status').value = s ? s.status      : 'نشط';
   openModal('staff-modal');
 }
@@ -266,15 +279,18 @@ function openStaffModal(id){
 function saveStaff(){
   const name = gv('st-name').trim();
   if(!name){ showToast('warning', '⚠️ اسم الموظف مطلوب'); return; }
+  const dueDate = gv('st-duedate');
+  if(!dueDate){ showToast('warning', '⚠️ تاريخ استحقاق الراتب مطلوب'); return; }
   const id   = gv('st-id');
   const data = {
     name,
-    role:   gv('st-role'),
-    branch: gv('st-branch'),
-    phone:  gv('st-phone'),
-    email:  gv('st-email'),
-    salary: parseFloat(gv('st-salary')) || 0,
-    status: gv('st-status'),
+    role:    gv('st-role'),
+    branch:  gv('st-branch'),
+    phone:   gv('st-phone'),
+    email:   gv('st-email'),
+    salary:  parseFloat(gv('st-salary')) || 0,
+    dueDate,
+    status:  gv('st-status'),
   };
   if(id){ DB.upd('staff', id, data); showToast('success', `✅ تم تحديث بيانات ${name}`); }
   else  { DB.push('staff', data);    showToast('success', `✅ تم إضافة ${name}`); }
@@ -291,19 +307,134 @@ function delStaff(id){
   }
 }
 
+// ── حساب رصيد السلفة المتبقي (غير المخصوم) لموظف معيّن ──
+function staffOutstandingAdvance(staffId){
+  return DB.get('advances')
+    .filter(a => a.staffId === staffId)
+    .reduce((sum, a) => sum + (a.remaining ?? a.amount ?? 0), 0);
+}
+
+// ── حساب تاريخ الاستحقاق القادم (بعد شهر من تاريخ معيّن) ──
+function nextDueDate(dateStr){
+  const d = new Date(dateStr);
+  if(isNaN(d)) return dateStr;
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + 1);
+  const lastDayOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDayOfMonth));
+  return d.toISOString().split('T')[0];
+}
+
 function payStaffSalary(id){
   const s = DB.get('staff').find(x => x.id === id); if(!s) return;
-  if(!confirm(`صرف راتب ${s.name} (${(s.salary || 0).toLocaleString()} ج)؟`)) return;
+
+  if(!s.dueDate){
+    showToast('warning', '⚠️ لا يوجد تاريخ استحقاق راتب لهذا الموظف', 'أضف تاريخ الاستحقاق أولاً من ✏️ تعديل بيانات الموظف');
+    return;
+  }
+
+  // ── منع صرف الراتب مرتين لنفس تاريخ الاستحقاق ──
+  if(s.lastPaidDueDate === s.dueDate){
+    showToast('warning', `⚠️ تم صرف راتب ${s.name} لاستحقاق ${s.dueDate} من قبل`, 'لا يمكن صرف الراتب مرتين لنفس تاريخ الاستحقاق');
+    return;
+  }
+
+  const advances   = DB.get('advances').filter(a => a.staffId === id && (a.remaining ?? a.amount ?? 0) > 0)
+                        .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const outstanding = advances.reduce((sum, a) => sum + (a.remaining ?? a.amount ?? 0), 0);
+  const salary       = s.salary || 0;
+  const deduction     = Math.min(outstanding, salary);
+  const net           = salary - deduction;
+
+  const confirmMsg = deduction > 0
+    ? `صرف راتب ${s.name}\nالراتب: ${salary.toLocaleString()} ج\nخصم سلفة: ${deduction.toLocaleString()} ج\nالصافي: ${net.toLocaleString()} ج\n\nتاريخ الاستحقاق: ${s.dueDate}`
+    : `صرف راتب ${s.name} (${salary.toLocaleString()} ج)؟\nتاريخ الاستحقاق: ${s.dueDate}`;
+  if(!confirm(confirmMsg)) return;
+
   DB.push('expenses', {
-    name:   `راتب: ${s.name}`,
+    name:   `راتب: ${s.name}${deduction > 0 ? ` (بعد خصم سلفة ${deduction.toLocaleString()} ج)` : ''}`,
     type:   'رواتب',
-    amount: s.salary || 0,
+    amount: net,
     branch: s.branch,
     date:   new Date().toISOString().split('T')[0],
-    notes:  '',
+    notes:  deduction > 0 ? `تم خصم سلفة بقيمة ${deduction.toLocaleString()} ج من راتب استحقاق ${s.dueDate}` : '',
   });
-  showToast('success', `✅ تم صرف راتب ${s.name}`, `${(s.salary || 0).toLocaleString()} ج - تم تسجيله في المصروفات`);
+
+  // ── تسوية السلف المستحقة (الأقدم أولاً) ──
+  let remainDeduct = deduction;
+  advances.forEach(a => {
+    if(remainDeduct <= 0) return;
+    const balance = a.remaining ?? a.amount ?? 0;
+    const take    = Math.min(balance, remainDeduct);
+    DB.upd('advances', a.id, {
+      remaining: balance - take,
+      status:    (balance - take) <= 0 ? 'مسدد بالكامل' : 'مسدد جزئيًا',
+    });
+    remainDeduct -= take;
+  });
+
+  // ── تحديث الموظف: تسجيل تاريخ الصرف وتقديم الاستحقاق للشهر القادم ──
+  DB.upd('staff', id, {
+    lastPaidDueDate: s.dueDate,
+    lastPaymentDate: new Date().toISOString().split('T')[0],
+    dueDate:         nextDueDate(s.dueDate),
+  });
+
+  showToast('success', `✅ تم صرف راتب ${s.name}`,
+    deduction > 0
+      ? `${net.toLocaleString()} ج صافي (بعد خصم سلفة ${deduction.toLocaleString()} ج) - تم تسجيله في المصروفات`
+      : `${net.toLocaleString()} ج - تم تسجيله في المصروفات`);
   // expenses:created → hook في 00-core.js يُسجّل في الخزينة تلقائياً
+}
+
+// ══════════════════════════════════════════
+// 💵 السلف (ADVANCES)
+// ══════════════════════════════════════════
+
+function openAdvanceModal(staffId){
+  const s = DB.get('staff').find(x => x.id === staffId); if(!s) return;
+  document.getElementById('adv-staff-id').value   = s.id;
+  document.getElementById('adv-staff-name').value = s.name;
+  document.getElementById('adv-amount').value     = '';
+  document.getElementById('adv-date').value       = new Date().toISOString().split('T')[0];
+  document.getElementById('adv-note').value       = '';
+  openModal('advance-modal');
+}
+
+function saveAdvance(){
+  const staffId = gv('adv-staff-id');
+  const s = DB.get('staff').find(x => x.id === staffId);
+  if(!s){ showToast('warning', '⚠️ يجب اختيار موظف'); return; }
+  const amount = parseFloat(gv('adv-amount')) || 0;
+  if(amount <= 0){ showToast('warning', '⚠️ قيمة السلفة غير صحيحة'); return; }
+  const date = gv('adv-date') || new Date().toISOString().split('T')[0];
+  const note = gv('adv-note');
+
+  DB.push('advances', {
+    staffId,
+    staffName: s.name,
+    branch:    s.branch,
+    amount,
+    remaining: amount,
+    date,
+    note,
+    status: 'مستحق',
+  });
+
+  // صرف السلفة فعليًا كمصروف نقدي (يُخصم لاحقًا من الراتب القادم)
+  DB.push('expenses', {
+    name:   `سلفة: ${s.name}`,
+    type:   'سلفة',
+    amount,
+    branch: s.branch,
+    date,
+    notes:  note || '',
+  });
+
+  showToast('success', `✅ تم صرف سلفة لـ ${s.name}`, `${amount.toLocaleString()} ج - ستُخصم من راتبه القادم`);
+  closeModal('advance-modal');
+  // renderStaff() يُستدعى تلقائياً عبر advances:created
 }
 
 // ══════════════════════════════════════════

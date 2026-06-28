@@ -95,7 +95,7 @@ const DB = {
     'campaigns', 'packages', 'sessions', 'waitlist', 'rooms', 'equipment',
     'suppliers', 'purchases', 'purchase_items', 'visits',
     'inventory_transactions', 'audit_log', 'transfers',
-    'photos', 'installments', 'cashlog'
+    'photos', 'installments', 'cashlog', 'advances'
   ],
 
   // ── In-memory cache: Firestore data lives here ──
