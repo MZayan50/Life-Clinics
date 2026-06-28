@@ -790,7 +790,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   <div class="tabs" id="ptabs">
     <div class="tab active" onclick="stab(this,'ptabs','t-med')">الملف الطبي</div>
     <div class="tab" onclick="stab(this,'ptabs','t-ses')">الجلسات</div>
-    <div class="tab" onclick="stab(this,'ptabs','t-inv')">الفواتير</div>
+    <div class="tab" onclick="stab(this,'ptabs','t-inv');renderPatAccount(window._curPat)">💰 حساب العميل</div>
     <div class="tab" onclick="stab(this,'ptabs','t-ph')">الصور</div>
     <div class="tab" onclick="stab(this,'ptabs','t-hist')">السجل</div>
   </div>
@@ -806,7 +806,64 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   <div class="card" style="margin-top:14px;"><div class="card-hdr"><div class="card-title">🎁 الباقات العلاجية</div><button class="btn btn-ghost btn-sm" onclick="openPackageModal()">+ باقة</button></div>
     <div id="pp-packages-content"><div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px">جارٍ التحميل...</div></div>
   </div></div>
-  <div id="t-inv" style="display:none"><div class="card"><div class="card-hdr"><div class="card-title">🧾 الفواتير</div></div><div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الخدمة</th><th>المبلغ</th><th>طريقة الدفع</th><th>الحالة</th><th></th></tr></thead><tbody id="p-inv-tbody"></tbody></table></div></div></div>
+  <div id="t-inv" style="display:none">
+
+    <!-- ══ ملخص مالي سريع ══ -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px;" id="pac-kpi-row">
+      <div class="sbox2"><div class="sval" id="pac-total" style="color:var(--gold-light)">0</div><div class="slbl">إجمالي الإنفاق</div></div>
+      <div class="sbox2"><div class="sval" id="pac-paid"  style="color:var(--emerald)">0</div><div class="slbl">المدفوع</div></div>
+      <div class="sbox2"><div class="sval" id="pac-remaining" style="color:var(--rose)">0</div><div class="slbl">المتبقي</div></div>
+      <div class="sbox2"><div class="sval" id="pac-invcount" style="color:var(--teal)">0</div><div class="slbl">الفواتير</div></div>
+    </div>
+
+    <!-- ══ فواتير العميل ══ -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-hdr">
+        <div class="card-title">🧾 الفواتير</div>
+        <button class="btn btn-ghost btn-sm" onclick="openInvModal()">+ فاتورة</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>التاريخ</th>
+              <th>الخدمة</th>
+              <th>الإجمالي</th>
+              <th>المدفوع</th>
+              <th>المتبقي</th>
+              <th>طريقة الدفع</th>
+              <th>الحالة</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="p-inv-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ جلسات العميل بتفاصيل مالية ══ -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-hdr">
+        <div class="card-title">✨ سجل الجلسات</div>
+      </div>
+      <div id="pac-sessions-list">
+        <div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px">لا توجد جلسات</div>
+      </div>
+    </div>
+
+    <!-- ══ باقات العميل بتفاصيل مالية ══ -->
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title">🎁 الباقات العلاجية</div>
+        <button class="btn btn-ghost btn-sm" onclick="openPackageFromProfile()">+ باقة</button>
+      </div>
+      <div id="pac-packages-list">
+        <div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px">لا توجد باقات</div>
+      </div>
+    </div>
+
+  </div>
   <div id="t-ph" style="display:none"><div class="card"><div class="card-hdr"><div class="card-title">📸 الصور</div><button class="btn btn-teal btn-sm">+ رفع</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;"><div style="border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--glass-border);"><div style="background:linear-gradient(135deg,#1a1a2e,#16213e);height:120px;display:flex;align-items:center;justify-content:center;font-size:36px;">📷</div><div style="padding:7px;font-size:12px;"><div style="font-weight:600">قبل - يناير 2025</div><div style="color:var(--text-muted)">ليزر جلسة 1</div></div></div><div style="border-radius:var(--radius-sm);overflow:hidden;border:1px solid rgba(45,212,191,.3);"><div style="background:linear-gradient(135deg,#0d2137,#0d3340);height:120px;display:flex;align-items:center;justify-content:center;font-size:36px;">📸</div><div style="padding:7px;font-size:12px;"><div style="font-weight:600;color:var(--teal)">بعد - مارس 2025</div><div style="color:var(--text-muted)">ليزر جلسة 5</div></div></div></div></div></div>
   <div id="t-hist" style="display:none"><div class="card"><div class="card-hdr"><div class="card-title">📋 السجل</div></div><div style="display:flex;flex-direction:column;gap:10px;" id="hist-list"></div></div></div>
 </div>
