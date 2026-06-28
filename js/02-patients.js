@@ -68,20 +68,16 @@ function viewPat(id){
   const patPackages = DB.get('packages').filter(pk => String(pk.patId)===String(id));
   const patSessions = DB.get('sessions').filter(s => s.patId===id);
 
-  // فواتير الباقات (pkgId موجود) نستبعدها لتجنب الاحتساب المزدوج
-  const pkgInvIds = new Set(patPackages.map(pk => String(pk.id)));
-  const standaloneInvs = patInvoices.filter(i => !i.pkgId || !pkgInvIds.has(String(i.pkgId)));
-
-  // إجمالي مالي = فواتير مستقلة فقط + باقات
-  const invSpent  = standaloneInvs.reduce((s,i)=>s+(i.total||0),0);
+  // إجمالي مالي = فواتير + باقات
+  const invSpent  = patInvoices.reduce((s,i)=>s+(i.total||0),0);
   const pkgSpent  = patPackages.reduce((s,pk)=>s+(pk.price||0),0);
   const totalSpent = invSpent + pkgSpent;
 
-  const invPaid   = standaloneInvs.reduce((s,i)=>s+(i.paid||0),0);
+  const invPaid   = patInvoices.reduce((s,i)=>s+(i.paid||0),0);
   const pkgPaid   = patPackages.reduce((s,pk)=>s+(pk.paid||0),0);
   const totalPaid = invPaid + pkgPaid;
 
-  const invRemain = standaloneInvs.reduce((s,i)=>s+(i.remaining||0),0);
+  const invRemain = patInvoices.reduce((s,i)=>s+(i.remaining||0),0);
   const pkgRemain = patPackages.reduce((s,pk)=>s+Math.max(0,(pk.price||0)-(pk.paid||0)),0);
   const totalRemain = invRemain + pkgRemain;
 
@@ -218,13 +214,11 @@ function viewPat(id){
     const _invs = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===_p2.name));
     const _pkgs = DB.get('packages').filter(pk => String(pk.patId)===String(id));
     const _sess = DB.get('sessions').filter(s => s.patId===id);
-    // استبعاد فواتير الباقات لتجنب الاحتساب المزدوج
-    const _pkgInvIds = new Set(_pkgs.map(pk => String(pk.id)));
-    const _standaloneInvs = _invs.filter(i => !i.pkgId || !_pkgInvIds.has(String(i.pkgId)));
-    const _sp = _standaloneInvs.reduce((s,i)=>s+(i.total||0),0)  + _pkgs.reduce((s,pk)=>s+(pk.price||0),0);
-    const _pd = _standaloneInvs.reduce((s,i)=>s+(i.paid||0),0)   + _pkgs.reduce((s,pk)=>s+(pk.paid||0),0);
-    const _rm = _standaloneInvs.reduce((s,i)=>s+(i.remaining||0),0) + _pkgs.reduce((s,pk)=>s+Math.max(0,(pk.price||0)-(pk.paid||0)),0);
-    const _vis = _standaloneInvs.length + _pkgs.reduce((s,pk)=>s+(pk.sessionsUsed||0),0);
+    // إجمالي مالي شامل: فواتير + باقات
+    const _sp = _invs.reduce((s,i)=>s+(i.total||0),0)  + _pkgs.reduce((s,pk)=>s+(pk.price||0),0);
+    const _pd = _invs.reduce((s,i)=>s+(i.paid||0),0)   + _pkgs.reduce((s,pk)=>s+(pk.paid||0),0);
+    const _rm = _invs.reduce((s,i)=>s+(i.remaining||0),0) + _pkgs.reduce((s,pk)=>s+Math.max(0,(pk.price||0)-(pk.paid||0)),0);
+    const _vis = _invs.length + _pkgs.reduce((s,pk)=>s+(pk.sessionsUsed||0),0);
     txt('pp-sessions', _vis);
     txt('pp-spent',    _sp.toLocaleString()+' ج');
     txt('pp-paid-total',_pd.toLocaleString()+' ج');
@@ -258,15 +252,12 @@ function renderPatAccount(id){
   const allPatPkgs = DB.get('packages').filter(pk => String(pk.patId)===String(id));
   const allCashLog = (DB.get('cashlog')||[]).filter(c => String(c.patId)===String(id));
 
-  // ── تحديث الكروت الإحصائية في رأس الملف (فواتير مستقلة + باقات) ──
+  // ── تحديث الكروت الإحصائية في رأس الملف (فواتير + باقات) ──
   const _txt = (elId,v) => { const el=document.getElementById(elId); if(el) el.textContent=v; };
-  // استبعاد فواتير الباقات (pkgId) لتجنب الاحتساب المزدوج
-  const _pkgIds = new Set(allPatPkgs.map(pk => String(pk.id)));
-  const _standaloneInvs2 = allPatInvs.filter(i => !i.pkgId || !_pkgIds.has(String(i.pkgId)));
-  const _totalSpent  = _standaloneInvs2.reduce((s,i)=>s+(i.total||0),0)  + allPatPkgs.reduce((s,pk)=>s+(pk.price||0),0);
-  const _totalPaid   = _standaloneInvs2.reduce((s,i)=>s+(i.paid||0),0)   + allPatPkgs.reduce((s,pk)=>s+(pk.paid||0),0);
-  const _totalRemain = _standaloneInvs2.reduce((s,i)=>s+(i.remaining||0),0) + allPatPkgs.reduce((s,pk)=>s+Math.max(0,(pk.price||0)-(pk.paid||0)),0);
-  const _totalVisits = _standaloneInvs2.length + allPatPkgs.reduce((s,pk)=>s+(pk.sessionsUsed||0),0);
+  const _totalSpent  = allPatInvs.reduce((s,i)=>s+(i.total||0),0)  + allPatPkgs.reduce((s,pk)=>s+(pk.price||0),0);
+  const _totalPaid   = allPatInvs.reduce((s,i)=>s+(i.paid||0),0)   + allPatPkgs.reduce((s,pk)=>s+(pk.paid||0),0);
+  const _totalRemain = allPatInvs.reduce((s,i)=>s+(i.remaining||0),0) + allPatPkgs.reduce((s,pk)=>s+Math.max(0,(pk.price||0)-(pk.paid||0)),0);
+  const _totalVisits = allPatInvs.length + allPatPkgs.reduce((s,pk)=>s+(pk.sessionsUsed||0),0);
   _txt('pp-sessions',  _totalVisits);
   _txt('pp-spent',     _totalSpent.toLocaleString()+' ج');
   _txt('pp-paid-total',_totalPaid.toLocaleString()+' ج');
@@ -276,45 +267,19 @@ function renderPatAccount(id){
   if(ppPayBtn) ppPayBtn.style.display = _totalRemain>0 ? '' : 'none';
 
   // ══════════════════════════════════════════════════════
-  // بناء قائمة موحدة من كل التعاملات مرتبة بالتاريخ
+  // جدول حساب العميل: باقات + cashlog فقط
+  // الفواتير تظهر في الطباعة فقط — راجع printProfile()
   // ══════════════════════════════════════════════════════
   const allTx = [];
 
-  // 1️⃣ فواتير
-  allPatInvs.forEach((inv, idx) => {
-    const items = inv.items||[];
-    const svcs  = items.filter(x=>x.type==='service'||!x.type).map(x=>x.name||x.service||'—').join('، ')||inv.service||'—';
-    allTx.push({
-      _date : inv.date||'',
-      _type : 'invoice',
-      _raw  : inv,
-      _idx  : idx,
-      _svcs : svcs
-    });
-  });
-
-  // 2️⃣ باقات (بدون فاتورة مرتبطة فقط — لتفادي التكرار)
+  // 1️⃣ كل الباقات
   allPatPkgs.forEach(pk => {
-    const linkedInv = allPatInvs.find(i => i.pkgId===pk.id);
-    if(!linkedInv) {
-      allTx.push({
-        _date : pk.startDate||'',
-        _type : 'package',
-        _raw  : pk
-      });
-    }
+    allTx.push({ _date: pk.startDate||'', _type: 'package', _raw: pk });
   });
 
-  // 3️⃣ مدفوعات cashlog المرتبطة بالعميل (التي ليست مرتبطة بفاتورة موجودة بالفعل)
+  // 2️⃣ مدفوعات cashlog المرتبطة بالعميل
   allCashLog.forEach(c => {
-    const alreadyInInv = c.invId && allPatInvs.find(i => String(i.id)===String(c.invId));
-    if(!alreadyInInv) {
-      allTx.push({
-        _date : c.date||'',
-        _type : 'cashlog',
-        _raw  : c
-      });
-    }
+    allTx.push({ _date: c.date||'', _type: 'cashlog', _raw: c });
   });
 
   // ترتيب تنازلي بالتاريخ
