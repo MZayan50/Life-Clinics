@@ -63,22 +63,39 @@ function viewPat(id){
   txt('pp-name', p.name);
   txt('pp-contact', `📞 ${p.phone}${p.email?' · 📧 '+p.email:''}`);
   txt('pp-meta', `مصدر: ${p.source||'—'} · فرع: ${p.branch||'—'}${p.dob?' · '+age(p.dob)+' سنة':''}`);
-  // ── ملخص مالي تلقائي من الفواتير ──
+  // ── ملخص مالي شامل: فواتير + باقات ──
   const patInvoices = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===p.name));
-  const totalSpent   = patInvoices.reduce((s,i)=>s+(i.total||0),0);
-  const totalPaid    = patInvoices.reduce((s,i)=>s+(i.paid||0),0);
-  const totalRemain  = patInvoices.reduce((s,i)=>s+(i.remaining||0),0);
+  const patPackages = DB.get('packages').filter(pk => String(pk.patId)===String(id));
+  const patSessions = DB.get('sessions').filter(s => s.patId===id);
+
+  // إجمالي مالي = فواتير + باقات
+  const invSpent  = patInvoices.reduce((s,i)=>s+(i.total||0),0);
+  const pkgSpent  = patPackages.reduce((s,pk)=>s+(pk.price||0),0);
+  const totalSpent = invSpent + pkgSpent;
+
+  const invPaid   = patInvoices.reduce((s,i)=>s+(i.paid||0),0);
+  const pkgPaid   = patPackages.reduce((s,pk)=>s+(pk.paid||0),0);
+  const totalPaid = invPaid + pkgPaid;
+
+  const invRemain = patInvoices.reduce((s,i)=>s+(i.remaining||0),0);
+  const pkgRemain = patPackages.reduce((s,pk)=>s+Math.max(0,(pk.price||0)-(pk.paid||0)),0);
+  const totalRemain = invRemain + pkgRemain;
+
+  // الزيارات = عدد الفواتير + الجلسات المكتملة من الباقات
+  const pkgSessionsDone = patPackages.reduce((s,pk)=>s+(pk.sessionsUsed||0),0);
+  const totalVisits = patInvoices.length + pkgSessionsDone;
+
   const lastVisitInv = patInvoices.filter(i=>i.date).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
   const lastVisitDate = lastVisitInv ? lastVisitInv.date : '—';
-  const patSessions  = DB.get('sessions').filter(s => s.patId===id);
-  const totalVisits  = patInvoices.length;
 
   txt('pp-sessions',  totalVisits);
   txt('pp-spent',     totalSpent.toLocaleString()+' ج');
   txt('pp-paid-total',totalPaid.toLocaleString()+' ج');
   const balEl = document.getElementById('pp-balance');
   if(balEl){ balEl.textContent=totalRemain.toLocaleString()+' ج'; balEl.style.color=totalRemain>0?'var(--rose)':'var(--emerald)'; }
-  const patPackages = DB.get('packages').filter(pk => pk.patId===id);
+  // زر "دفع متبقي"
+  const ppPayBtnV = document.getElementById('pp-pay-btn');
+  if(ppPayBtnV) ppPayBtnV.style.display = totalRemain>0 ? '' : 'none';
   // Pre-render sessions tab
   const sessCont = document.getElementById('pp-sessions-content');
   if(sessCont){
@@ -195,10 +212,14 @@ function viewPat(id){
     const _p2 = DB.get('patients').find(x => x.id === id);
     if(!_p2) return;
     const _invs = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===_p2.name));
-    const _sp = _invs.reduce((s,i)=>s+(i.total||0),0);
-    const _pd = _invs.reduce((s,i)=>s+(i.paid||0),0);
-    const _rm = _invs.reduce((s,i)=>s+(i.remaining||0),0);
-    txt('pp-sessions', _invs.length);
+    const _pkgs = DB.get('packages').filter(pk => String(pk.patId)===String(id));
+    const _sess = DB.get('sessions').filter(s => s.patId===id);
+    // إجمالي مالي شامل: فواتير + باقات
+    const _sp = _invs.reduce((s,i)=>s+(i.total||0),0)  + _pkgs.reduce((s,pk)=>s+(pk.price||0),0);
+    const _pd = _invs.reduce((s,i)=>s+(i.paid||0),0)   + _pkgs.reduce((s,pk)=>s+(pk.paid||0),0);
+    const _rm = _invs.reduce((s,i)=>s+(i.remaining||0),0) + _pkgs.reduce((s,pk)=>s+Math.max(0,(pk.price||0)-(pk.paid||0)),0);
+    const _vis = _invs.length + _pkgs.reduce((s,pk)=>s+(pk.sessionsUsed||0),0);
+    txt('pp-sessions', _vis);
     txt('pp-spent',    _sp.toLocaleString()+' ج');
     txt('pp-paid-total',_pd.toLocaleString()+' ج');
     const _bEl = document.getElementById('pp-balance');
@@ -225,13 +246,15 @@ function renderPatAccount(id){
   const p = DB.get('patients').find(x => x.id === id);
   if(!p) return;
 
-  // ── تحديث الكروت الإحصائية في رأس الملف أيضاً (مزامنة لحظية) ──
+  // ── تحديث الكروت الإحصائية في رأس الملف أيضاً (فواتير + باقات) ──
   const _txt = (elId,v) => { const el=document.getElementById(elId); if(el) el.textContent=v; };
   const allPatInvs = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===p.name));
-  const _totalSpent  = allPatInvs.reduce((s,i)=>s+(i.total||0),0);
-  const _totalPaid   = allPatInvs.reduce((s,i)=>s+(i.paid||0),0);
-  const _totalRemain = allPatInvs.reduce((s,i)=>s+(i.remaining||0),0);
-  _txt('pp-sessions',  allPatInvs.length);
+  const allPatPkgs = DB.get('packages').filter(pk => String(pk.patId)===String(id));
+  const _totalSpent  = allPatInvs.reduce((s,i)=>s+(i.total||0),0)  + allPatPkgs.reduce((s,pk)=>s+(pk.price||0),0);
+  const _totalPaid   = allPatInvs.reduce((s,i)=>s+(i.paid||0),0)   + allPatPkgs.reduce((s,pk)=>s+(pk.paid||0),0);
+  const _totalRemain = allPatInvs.reduce((s,i)=>s+(i.remaining||0),0) + allPatPkgs.reduce((s,pk)=>s+Math.max(0,(pk.price||0)-(pk.paid||0)),0);
+  const _totalVisits = allPatInvs.length + allPatPkgs.reduce((s,pk)=>s+(pk.sessionsUsed||0),0);
+  _txt('pp-sessions',  _totalVisits);
   _txt('pp-spent',     _totalSpent.toLocaleString()+' ج');
   _txt('pp-paid-total',_totalPaid.toLocaleString()+' ج');
   const _balEl = document.getElementById('pp-balance');
