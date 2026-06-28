@@ -144,8 +144,176 @@ function viewPat(id){
   if(hr) hr.innerHTML = `<div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">النوع:</span><span class="tag tg-teal">${p.hair}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">المشاكل:</span><span>${p.hairProbs||'—'}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">الأدوية:</span><span>${p.meds||'لا يوجد'}</span></div>`;
   const pinv = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===p.name));
   const pitb = document.getElementById('p-inv-tbody');
-  if(pitb) pitb.innerHTML = pinv.map(i => `<tr><td style="font-size:12px">${i.date}</td><td>${i.service}</td><td style="font-weight:700">${i.total} ج</td><td>${i.method}</td><td><span class="ast ${i.status==='مدفوع'?'sc':'sp'}">${i.status}</span></td><td><button class="btn btn-teal btn-xs" onclick="sendInvoiceWA('${i.id}')" title="إرسال عبر واتساب">💬</button></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد فواتير</td></tr>';
+  if(pitb) pitb.innerHTML = pinv.map((i,idx) => {
+    const num = `#${String(idx+1).padStart(3,'0')}`;
+    const stCls = i.status==='مدفوع'?'sc':i.status==='جزئي'?'sp':'sd';
+    return `<tr>
+      <td style="font-size:11px;color:var(--gold-light);font-weight:700">${num}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${i.date||'—'}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${i.service||'—'}</td>
+      <td style="font-weight:800;color:var(--gold-light)">${(i.total||0).toLocaleString()} ج</td>
+      <td style="color:var(--emerald);font-weight:700">${(i.paid||0).toLocaleString()} ج</td>
+      <td style="color:${(i.remaining||0)>0?'var(--rose)':'var(--text-muted)'};font-weight:700">${(i.remaining||0).toLocaleString()} ج</td>
+      <td><span class="tag tg-teal" style="font-size:11px">${i.method||'—'}</span></td>
+      <td><span class="ast ${stCls}">${i.status||'—'}</span></td>
+      <td style="display:flex;gap:4px;">
+        ${(i.remaining||0)>0?`<button class="btn btn-teal btn-xs" onclick="openSmartPay('${i.id}')">💳</button>`:''}
+        <button class="btn btn-ghost btn-xs" onclick="sendInvoiceWA('${i.id}')">💬</button>
+        <button class="btn btn-ghost btn-xs" onclick="printInvoice('${i.id}')">🖨️</button>
+      </td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد فواتير</td></tr>';
   showScreen('patient-profile');
+}
+
+// ══════════════════════════════════════════════════════
+// 💰 RENDER PATIENT ACCOUNT — حساب العميل الشامل
+// يُستدعى عند الضغط على تاب "حساب العميل"
+// ══════════════════════════════════════════════════════
+function renderPatAccount(id){
+  if(!id) return;
+  const p = DB.get('patients').find(x => x.id === id);
+  if(!p) return;
+
+  const invoices = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===p.name));
+  const sessions = DB.get('sessions').filter(s => s.patId===id);
+  const packages = DB.get('packages').filter(pk => pk.patId===id);
+
+  // ── KPIs ──
+  const totalSpent  = invoices.reduce((s,i)=>s+(i.total||0),0);
+  const totalPaid   = invoices.reduce((s,i)=>s+(i.paid||0),0);
+  const totalRemain = invoices.reduce((s,i)=>s+(i.remaining||0),0);
+  const txt = (elId,v) => { const el=document.getElementById(elId); if(el) el.textContent=v; };
+  txt('pac-total',    totalSpent.toLocaleString()+' ج');
+  txt('pac-paid',     totalPaid.toLocaleString()+' ج');
+  txt('pac-remaining',totalRemain.toLocaleString()+' ج');
+  txt('pac-invcount', invoices.length);
+
+  // ── فواتير (p-inv-tbody مُحدَّث من viewPat بالفعل) ──
+
+  // ── جلسات بتفاصيل ──
+  const sessCont = document.getElementById('pac-sessions-list');
+  if(sessCont){
+    if(!sessions.length){
+      sessCont.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px">لا توجد جلسات مسجلة</div>';
+    } else {
+      sessCont.innerHTML = sessions.map(s => {
+        const done=s.done||0, total=s.total||1, pct=Math.round(done/total*100);
+        const stCls = s.status==='مكتملة'?'sc':s.status==='متوقفة'?'sx':'sp';
+        // تفصيل كل جلسة فردية
+        const sessRows = Array.from({length:total},(_,i)=>{
+          const sessNum = i+1;
+          const isDone  = i < done;
+          return `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid var(--glass-border);font-size:12.5px;">
+            <div style="width:26px;height:26px;border-radius:50%;background:${isDone?'var(--teal)':'var(--glass-border)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:${isDone?'#fff':'var(--text-muted)'};">${sessNum}</div>
+            <div style="flex:1;">
+              <span style="font-weight:600">${s.type||'جلسة'} ${sessNum}</span>
+              ${s.doc?`<span style="color:var(--text-muted);font-size:11px;margin-right:6px;">· د. ${s.doc}</span>`:''}
+            </div>
+            <div>
+              ${isDone
+                ? `<span class="ast sc" style="font-size:11px">✅ مكتملة</span>`
+                : `<span class="ast sd" style="font-size:11px">○ لم تُنفَّذ</span>`
+              }
+            </div>
+          </div>`;
+        }).join('');
+        return `<div style="margin-bottom:12px;border:1px solid var(--glass-border);border-radius:var(--radius-sm);overflow:hidden;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--glass);">
+            <div>
+              <span style="font-weight:800;font-size:14px;">${s.type||'جلسات'}</span>
+              ${s.doc?`<span style="color:var(--text-muted);font-size:12px;margin-right:8px;">د. ${s.doc}</span>`:''}
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="color:var(--teal);font-weight:800;">${done}/${total}</span>
+              <span class="ast ${stCls}" style="font-size:11px">${s.status}</span>
+            </div>
+          </div>
+          <div class="prog" style="border-radius:0;height:4px;"><div class="prog-f" style="width:${pct}%;background:var(--teal)"></div></div>
+          ${sessRows}
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // ── باقات بتفاصيل مالية ──
+  const pkgCont = document.getElementById('pac-packages-list');
+  if(pkgCont){
+    if(!packages.length){
+      pkgCont.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px">لا توجد باقات</div>';
+    } else {
+      pkgCont.innerHTML = packages.map(pk => {
+        const pkgPaid    = pk.paid||0;
+        const pkgPrice   = pk.price||0;
+        const pkgRemain  = Math.max(0,pkgPrice-pkgPaid);
+        const sessUsed   = pk.sessionsUsed||0;
+        const sessTotal  = pk.sessionsCount||0;
+        const sessLeft   = Math.max(0,sessTotal-sessUsed);
+        const sessPct    = sessTotal?Math.round(sessUsed/sessTotal*100):0;
+        const stCls      = pk.status==='نشطة'?'sc':pk.status==='منتهية'?'sd':'sp';
+        const sessColor  = sessLeft===0?'var(--rose)':sessLeft===1?'var(--gold-light)':'var(--teal)';
+        // تفصيل كل جلسة فردية في الباقة
+        const sessRows = sessTotal>0 ? Array.from({length:sessTotal},(_,i)=>{
+          const sessNum = i+1;
+          const isDone  = i < sessUsed;
+          // ربط بالفاتورة المرتبطة إن وُجدت
+          const linkedInv = DB.get('invoices').find(inv => inv.pkgId===pk.id);
+          return `<div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--glass-border);font-size:12.5px;">
+            <div style="width:26px;height:26px;border-radius:50%;background:${isDone?'var(--teal)':'rgba(148,163,184,.15)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:${isDone?'#fff':'var(--text-muted)'};">${sessNum}</div>
+            <div style="flex:1;">
+              <span style="font-weight:600">${pk.services||pk.name} — جلسة ${sessNum}</span>
+            </div>
+            <div>
+              ${isDone
+                ? `<span class="ast sc" style="font-size:11px">✅ مكتملة</span>`
+                : `<span class="ast sd" style="font-size:11px">○ لم تُنفَّذ</span>`
+              }
+            </div>
+          </div>`;
+        }).join('') : '';
+
+        return `<div style="border:1px solid var(--glass-border);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:14px;">
+          <!-- هيدر الباقة -->
+          <div style="padding:12px 14px;background:var(--glass);display:flex;justify-content:space-between;align-items:start;">
+            <div>
+              <div style="font-weight:800;font-size:14px;">🎁 ${pk.name}</div>
+              <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">${pk.services||'—'} · ${pk.startDate||'—'} ← ${pk.endDate||'—'}</div>
+            </div>
+            <span class="ast ${stCls}" style="font-size:11px">${pk.status}</span>
+          </div>
+          <!-- ملخص مالي -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--glass-border);">
+            <div style="padding:10px;background:var(--bg-secondary);text-align:center;">
+              <div style="font-weight:800;color:var(--gold-light);font-size:15px;">${pkgPrice.toLocaleString()} ج</div>
+              <div style="font-size:11px;color:var(--text-muted);">سعر الباقة</div>
+            </div>
+            <div style="padding:10px;background:var(--bg-secondary);text-align:center;">
+              <div style="font-weight:800;color:var(--emerald);font-size:15px;">${pkgPaid.toLocaleString()} ج</div>
+              <div style="font-size:11px;color:var(--text-muted);">المدفوع</div>
+            </div>
+            <div style="padding:10px;background:var(--bg-secondary);text-align:center;">
+              <div style="font-weight:800;color:${pkgRemain>0?'var(--rose)':'var(--teal)'};font-size:15px;">${pkgRemain.toLocaleString()} ج</div>
+              <div style="font-size:11px;color:var(--text-muted);">المتبقي</div>
+            </div>
+          </div>
+          <!-- شريط الجلسات -->
+          <div style="padding:10px 14px;background:var(--bg-secondary);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span style="font-size:12px;font-weight:700;">🎯 الجلسات</span>
+              <span style="font-size:13px;font-weight:800;color:${sessColor}">${sessUsed}/${sessTotal} <span style="font-size:11px;color:var(--text-muted)">(متبقي: ${sessLeft})</span></span>
+            </div>
+            <div class="prog"><div class="prog-f" style="width:${sessPct}%;background:${sessColor}"></div></div>
+          </div>
+          <!-- تفصيل الجلسات -->
+          ${sessRows}
+          <!-- زر دفع المتبقي لو في متبقي -->
+          ${pkgRemain>0?`<div style="padding:10px 14px;background:var(--bg-secondary);">
+            <button class="btn btn-teal btn-sm" onclick="openPayFromProfile()" style="width:100%">💳 دفع المتبقي (${pkgRemain.toLocaleString()} ج)</button>
+          </div>`:''}
+        </div>`;
+      }).join('');
+    }
+  }
 }
 
 function age(d){ return d ? Math.floor((Date.now()-new Date(d))/(365.25*24*3600*1000)) : 0; }
