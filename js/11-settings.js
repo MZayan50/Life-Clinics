@@ -67,7 +67,6 @@ async function loadSettingsFromFirestore(){
     });
   } catch(e){ console.warn('loadSettingsFromFirestore:', e.message); }
 }
-}
 function loadSettings(){
   // اقرأ من الـ cache (Firestore data) أو localStorage لو offline
   const s = DB._cache['settings'] ||
