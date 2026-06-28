@@ -237,6 +237,7 @@ function renderStaff(){
           <div class="tdava" style="background:${AVA[i % AVA.length]}">👩‍💼</div>
           <div>
             <div style="font-size:15px;font-weight:800;">${s.name}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:1px;font-family:monospace;letter-spacing:.5px;">🪪 ${s.empCode || '—'}</div>
             <span class="tag ${roleColors[s.role] || 'tg-teal'}" style="font-size:11px;margin-top:3px;display:inline-block;">${s.role}</span>
           </div>
         </div>
@@ -268,12 +269,30 @@ function openStaffModal(id){
   document.getElementById('st-name').value   = s ? s.name        : '';
   document.getElementById('st-role').value   = s ? s.role        : 'استقبال';
   document.getElementById('st-branch').value = s ? s.branch      : 'مدينة نصر';
+  // ── عرض كود الموظف (للقراءة فقط عند التعديل) ──
+  const codeEl = document.getElementById('st-empcode-display');
+  if(codeEl) codeEl.textContent = s?.empCode ? `🪪 كود الموظف: ${s.empCode}` : '🪪 سيُولَّد الكود تلقائياً عند الحفظ';
   document.getElementById('st-phone').value  = s ? s.phone || '' : '';
   document.getElementById('st-email').value  = s ? s.email || '' : '';
   document.getElementById('st-salary').value = s ? s.salary || 5000 : 5000;
   document.getElementById('st-duedate').value = s ? s.dueDate || '' : new Date().toISOString().split('T')[0];
   document.getElementById('st-status').value = s ? s.status      : 'نشط';
   openModal('staff-modal');
+}
+
+// ── توليد كود الموظف من الاسم ──
+// يأخذ الحرف الأول من كل كلمة (حتى 3 كلمات) ويضيف رقماً تسلسلياً
+// مثال: "أحمد محمد علي" → "أمع-001"
+function generateEmpCode(name){
+  const words  = name.trim().split(/\s+/).filter(Boolean);
+  const prefix = words.slice(0, 3).map(w => w[0]).join('').toUpperCase();
+  // البحث عن أعلى رقم مستخدم لنفس الـ prefix
+  const existing = DB.get('staff')
+    .map(s => s.empCode || '')
+    .filter(c => c.startsWith(prefix + '-'))
+    .map(c => parseInt(c.split('-')[1]) || 0);
+  const next = existing.length ? Math.max(...existing) + 1 : 1;
+  return `${prefix}-${String(next).padStart(3, '0')}`;
 }
 
 function saveStaff(){
@@ -283,8 +302,14 @@ function saveStaff(){
   // بدل رفض حفظ الموظف بالكامل
   const dueDate = gv('st-duedate') || new Date().toISOString().split('T')[0];
   const id   = gv('st-id');
+
+  // ── للموظف الجديد: توليد empCode تلقائياً من الاسم ──
+  const existingStaff = id ? DB.get('staff').find(x => x.id === id) : null;
+  const empCode = existingStaff?.empCode || generateEmpCode(name);
+
   const data = {
     name,
+    empCode,
     role:    gv('st-role'),
     branch:  gv('st-branch'),
     phone:   gv('st-phone'),
@@ -293,8 +318,8 @@ function saveStaff(){
     dueDate,
     status:  gv('st-status'),
   };
-  if(id){ DB.upd('staff', id, data); showToast('success', `✅ تم تحديث بيانات ${name}`); }
-  else  { DB.push('staff', data);    showToast('success', `✅ تم إضافة ${name}`); }
+  if(id){ DB.upd('staff', id, data); showToast('success', `✅ تم تحديث بيانات ${name} [${empCode}]`); }
+  else  { DB.push('staff', data);    showToast('success', `✅ تم إضافة ${name} [${empCode}]`); }
   closeModal('staff-modal');
   // renderStaff() يُستدعى تلقائياً عبر staff:created / staff:updated
 }
@@ -335,10 +360,23 @@ function payStaffSalary(id){
     return;
   }
 
-  // ── منع صرف الراتب مرتين لنفس تاريخ الاستحقاق ──
+  // ── حماية مزدوجة: منع صرف الراتب أكثر من مرة في نفس الشهر ──
+  // 1) نفس dueDate تماماً
   if(s.lastPaidDueDate === s.dueDate){
     showToast('warning', `⚠️ تم صرف راتب ${s.name} لاستحقاق ${s.dueDate} من قبل`, 'لا يمكن صرف الراتب مرتين لنفس تاريخ الاستحقاق');
     return;
+  }
+  // 2) نفس الشهر والسنة (حتى لو تغيّر الـ dueDate يدوياً)
+  if(s.lastPaymentDate){
+    const lastPay = new Date(s.lastPaymentDate);
+    const today   = new Date();
+    if(lastPay.getFullYear() === today.getFullYear() && lastPay.getMonth() === today.getMonth()){
+      const monthName = today.toLocaleString('ar-EG', { month: 'long', year: 'numeric' });
+      showToast('warning',
+        `⚠️ تم صرف راتب ${s.name} بالفعل في ${monthName}`,
+        `تاريخ آخر صرف: ${s.lastPaymentDate} — لا يمكن الصرف مرتين في نفس الشهر`);
+      return;
+    }
   }
 
   const advances   = DB.get('advances').filter(a => a.staffId === id && (a.remaining ?? a.amount ?? 0) > 0)

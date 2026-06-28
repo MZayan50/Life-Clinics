@@ -109,6 +109,27 @@ function openApptModal(id){
   openModal('appt-modal');
 }
 
+// ── عند اختيار العميل: عرض باقته النشطة في مودال الموعد ──
+function onApptPatChange(patId){
+  const box = document.getElementById('am-pkg-info'); if(!box) return;
+  if(!patId){ box.style.display='none'; return; }
+  const pkg = (typeof getPatientActivePackage === 'function') ? getPatientActivePackage(patId) : null;
+  if(!pkg){ box.style.display='none'; return; }
+  const sessLeft = Math.max(0, (pkg.sessionsCount||0) - (pkg.sessionsUsed||0));
+  const sessUsed = pkg.sessionsUsed || 0;
+  const isLast = sessLeft === 1;
+  box.style.display = 'block';
+  box.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-weight:700;color:var(--teal)">🎁 باقة نشطة: ${pkg.name}</span>
+    <span style="font-size:11px;color:var(--text-muted)">${pkg.services||''}</span>
+  </div>
+  <div style="display:flex;gap:12px;margin-top:5px;font-size:12px;">
+    <span>📊 الجلسات: <strong>${sessUsed}/${pkg.sessionsCount}</strong></span>
+    <span style="color:${isLast?'var(--gold-light)':'var(--emerald)'};font-weight:700">متبقي: ${sessLeft} جلسة${isLast?' ⚠️ أخيرة!':''}</span>
+    <span style="color:var(--text-muted)">📅 تنتهي: ${pkg.endDate||'—'}</span>
+  </div>`;
+}
+
 function saveAppt(){
   const pid=gv('am-pat'), date=gv('am-date'), time=gv('am-time');
   if(!pid||!date||!time){ showToast('warning','⚠️ اختر العميل والتاريخ والوقت'); return; }
@@ -132,17 +153,22 @@ function saveAppt(){
     return;
   }
   clearApptConflictBox();
+  // ── ربط الباقة النشطة بالموعد (إن وُجدت) ──
+  const activePkg = (typeof getPatientActivePackage === 'function') ? getPatientActivePackage(pid) : null;
   const data = { patId:pid, patient:pat?.name||pid, service:svcName, type:gv('am-type'),
                  doctor, doctorId, date, time, endTime, duration, room, equipment,
-                 branch:gv('am-branch'), notes:gv('am-notes') };
+                 branch:gv('am-branch'), notes:gv('am-notes'),
+                 pkgId: activePkg?.id || null, pkgName: activePkg?.name || null };
   if(id){
     DB.upd('appointments', id, data);
     showToast('success','✅ تم تحديث الموعد');
   } else {
     DB.push('appointments', {...data, status:'مؤكد'});
-    showToast('success','📅 تم حجز الموعد بنجاح', `${pat?.name} - ${date} ${time}`);
+    const pkgToast = activePkg
+      ? ` · 🎁 من باقة: ${activePkg.name} (متبقي: ${Math.max(0,(activePkg.sessionsCount||0)-(activePkg.sessionsUsed||0))} جلسة)`
+      : '';
+    showToast('success','📅 تم حجز الموعد بنجاح', `${pat?.name} - ${date} ${time}${pkgToast}`);
   }
-  // لا داعي لاستدعاءات render — EventBus يتولى ذلك
   closeModal('appt-modal');
   const e = document.getElementById('am-notes'); if(e) e.value='';
 }

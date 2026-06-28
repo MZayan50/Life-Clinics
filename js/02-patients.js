@@ -97,13 +97,37 @@ function viewPat(id){
   if(pkgCont){
     pkgCont.innerHTML = patPackages.length ? patPackages.map(pk => {
       const remaining = Math.max(0,(pk.price||0)-(pk.paid||0));
-      return `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:13px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;">
-        <div><div style="font-weight:700">${pk.name}</div><div style="font-size:12px;color:var(--text-muted)">${pk.services||''} · ${pk.sessionsCount||0} جلسات</div></div>
-        <div style="text-align:left">
-          <div style="color:var(--gold-light);font-weight:700">${(pk.price||0).toLocaleString()} ج</div>
-          ${remaining>0?`<div style="color:var(--rose);font-size:12px">متبقي: ${remaining.toLocaleString()} ج</div>`:''}
-          <span class="ast ${pk.status==='نشطة'?'sc':'sd'}" style="font-size:10px">${pk.status}</span>
+      const sessUsed  = pk.sessionsUsed || 0;
+      const sessTotal = pk.sessionsCount || 0;
+      const sessLeft  = Math.max(0, sessTotal - sessUsed);
+      const sessPct   = sessTotal ? Math.round(sessUsed / sessTotal * 100) : 0;
+      const sessColor = sessLeft === 0 ? 'var(--rose)' : sessLeft === 1 ? 'var(--gold-light)' : 'var(--teal)';
+      const sessArr   = sessTotal > 0 ? Array.from({length: sessTotal}, (_, i) =>
+        `<span title="جلسة ${i+1}" style="width:13px;height:13px;border-radius:50%;background:${i<sessUsed?'var(--teal)':'rgba(148,163,184,.2)'};display:inline-block;margin:1px;"></span>`
+      ).join('') : '';
+      return `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:13px;margin-bottom:9px;">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
+          <div>
+            <div style="font-weight:700">${pk.name}</div>
+            <div style="font-size:12px;color:var(--text-muted)">${pk.services||''}</div>
+          </div>
+          <div style="text-align:left">
+            <div style="color:var(--gold-light);font-weight:700">${(pk.price||0).toLocaleString()} ج</div>
+            ${remaining>0?`<div style="color:var(--rose);font-size:12px">متبقي مالي: ${remaining.toLocaleString()} ج</div>`:''}
+            <span class="ast ${pk.status==='نشطة'?'sc':'sd'}" style="font-size:10px">${pk.status}</span>
+          </div>
         </div>
+        <div style="background:rgba(45,212,191,.06);border-radius:8px;padding:8px;margin-bottom:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span style="font-size:12px;font-weight:700;">🎯 الجلسات</span>
+            <span style="font-size:13px;font-weight:800;color:${sessColor}">${sessUsed}/${sessTotal} <span style="font-size:11px;color:var(--text-muted)">(متبقي: ${sessLeft})</span></span>
+          </div>
+          <div class="prog"><div class="prog-f" style="width:${sessPct}%;background:${sessColor}"></div></div>
+          <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:2px;">${sessArr}</div>
+          ${sessLeft===1?`<div style="font-size:11px;color:var(--gold-light);margin-top:3px;font-weight:700;">⚠️ جلسة أخيرة تبقّت!</div>`:''}
+          ${sessLeft===0?`<div style="font-size:11px;color:var(--rose);margin-top:3px;">✅ اكتملت جميع الجلسات</div>`:''}
+        </div>
+        <div style="font-size:11px;color:var(--text-muted)">📅 ${pk.startDate||'—'} ← ${pk.endDate||'—'}</div>
       </div>`;
     }).join('') : '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px">لا توجد باقات</div>';
   }

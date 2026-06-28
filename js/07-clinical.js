@@ -519,6 +519,16 @@ function renderPackages(){
   const SCOL={نشطة:'sc',منتهية:'sd',معلقة:'sp'};
   grid.innerHTML=items.map(p=>{
     const remaining=Math.max(0,(p.price||0)-(p.paid||0));
+    const sessUsed = p.sessionsUsed || 0;
+    const sessTotal = p.sessionsCount || 0;
+    const sessLeft = Math.max(0, sessTotal - sessUsed);
+    const sessPct = sessTotal ? Math.round(sessUsed / sessTotal * 100) : 0;
+    const sessColor = sessLeft === 0 ? 'var(--rose)' : sessLeft === 1 ? 'var(--gold-light)' : 'var(--emerald)';
+    const sessArr = sessTotal > 0 ? Array.from({length: sessTotal}, (_, i) =>
+      i < sessUsed
+        ? `<span title="جلسة ${i+1} - مستخدمة" style="width:14px;height:14px;border-radius:50%;background:var(--teal);display:inline-block;margin:1px;"></span>`
+        : `<span title="جلسة ${i+1} - متبقية" style="width:14px;height:14px;border-radius:50%;background:var(--glass-border);display:inline-block;margin:1px;"></span>`
+    ).join('') : '';
     return `<div class="bcard">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
         <div>
@@ -531,10 +541,21 @@ function renderPackages(){
         <div style="background:var(--glass);border-radius:8px;padding:9px;text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--gold-light)">${(p.price||0).toLocaleString()}</div><div style="font-size:11px;color:var(--text-muted)">السعر (ج)</div></div>
         <div style="background:var(--glass);border-radius:8px;padding:9px;text-align:center;"><div style="font-size:18px;font-weight:800;color:${remaining>0?'var(--rose)':'var(--emerald)'}">${remaining.toLocaleString()}</div><div style="font-size:11px;color:var(--text-muted)">المتبقي (ج)</div></div>
       </div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">🎯 ${p.sessionsCount||0} جلسة · 📅 ${p.startDate||'—'} ← ${p.endDate||'—'}</div>
+      <div style="background:var(--glass);border-radius:8px;padding:9px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:12px;font-weight:700;">🎯 الجلسات</span>
+          <span style="font-size:13px;font-weight:800;color:${sessColor}">${sessUsed} / ${sessTotal} <span style="font-size:11px;color:var(--text-muted);">(متبقي: ${sessLeft})</span></span>
+        </div>
+        <div class="prog"><div class="prog-f" style="width:${sessPct}%;background:${sessColor}"></div></div>
+        <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:2px;">${sessArr}</div>
+        ${sessLeft === 1 ? `<div style="font-size:11px;color:var(--gold-light);margin-top:4px;font-weight:700;">⚠️ جلسة أخيرة تبقّت!</div>` : ''}
+        ${sessLeft === 0 ? `<div style="font-size:11px;color:var(--rose);margin-top:4px;font-weight:700;">✅ اكتملت كل الجلسات</div>` : ''}
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">📅 ${p.startDate||'—'} ← ${p.endDate||'—'}</div>
       ${p.services?`<div style="margin-bottom:8px;"><span class="tag tg-gold" style="font-size:11px;">${p.services}</span></div>`:''}
-      <div style="display:flex;gap:7px;">
-        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="openPackageModal('${p.id}')">✏️ تعديل</button>
+      <div style="display:flex;gap:7px;margin-bottom:7px;">
+        ${sessLeft > 0 ? `<button class="btn btn-teal btn-sm" style="flex:1" onclick="usePackageSession('${p.id}')">✅ تسجيل جلسة</button>` : ''}
+        <button class="btn btn-ghost btn-sm" ${sessLeft>0?'':'style="flex:1"'} onclick="openPackageModal('${p.id}')">✏️ تعديل</button>
         <button class="btn btn-danger btn-sm" onclick="delPackage('${p.id}')">🗑 حذف</button>
       </div>
     </div>`;
@@ -574,7 +595,7 @@ function savePackage(){
   const name=gv('pkg-name').trim();
   if(!name){showToast('warning','⚠️ اسم الباقة مطلوب');return;}
   const id=gv('pkg-id');
-  const data={patId:opt.value,patName:opt.dataset?.name||opt.text,name,services:gv('pkg-services'),sessionsCount:parseInt(gv('pkg-sessions-count'))||6,price:parseFloat(gv('pkg-price'))||0,paid:parseFloat(gv('pkg-paid'))||0,startDate:gv('pkg-start'),endDate:gv('pkg-end'),status:gv('pkg-status'),notes:gv('pkg-notes')};
+  const data={patId:opt.value,patName:opt.dataset?.name||opt.text,name,services:gv('pkg-services'),sessionsCount:parseInt(gv('pkg-sessions-count'))||6,sessionsUsed:id?(DB.get('packages').find(p=>p.id===id)?.sessionsUsed||0):0,price:parseFloat(gv('pkg-price'))||0,paid:parseFloat(gv('pkg-paid'))||0,startDate:gv('pkg-start'),endDate:gv('pkg-end'),status:gv('pkg-status'),notes:gv('pkg-notes')};
   if(id){
     // تحديث باقة موجودة
     const oldPkg = DB.get('packages').find(p=>p.id===id);
@@ -609,6 +630,54 @@ function savePackage(){
 function delPackage(id){
   const p=DB.get('packages').find(x=>x.id===id);
   if(confirm(`حذف باقة "${p?.name||''}"؟`)){DB.del('packages',id);showToast('info','🗑 تم الحذف');renderPackages();}
+}
+
+// ── خصم جلسة يدوياً من باقة محددة (زر "تسجيل جلسة" في شاشة الباقات) ──
+function usePackageSession(pkgId){
+  const pkg = DB.get('packages').find(p => p.id === pkgId); if(!pkg) return;
+  const sessUsed = pkg.sessionsUsed || 0;
+  const sessTotal = pkg.sessionsCount || 0;
+  if(sessUsed >= sessTotal){ showToast('warning','⚠️ اكتملت كل جلسات هذه الباقة'); return; }
+  const remaining = sessTotal - sessUsed - 1;
+  if(!confirm(`تسجيل جلسة للعميل: ${pkg.patName}\nالباقة: ${pkg.name}\nالجلسة: ${sessUsed+1} من ${sessTotal}\nالمتبقي بعد هذه الجلسة: ${remaining} جلسة`)) return;
+  const newStatus = remaining <= 0 ? 'منتهية' : 'نشطة';
+  DB.upd('packages', pkgId, { sessionsUsed: sessUsed + 1, status: newStatus });
+  const msg = remaining <= 0
+    ? `🎉 اكتملت جميع جلسات باقة "${pkg.name}" للعميل ${pkg.patName}`
+    : remaining === 1
+    ? `⚠️ تبقّت جلسة أخيرة فقط من باقة "${pkg.name}"!`
+    : `✅ تم تسجيل الجلسة ${sessUsed+1}/${sessTotal} — متبقي: ${remaining} جلسة`;
+  showToast(remaining <= 0 ? 'info' : remaining === 1 ? 'warning' : 'success', msg);
+  renderPackages();
+}
+
+// ── خصم جلسة من باقة العميل النشطة ──
+// يُستدعى تلقائياً عند إتمام موعد أو تسجيل جلسة من الخطة
+function deductPackageSession(patId, svcName){
+  // ابحث عن أول باقة نشطة للعميل تتطابق مع الخدمة (أو أي باقة نشطة)
+  const pkgs = DB.get('packages').filter(p =>
+    p.patId === patId &&
+    p.status === 'نشطة' &&
+    (p.sessionsUsed || 0) < (p.sessionsCount || 1)
+  );
+  if(!pkgs.length) return null; // لا توجد باقة نشطة
+
+  // أولوية: باقة بنفس اسم الخدمة، وإلا أول باقة نشطة
+  const pkg = pkgs.find(p => p.services && svcName && p.services.toLowerCase().includes(svcName.toLowerCase())) || pkgs[0];
+  const newUsed   = (pkg.sessionsUsed || 0) + 1;
+  const remaining = (pkg.sessionsCount || 1) - newUsed;
+  const newStatus = remaining <= 0 ? 'منتهية' : 'نشطة';
+  DB.upd('packages', pkg.id, { sessionsUsed: newUsed, status: newStatus });
+  return { pkg, newUsed, remaining, finished: remaining <= 0 };
+}
+
+// ── الحصول على ملخص باقة العميل النشطة (للعرض في المواعيد) ──
+function getPatientActivePackage(patId){
+  return DB.get('packages').find(p =>
+    p.patId === patId &&
+    p.status === 'نشطة' &&
+    (p.sessionsUsed || 0) < (p.sessionsCount || 1)
+  ) || null;
 }
 
 // ─── PHASE 3: Reception & Doctor Screens + Consultation Engine ───────────────
@@ -817,6 +886,16 @@ function finalizeConsultation(){
   // 3. Deduct inventory — نبحث عن serviceId من جدول services بالاسم أو من الموعد مباشرةً
   const svcRecord = DB.get('services').find(s => s.name === svcName) || DB.get('services').find(s => s.id === a.serviceId);
   deductInventory(svcRecord?.id || a.serviceId, 1);
+  // 3b. ── خصم تلقائي من باقة العميل النشطة (إن وُجدت) ──
+  const pkgResult = deductPackageSession(a.patId, svcName);
+  if(pkgResult){
+    const pkgMsg = pkgResult.finished
+      ? `🎁 اكتملت باقة "${pkgResult.pkg.name}"!`
+      : pkgResult.remaining === 1
+      ? `⚠️ تبقّت جلسة أخيرة في باقة "${pkgResult.pkg.name}"`
+      : `🎁 باقة: ${pkgResult.newUsed}/${pkgResult.pkg.sessionsCount} جلسة (متبقي: ${pkgResult.remaining})`;
+    setTimeout(()=>showToast(pkgResult.finished?'info':pkgResult.remaining===1?'warning':'success', pkgMsg), 1500);
+  }
   // 4. تحديث ملف العميل — ✅ spent يُحدَّث تلقائيًا عبر EventBus('invoices:created') في 00-core.js
   // sessions: نحسب من الـ sessions collection + عدد الاستشارات المكتملة من appointments
   // بدل +1 اليدوية لتجنب التعارض مع sessions:updated hook في 00-core.js
