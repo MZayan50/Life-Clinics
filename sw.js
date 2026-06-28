@@ -1,10 +1,10 @@
 // ══════════════════════════════════════════════════════
-// 🔄 HAYAH Smart Service Worker — Auto-Update Edition
+// 🔄 HAYAH Smart Service Worker — GitHub Live Update
 // كل ما ترفع ملف على GitHub، التحديث يوصل للمتصفح فوراً
 // ══════════════════════════════════════════════════════
 
-// ⚡ غيّر هذا الرقم بعد كل push — أو اتركه يتغير تلقائياً عبر build script
-const CACHE_VERSION = 'v20260628180823';
+// ⚡ يتغير تلقائياً مع كل push عبر GitHub Actions أو update-sw.sh
+const CACHE_VERSION = 'v20260628200000';
 const CACHE_NAME = 'hayah-' + CACHE_VERSION;
 
 // الملفات اللي تتخزن في الكاش (Shell فقط)
@@ -22,10 +22,9 @@ const NO_CACHE_PATTERNS = [
 ];
 
 // ══════════════════════════════════════════
-// INSTALL — تسجيل الـ SW وتخزين Shell
+// INSTALL
 // ══════════════════════════════════════════
 self.addEventListener('install', event => {
-  // skipWaiting: لا تنتظر — طبّق التحديث فوراً
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
@@ -54,11 +53,8 @@ self.addEventListener('activate', event => {
 // ══════════════════════════════════════════
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-
-  // تجاهل طلبات خارج نطاق الموقع (Firebase, Google APIs)
   if (url.origin !== self.location.origin) return;
 
-  // ملفات JS — دايماً من الشبكة (Network Only)
   const isJS = NO_CACHE_PATTERNS.some(p => p.test(url.pathname));
   if (isJS) {
     event.respondWith(
@@ -69,7 +65,6 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // باقي الملفات — Network First (يجرب الشبكة، إن فشلت يرجع للكاش)
   event.respondWith(
     fetch(event.request, { cache: 'no-store' })
       .then(response => {
@@ -91,7 +86,14 @@ self.addEventListener('message', event => {
     self.skipWaiting();
   }
   if (event.data === 'CHECK_UPDATE') {
-    // إرسال إشعار للصفحة بأن النسخة الحالية
     event.source.postMessage({ type: 'SW_VERSION', version: CACHE_VERSION });
+  }
+  if (event.data && event.data.type === 'GITHUB_UPDATE_FOUND') {
+    // بث الإشعار لكل نوافذ النظام المفتوحة
+    self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then(clients => {
+      clients.forEach(client => {
+        client.postMessage({ type: 'GITHUB_UPDATE_AVAILABLE', sha: event.data.sha });
+      });
+    });
   }
 });

@@ -91,6 +91,8 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg-primary);color:var(--t
 .btn-ghost:hover{background:var(--bg-card-hover);color:var(--text-primary);}
 .btn-teal{background:linear-gradient(135deg,var(--teal),var(--teal-dark));color:var(--bg-primary);}
 .btn-danger{background:linear-gradient(135deg,var(--rose),#BE123C);color:#fff;}
+.btn-amber{background:linear-gradient(135deg,#F59E0B,#D97706);color:#fff;}
+@keyframes pulse-update{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.4);}50%{box-shadow:0 0 0 6px rgba(16,185,129,0);}}
 .btn-sm{padding:5px 12px;font-size:12px;}
 .btn-xs{padding:3px 9px;font-size:11px;}
 .main{position:fixed;top:60px;left:0;right:var(--sidebar-w);bottom:0;overflow-y:auto;padding:22px;scrollbar-width:thin;scrollbar-color:var(--glass-border) transparent;}
@@ -410,6 +412,12 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   <div class="hamburger" onclick="toggleSidebar()">☰</div>
   <div class="topbar-title" id="topbar-title">لوحة التحكم <span class="topbar-date" id="topbar-date"></span></div>
   <div class="topbar-actions">
+    <!-- زر التحديث — يظهر فقط عند وجود تحديث جديد -->
+    <div id="gh-update-btn" onclick="applyGithubUpdate()" title="تحديث جديد متاح — اضغط للتحديث الفوري"
+      style="display:none;align-items:center;gap:6px;padding:6px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border-radius:20px;cursor:pointer;font-size:12px;font-weight:700;animation:pulse-update 1.5s infinite;border:none;user-select:none;">
+      <span style="font-size:15px;">🔄</span>
+      <span id="gh-update-label">تحديث جديد</span>
+    </div>
     <div class="sync-btn" onclick="syncData()"><span id="sync-icon">☁️</span><span>مزامنة</span></div>
     <div class="icon-btn" onclick="showScreen('whatsapp')">💬<div class="ndot"></div></div>
     <div class="icon-btn" onclick="toggleNotifDropdown(this)">🔔<div class="ndot" id="notif-dot"></div></div>
@@ -757,6 +765,8 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   <div style="display:flex;gap:9px;margin-bottom:18px;flex-wrap:wrap;">
     <button class="btn btn-ghost btn-sm" onclick="showScreen('patients')">← رجوع</button>
     <button class="btn btn-primary btn-sm" onclick="openApptModal()">+ موعد</button>
+    <button class="btn btn-teal btn-sm" onclick="openPackageFromProfile()">🎁 باقة جديدة</button>
+    <button class="btn btn-amber btn-sm" onclick="openPayFromProfile()" id="pp-pay-btn">💳 دفع متبقي</button>
     <button class="btn btn-ghost btn-sm">📸 صور</button>
     <button class="btn btn-ghost btn-sm" onclick="openPatWA()">💬 واتساب</button>
     <button class="btn btn-ghost btn-sm" onclick="printProfile()">🖨️ طباعة</button>
@@ -1330,6 +1340,41 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 </div>
 
 <!-- ══════════ SMART PAYMENT MODAL (Phase 6) ══════════ -->
+<!-- ══ PATIENT PAY MODAL — دفع متبقي من شاشة ملف العميل ══ -->
+<div class="modal-overlay" id="patient-pay-modal">
+  <div class="modal" style="max-width:520px;">
+    <div class="mhdr">
+      <div class="mtitle">💳 دفع مبالغ متبقية — <span id="ppay-pat-name"></span></div>
+      <button class="mclose" onclick="closeModal('patient-pay-modal')">✕</button>
+    </div>
+    <div class="mbody">
+      <div style="margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px;">اختر الفاتورة أو الباقة</div>
+        <div id="ppay-options"></div>
+      </div>
+      <input type="hidden" id="ppay-selected-id">
+      <input type="hidden" id="ppay-selected-type">
+      <div class="fgrp">
+        <label class="flbl">المبلغ المدفوع (ج) *</label>
+        <input class="fctl" id="ppay-amount" type="number" min="1" placeholder="0" oninput="updatePatPayPreview()">
+      </div>
+      <div class="fgrp">
+        <label class="flbl">طريقة الدفع</label>
+        <select class="fctl" id="ppay-method">
+          <option>كاش</option><option>فيزا</option><option>إنستاباي</option><option>فودافون</option><option>تحويل</option>
+        </select>
+      </div>
+      <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:10px;padding:12px;font-size:13px;color:var(--text-secondary);min-height:40px;" id="ppay-preview">
+        اختر فاتورة أو باقة أعلاه ثم أدخل المبلغ
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeModal('patient-pay-modal')">إلغاء</button>
+      <button class="btn btn-teal" onclick="processPatientPayment()">✅ تأكيد الدفع</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="smart-pay-modal">
   <div class="modal" style="max-width:560px;">
     <div class="mhdr">
@@ -2298,6 +2343,105 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   navigator.serviceWorker.addEventListener('controllerchange', function() {
     window.location.reload();
   });
+
+  // ══════════════════════════════════════════════════════════════
+  // 🔄 GITHUB LIVE UPDATE SYSTEM
+  // يراقب GitHub كل 60 ثانية — فور رفع أي ملف يظهر إشعار فوري
+  // ══════════════════════════════════════════════════════════════
+  (function initGithubUpdateChecker(){
+    // ⚙️ اضبط هذين السطرين فقط حسب مشروعك:
+    const GITHUB_OWNER = 'mzayan50';
+    const GITHUB_REPO  = 'Life-Clinics';
+    const GITHUB_BRANCH = 'main';
+    const CHECK_INTERVAL = 60000; // كل 60 ثانية
+
+    let _lastKnownSha = localStorage.getItem('gh_last_sha') || null;
+    let _updateAvailableSha = null;
+
+    const ghBtn   = document.getElementById('gh-update-btn');
+    const ghLabel = document.getElementById('gh-update-label');
+
+    function showUpdateButton(sha, filesChanged){
+      _updateAvailableSha = sha;
+      if(ghBtn){
+        ghBtn.style.display = 'flex';
+        if(ghLabel) ghLabel.textContent = filesChanged > 1
+          ? `تحديث (${filesChanged} ملف)`
+          : 'تحديث جديد';
+      }
+      // إشعار داخل قائمة الإشعارات
+      const notifList = document.getElementById('notif-list');
+      if(notifList){
+        const notifItem = document.createElement('div');
+        notifItem.style.cssText = 'padding:10px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;margin-bottom:8px;cursor:pointer;';
+        notifItem.innerHTML = `<div style="font-weight:700;font-size:13px;color:var(--teal)">🔄 تحديث جديد متاح</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:3px;">رُفع تحديث على GitHub — اضغط "تحديث الآن"</div>
+          <button onclick="applyGithubUpdate()" class="btn btn-teal btn-xs" style="margin-top:7px;">تحديث الآن</button>`;
+        notifList.prepend(notifItem);
+        // إظهار النقطة الحمراء على الجرس
+        const dot = document.getElementById('notif-dot');
+        if(dot) dot.style.display = 'block';
+      }
+    }
+
+    async function checkGithubCommits(){
+      // لو لم يُضبط اسم المستخدم، لا تفعل شيئاً
+      if(GITHUB_OWNER === 'YOUR_GITHUB_USERNAME') return;
+      try{
+        const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?sha=${GITHUB_BRANCH}&per_page=1`;
+        const res = await fetch(url, {
+          headers: { 'Accept': 'application/vnd.github.v3+json' },
+          cache: 'no-store'
+        });
+        if(!res.ok) return;
+        const data = await res.json();
+        if(!data || !data[0]) return;
+        const latestSha = data[0].sha;
+        const filesChanged = data[0].commit?.tree ? 1 : 1;
+
+        if(_lastKnownSha === null){
+          // أول مرة — حفظ SHA الحالي كـ baseline
+          _lastKnownSha = latestSha;
+          localStorage.setItem('gh_last_sha', latestSha);
+          return;
+        }
+        if(latestSha !== _lastKnownSha){
+          // ✅ يوجد تحديث جديد على GitHub!
+          showUpdateButton(latestSha, filesChanged);
+          // إيقاف الفحص المتكرر بعد أول إشعار (المستخدم شايف التحديث)
+          clearInterval(_ghInterval);
+        }
+      } catch(e){
+        // صامت — قد يكون offline أو rate limit
+      }
+    }
+
+    window.applyGithubUpdate = function(){
+      // حفظ الـ SHA الجديد ثم إعادة تحميل كامل
+      if(_updateAvailableSha){
+        localStorage.setItem('gh_last_sha', _updateAvailableSha);
+      }
+      // إجبار الـ Service Worker على التحديث أولاً
+      if(_newWorker){
+        _newWorker.postMessage('SKIP_WAITING');
+        setTimeout(() => window.location.reload(true), 300);
+      } else {
+        // hard reload لضمان تحميل كل الملفات الجديدة
+        window.location.href = window.location.href.split('?')[0] + '?v=' + Date.now();
+      }
+    };
+
+    // ── فحص فوري عند تحميل الصفحة، ثم دوري كل 60 ثانية ──
+    setTimeout(checkGithubCommits, 3000); // بعد 3 ثواني من التحميل
+    const _ghInterval = setInterval(checkGithubCommits, CHECK_INTERVAL);
+
+    // ── استقبال رسائل من Service Worker (لو أُرسلت) ──
+    navigator.serviceWorker.addEventListener('message', function(event){
+      if(event.data && event.data.type === 'GITHUB_UPDATE_AVAILABLE'){
+        showUpdateButton(event.data.sha, 1);
+      }
+    });
+  })();
 })();
 </script>
 </body>
