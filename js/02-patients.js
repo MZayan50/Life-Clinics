@@ -238,7 +238,8 @@ function viewPat(id){
 }
 
 // ══════════════════════════════════════════════════════
-// 💰 RENDER PATIENT ACCOUNT — حساب العميل الشامل
+// 💰 RENDER PATIENT ACCOUNT — سجل التعاملات الموحد
+// يجمع: فواتير + باقات + مدفوعات cashlog
 // يُستدعى عند الضغط على تاب "حساب العميل"
 // ══════════════════════════════════════════════════════
 function renderPatAccount(id){
@@ -246,10 +247,13 @@ function renderPatAccount(id){
   const p = DB.get('patients').find(x => x.id === id);
   if(!p) return;
 
-  // ── تحديث الكروت الإحصائية في رأس الملف أيضاً (فواتير + باقات) ──
-  const _txt = (elId,v) => { const el=document.getElementById(elId); if(el) el.textContent=v; };
+  // ── جمع كل مصادر البيانات ──
   const allPatInvs = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===p.name));
   const allPatPkgs = DB.get('packages').filter(pk => String(pk.patId)===String(id));
+  const allCashLog = (DB.get('cashlog')||[]).filter(c => String(c.patId)===String(id));
+
+  // ── تحديث الكروت الإحصائية في رأس الملف (فواتير + باقات) ──
+  const _txt = (elId,v) => { const el=document.getElementById(elId); if(el) el.textContent=v; };
   const _totalSpent  = allPatInvs.reduce((s,i)=>s+(i.total||0),0)  + allPatPkgs.reduce((s,pk)=>s+(pk.price||0),0);
   const _totalPaid   = allPatInvs.reduce((s,i)=>s+(i.paid||0),0)   + allPatPkgs.reduce((s,pk)=>s+(pk.paid||0),0);
   const _totalRemain = allPatInvs.reduce((s,i)=>s+(i.remaining||0),0) + allPatPkgs.reduce((s,pk)=>s+Math.max(0,(pk.price||0)-(pk.paid||0)),0);
@@ -259,56 +263,143 @@ function renderPatAccount(id){
   _txt('pp-paid-total',_totalPaid.toLocaleString()+' ج');
   const _balEl = document.getElementById('pp-balance');
   if(_balEl){ _balEl.textContent=_totalRemain.toLocaleString()+' ج'; _balEl.style.color=_totalRemain>0?'var(--rose)':'var(--emerald)'; }
-  // ── زر "دفع متبقي" ──
   const ppPayBtn = document.getElementById('pp-pay-btn');
   if(ppPayBtn) ppPayBtn.style.display = _totalRemain>0 ? '' : 'none';
 
-  const invoices = allPatInvs;
-  const sessions = DB.get('sessions').filter(s => s.patId===id);
-  const packages = DB.get('packages').filter(pk => pk.patId===id);
+  // ══════════════════════════════════════════════════════
+  // بناء قائمة موحدة من كل التعاملات مرتبة بالتاريخ
+  // ══════════════════════════════════════════════════════
+  const allTx = [];
 
-  // ── KPIs ──
-  const totalSpent  = invoices.reduce((s,i)=>s+(i.total||0),0);
-  const totalPaid   = invoices.reduce((s,i)=>s+(i.paid||0),0);
-  const totalRemain = invoices.reduce((s,i)=>s+(i.remaining||0),0);
-  const txt = (elId,v) => { const el=document.getElementById(elId); if(el) el.textContent=v; };
+  // 1️⃣ فواتير
+  allPatInvs.forEach((inv, idx) => {
+    const items = inv.items||[];
+    const svcs  = items.filter(x=>x.type==='service'||!x.type).map(x=>x.name||x.service||'—').join('، ')||inv.service||'—';
+    allTx.push({
+      _date : inv.date||'',
+      _type : 'invoice',
+      _raw  : inv,
+      _idx  : idx,
+      _svcs : svcs
+    });
+  });
 
-  // ── إعادة رسم جدول الفواتير بالبيانات الكاملة (مزامنة تلقائية) ──
-  const pinvFull = invoices.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  // 2️⃣ باقات (بدون فاتورة مرتبطة فقط — لتفادي التكرار)
+  allPatPkgs.forEach(pk => {
+    const linkedInv = allPatInvs.find(i => i.pkgId===pk.id);
+    if(!linkedInv) {
+      allTx.push({
+        _date : pk.startDate||'',
+        _type : 'package',
+        _raw  : pk
+      });
+    }
+  });
+
+  // 3️⃣ مدفوعات cashlog المرتبطة بالعميل (التي ليست مرتبطة بفاتورة موجودة بالفعل)
+  allCashLog.forEach(c => {
+    const alreadyInInv = c.invId && allPatInvs.find(i => String(i.id)===String(c.invId));
+    if(!alreadyInInv) {
+      allTx.push({
+        _date : c.date||'',
+        _type : 'cashlog',
+        _raw  : c
+      });
+    }
+  });
+
+  // ترتيب تنازلي بالتاريخ
+  allTx.sort((a,b) => (b._date||'').localeCompare(a._date||''));
+
+  // ══════════════════════════════════════════════════════
+  // رسم الجدول الموحد في p-inv-tbody
+  // ══════════════════════════════════════════════════════
   const pitbFull = document.getElementById('p-inv-tbody');
-  if(pitbFull) pitbFull.innerHTML = pinvFull.map((i,idx) => {
-    const num = `#${String(idx+1).padStart(3,'0')}`;
-    const stCls = i.status==='مدفوع'?'sc':i.status==='جزئي'?'sp':'sd';
-    const items = i.items||[];
-    const svcs = items.filter(x=>x.type==='service'||!x.type).map(x=>x.name||x.service||'—').join('، ')||i.service||'—';
-    const prods = items.filter(x=>x.type==='product').map(x=>`${x.name||'—'} (${x.qty||1})`).join('، ')||'—';
-    const disc = (i.discount||0);
-    const tax  = (i.tax||0);
-    return `<tr>
-      <td style="font-size:11px;color:var(--gold-light);font-weight:700">${num}</td>
-      <td style="font-size:12px;color:var(--text-muted)">${i.date||'—'}</td>
-      <td style="font-size:12px;">${i.doctor||'—'}</td>
-      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${svcs}">${svcs}</td>
-      <td style="font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${prods}">${prods}</td>
-      <td style="font-size:12px;color:var(--amber)">${disc>0?disc.toLocaleString()+' ج':'—'}</td>
-      <td style="font-size:12px;color:var(--text-muted)">${tax>0?tax+'%':'—'}</td>
-      <td style="font-weight:800;color:var(--gold-light)">${(i.total||0).toLocaleString()} ج</td>
-      <td style="color:var(--emerald);font-weight:700">${(i.paid||0).toLocaleString()} ج</td>
-      <td style="color:${(i.remaining||0)>0?'var(--rose)':'var(--text-muted)'};font-weight:700">${(i.remaining||0).toLocaleString()} ج</td>
-      <td><span class="tag tg-teal" style="font-size:11px">${i.method||'—'}</span></td>
-      <td><span class="ast ${stCls}">${i.status||'—'}</span></td>
-      <td style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${i.notes||''}">${i.notes||'—'}</td>
-      <td style="white-space:nowrap;">
-        <div style="display:flex;gap:4px;">
-          ${(i.remaining||0)>0?`<button class="btn btn-teal btn-xs" onclick="openSmartPay('${i.id}')">💳</button>`:''}
-          <button class="btn btn-ghost btn-xs" onclick="sendInvoiceWA('${i.id}')">💬</button>
-          <button class="btn btn-ghost btn-xs" onclick="printInvoice('${i.id}')">🖨️</button>
-        </div>
-      </td>
-    </tr>`;
-  }).join('')||'<tr><td colspan="14" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد فواتير</td></tr>';
+  if(pitbFull){
+    if(!allTx.length){
+      pitbFull.innerHTML = '<tr><td colspan="14" style="text-align:center;color:var(--text-muted);padding:30px;font-size:13px">لا توجد تعاملات مالية مسجلة لهذا العميل</td></tr>';
+    } else {
+      pitbFull.innerHTML = allTx.map((tx, rowIdx) => {
+        const num = '#' + String(rowIdx+1).padStart(3,'0');
 
-  // ── جلسات بتفاصيل ──
+        if(tx._type === 'invoice'){
+          const i = tx._raw;
+          const stCls = i.status==='مدفوع'?'sc':i.status==='جزئي'?'sp':'sd';
+          const items = i.items||[];
+          const svcs  = items.filter(x=>x.type==='service'||!x.type).map(x=>x.name||x.service||'—').join('، ')||i.service||'—';
+          const prods = items.filter(x=>x.type==='product').map(x=>(x.name||'—')+' ('+( x.qty||1)+')').join('، ')||'—';
+          const disc  = i.discount||0;
+          const tax   = i.tax||0;
+          return '<tr style="border-right:3px solid var(--gold-light)">'
+            + '<td style="font-size:11px;color:var(--gold-light);font-weight:700">'+num+'</td>'
+            + '<td style="font-size:11.5px"><span class="tag tg-gold" style="font-size:10px">🧾 فاتورة</span></td>'
+            + '<td style="font-size:12px;color:var(--text-muted)">'+(i.date||'—')+'</td>'
+            + '<td style="font-size:12px">'+(i.doctor||'—')+'</td>'
+            + '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+svcs+'">'+svcs+'</td>'
+            + '<td style="font-size:12px;color:var(--amber)">'+(disc>0?disc.toLocaleString()+' ج':'—')+'</td>'
+            + '<td style="font-weight:800;color:var(--gold-light)">'+(i.total||0).toLocaleString()+' ج</td>'
+            + '<td style="color:var(--emerald);font-weight:700">'+(i.paid||0).toLocaleString()+' ج</td>'
+            + '<td style="color:'+((i.remaining||0)>0?'var(--rose)':'var(--text-muted)')+';font-weight:700">'+(i.remaining||0).toLocaleString()+' ج</td>'
+            + '<td><span class="tag tg-teal" style="font-size:11px">'+(i.method||'—')+'</span></td>'
+            + '<td><span class="ast '+stCls+'">'+(i.status||'—')+'</span></td>'
+            + '<td style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(i.notes||'')+'">'+(i.notes||'—')+'</td>'
+            + '<td style="white-space:nowrap"><div style="display:flex;gap:4px;">'
+            + ((i.remaining||0)>0?'<button class="btn btn-teal btn-xs" onclick="openSmartPay(\''+i.id+'\')">💳</button>':'')
+            + '<button class="btn btn-ghost btn-xs" onclick="sendInvoiceWA(\''+i.id+'\')">💬</button>'
+            + '<button class="btn btn-ghost btn-xs" onclick="printInvoice(\''+i.id+'\')">🖨️</button>'
+            + '</div></td>'
+            + '</tr>';
+
+        } else if(tx._type === 'package'){
+          const pk       = tx._raw;
+          const pkgPrice = pk.price||0;
+          const pkgPaid  = pk.paid||0;
+          const pkgRem   = Math.max(0,pkgPrice-pkgPaid);
+          const stCls    = pk.status==='نشطة'?'sc':pk.status==='منتهية'?'sd':'sp';
+          const sessInfo = (pk.sessionsUsed||0)+'/'+(pk.sessionsCount||0)+' جلسة';
+          return '<tr style="border-right:3px solid var(--teal)">'
+            + '<td style="font-size:11px;color:var(--teal);font-weight:700">'+num+'</td>'
+            + '<td style="font-size:11.5px"><span class="tag tg-teal" style="font-size:10px">🎁 باقة</span></td>'
+            + '<td style="font-size:12px;color:var(--text-muted)">'+(pk.startDate||'—')+'</td>'
+            + '<td style="font-size:12px">—</td>'
+            + '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(pk.name||'')+ ' - '+(pk.services||'')+'">'+pk.name+(pk.services?' · '+pk.services:'')+'</td>'
+            + '<td style="font-size:12px;color:var(--text-muted)">'+sessInfo+'</td>'
+            + '<td style="font-weight:800;color:var(--gold-light)">'+pkgPrice.toLocaleString()+' ج</td>'
+            + '<td style="color:var(--emerald);font-weight:700">'+pkgPaid.toLocaleString()+' ج</td>'
+            + '<td style="color:'+(pkgRem>0?'var(--rose)':'var(--text-muted)')+';font-weight:700">'+pkgRem.toLocaleString()+' ج</td>'
+            + '<td><span class="tag tg-teal" style="font-size:11px">'+(pk.payMethod||'—')+'</span></td>'
+            + '<td><span class="ast '+stCls+'">'+(pk.status||'—')+'</span></td>'
+            + '<td style="font-size:11px;color:var(--text-muted)">'+(pk.startDate||'—')+' ← '+(pk.endDate||'—')+'</td>'
+            + '<td style="white-space:nowrap"><div style="display:flex;gap:4px;">'
+            + (pkgRem>0?'<button class="btn btn-teal btn-xs" onclick="openPayFromProfile()">💳</button>':'')
+            + '</div></td>'
+            + '</tr>';
+
+        } else {
+          // cashlog
+          const c = tx._raw;
+          return '<tr style="border-right:3px solid var(--emerald);opacity:.85">'
+            + '<td style="font-size:11px;color:var(--emerald);font-weight:700">'+num+'</td>'
+            + '<td style="font-size:11.5px"><span class="tag tg-green" style="font-size:10px">💰 دفعة</span></td>'
+            + '<td style="font-size:12px;color:var(--text-muted)">'+(c.date||'—')+'</td>'
+            + '<td style="font-size:12px">—</td>'
+            + '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(c.source||c.service||'')+'">'+( c.source||c.service||'دفعة')+'</td>'
+            + '<td>—</td>'
+            + '<td>—</td>'
+            + '<td style="color:var(--emerald);font-weight:800">'+(c.amount||0).toLocaleString()+' ج</td>'
+            + '<td style="color:var(--text-muted)">—</td>'
+            + '<td><span class="tag tg-teal" style="font-size:11px">'+(c.method||'—')+'</span></td>'
+            + '<td><span class="ast sc">مدفوع</span></td>'
+            + '<td style="font-size:11px;color:var(--text-muted)">'+(c.notes||'—')+'</td>'
+            + '<td>—</td>'
+            + '</tr>';
+        }
+      }).join('');
+    }
+  }
+
+  // ── جلسات بتفاصيل (pac-sessions-list) — لا تغيير ──
+  const sessions = DB.get('sessions').filter(s => s.patId===id);
   const sessCont = document.getElementById('pac-sessions-list');
   if(sessCont){
     if(!sessions.length){
@@ -317,117 +408,78 @@ function renderPatAccount(id){
       sessCont.innerHTML = sessions.map(s => {
         const done=s.done||0, total=s.total||1, pct=Math.round(done/total*100);
         const stCls = s.status==='مكتملة'?'sc':s.status==='متوقفة'?'sx':'sp';
-        // تفصيل كل جلسة فردية
         const sessRows = Array.from({length:total},(_,i)=>{
           const sessNum = i+1;
           const isDone  = i < done;
-          return `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid var(--glass-border);font-size:12.5px;">
-            <div style="width:26px;height:26px;border-radius:50%;background:${isDone?'var(--teal)':'var(--glass-border)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:${isDone?'#fff':'var(--text-muted)'};">${sessNum}</div>
-            <div style="flex:1;">
-              <span style="font-weight:600">${s.type||'جلسة'} ${sessNum}</span>
-              ${s.doc?`<span style="color:var(--text-muted);font-size:11px;margin-right:6px;">· د. ${s.doc}</span>`:''}
-            </div>
-            <div>
-              ${isDone
-                ? `<span class="ast sc" style="font-size:11px">✅ مكتملة</span>`
-                : `<span class="ast sd" style="font-size:11px">○ لم تُنفَّذ</span>`
-              }
-            </div>
-          </div>`;
+          return '<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid var(--glass-border);font-size:12.5px;">'
+            + '<div style="width:26px;height:26px;border-radius:50%;background:'+(isDone?'var(--teal)':'var(--glass-border)')+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:'+(isDone?'#fff':'var(--text-muted)')+';">'+sessNum+'</div>'
+            + '<div style="flex:1;"><span style="font-weight:600">'+(s.type||'جلسة')+' '+sessNum+'</span>'
+            + (s.doc?'<span style="color:var(--text-muted);font-size:11px;margin-right:6px;">· د. '+s.doc+'</span>':'')
+            + '</div>'
+            + '<div>'+(isDone?'<span class="ast sc" style="font-size:11px">✅ مكتملة</span>':'<span class="ast sd" style="font-size:11px">○ لم تُنفَّذ</span>')+'</div>'
+            + '</div>';
         }).join('');
-        return `<div style="margin-bottom:12px;border:1px solid var(--glass-border);border-radius:var(--radius-sm);overflow:hidden;">
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--glass);">
-            <div>
-              <span style="font-weight:800;font-size:14px;">${s.type||'جلسات'}</span>
-              ${s.doc?`<span style="color:var(--text-muted);font-size:12px;margin-right:8px;">د. ${s.doc}</span>`:''}
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <span style="color:var(--teal);font-weight:800;">${done}/${total}</span>
-              <span class="ast ${stCls}" style="font-size:11px">${s.status}</span>
-            </div>
-          </div>
-          <div class="prog" style="border-radius:0;height:4px;"><div class="prog-f" style="width:${pct}%;background:var(--teal)"></div></div>
-          ${sessRows}
-        </div>`;
+        return '<div style="margin-bottom:12px;border:1px solid var(--glass-border);border-radius:var(--radius-sm);overflow:hidden;">'
+          + '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--glass);">'
+          + '<div><span style="font-weight:800;font-size:14px;">'+(s.type||'جلسات')+'</span>'
+          + (s.doc?'<span style="color:var(--text-muted);font-size:12px;margin-right:8px;">د. '+s.doc+'</span>':'')
+          + '</div>'
+          + '<div style="display:flex;align-items:center;gap:10px;">'
+          + '<span style="color:var(--teal);font-weight:800;">'+done+'/'+total+'</span>'
+          + '<span class="ast '+stCls+'" style="font-size:11px">'+s.status+'</span>'
+          + '</div></div>'
+          + '<div class="prog" style="border-radius:0;height:4px;"><div class="prog-f" style="width:'+pct+'%;background:var(--teal)"></div></div>'
+          + sessRows
+          + '</div>';
       }).join('');
     }
   }
 
-  // ── باقات بتفاصيل مالية ──
+  // ── باقات بتفاصيل مالية (pac-packages-list) — لا تغيير ──
+  const packages = DB.get('packages').filter(pk => pk.patId===id);
   const pkgCont = document.getElementById('pac-packages-list');
   if(pkgCont){
     if(!packages.length){
       pkgCont.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px">لا توجد باقات</div>';
     } else {
       pkgCont.innerHTML = packages.map(pk => {
-        const pkgPaid    = pk.paid||0;
-        const pkgPrice   = pk.price||0;
-        const pkgRemain  = Math.max(0,pkgPrice-pkgPaid);
-        const sessUsed   = pk.sessionsUsed||0;
-        const sessTotal  = pk.sessionsCount||0;
-        const sessLeft   = Math.max(0,sessTotal-sessUsed);
-        const sessPct    = sessTotal?Math.round(sessUsed/sessTotal*100):0;
-        const stCls      = pk.status==='نشطة'?'sc':pk.status==='منتهية'?'sd':'sp';
-        const sessColor  = sessLeft===0?'var(--rose)':sessLeft===1?'var(--gold-light)':'var(--teal)';
-        // تفصيل كل جلسة فردية في الباقة
-        const sessRows = sessTotal>0 ? Array.from({length:sessTotal},(_,i)=>{
+        const pkgPaid   = pk.paid||0;
+        const pkgPrice  = pk.price||0;
+        const pkgRemain = Math.max(0,pkgPrice-pkgPaid);
+        const sessUsed  = pk.sessionsUsed||0;
+        const sessTotal = pk.sessionsCount||0;
+        const sessLeft  = Math.max(0,sessTotal-sessUsed);
+        const sessPct   = sessTotal?Math.round(sessUsed/sessTotal*100):0;
+        const stCls     = pk.status==='نشطة'?'sc':pk.status==='منتهية'?'sd':'sp';
+        const sessColor = sessLeft===0?'var(--rose)':sessLeft===1?'var(--gold-light)':'var(--teal)';
+        const sessRows  = sessTotal>0 ? Array.from({length:sessTotal},(_,i)=>{
           const sessNum = i+1;
           const isDone  = i < sessUsed;
-          // ربط بالفاتورة المرتبطة إن وُجدت
-          const linkedInv = DB.get('invoices').find(inv => inv.pkgId===pk.id);
-          return `<div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--glass-border);font-size:12.5px;">
-            <div style="width:26px;height:26px;border-radius:50%;background:${isDone?'var(--teal)':'rgba(148,163,184,.15)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:${isDone?'#fff':'var(--text-muted)'};">${sessNum}</div>
-            <div style="flex:1;">
-              <span style="font-weight:600">${pk.services||pk.name} — جلسة ${sessNum}</span>
-            </div>
-            <div>
-              ${isDone
-                ? `<span class="ast sc" style="font-size:11px">✅ مكتملة</span>`
-                : `<span class="ast sd" style="font-size:11px">○ لم تُنفَّذ</span>`
-              }
-            </div>
-          </div>`;
+          return '<div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--glass-border);font-size:12.5px;">'
+            + '<div style="width:26px;height:26px;border-radius:50%;background:'+(isDone?'var(--teal)':'rgba(148,163,184,.15)')+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:'+(isDone?'#fff':'var(--text-muted)')+';">'+sessNum+'</div>'
+            + '<div style="flex:1;"><span style="font-weight:600">'+(pk.services||pk.name)+' — جلسة '+sessNum+'</span></div>'
+            + '<div>'+(isDone?'<span class="ast sc" style="font-size:11px">✅ مكتملة</span>':'<span class="ast sd" style="font-size:11px">○ لم تُنفَّذ</span>')+'</div>'
+            + '</div>';
         }).join('') : '';
-
-        return `<div style="border:1px solid var(--glass-border);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:14px;">
-          <!-- هيدر الباقة -->
-          <div style="padding:12px 14px;background:var(--glass);display:flex;justify-content:space-between;align-items:start;">
-            <div>
-              <div style="font-weight:800;font-size:14px;">🎁 ${pk.name}</div>
-              <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">${pk.services||'—'} · ${pk.startDate||'—'} ← ${pk.endDate||'—'}</div>
-            </div>
-            <span class="ast ${stCls}" style="font-size:11px">${pk.status}</span>
-          </div>
-          <!-- ملخص مالي -->
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--glass-border);">
-            <div style="padding:10px;background:var(--bg-secondary);text-align:center;">
-              <div style="font-weight:800;color:var(--gold-light);font-size:15px;">${pkgPrice.toLocaleString()} ج</div>
-              <div style="font-size:11px;color:var(--text-muted);">سعر الباقة</div>
-            </div>
-            <div style="padding:10px;background:var(--bg-secondary);text-align:center;">
-              <div style="font-weight:800;color:var(--emerald);font-size:15px;">${pkgPaid.toLocaleString()} ج</div>
-              <div style="font-size:11px;color:var(--text-muted);">المدفوع</div>
-            </div>
-            <div style="padding:10px;background:var(--bg-secondary);text-align:center;">
-              <div style="font-weight:800;color:${pkgRemain>0?'var(--rose)':'var(--teal)'};font-size:15px;">${pkgRemain.toLocaleString()} ج</div>
-              <div style="font-size:11px;color:var(--text-muted);">المتبقي</div>
-            </div>
-          </div>
-          <!-- شريط الجلسات -->
-          <div style="padding:10px 14px;background:var(--bg-secondary);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-              <span style="font-size:12px;font-weight:700;">🎯 الجلسات</span>
-              <span style="font-size:13px;font-weight:800;color:${sessColor}">${sessUsed}/${sessTotal} <span style="font-size:11px;color:var(--text-muted)">(متبقي: ${sessLeft})</span></span>
-            </div>
-            <div class="prog"><div class="prog-f" style="width:${sessPct}%;background:${sessColor}"></div></div>
-          </div>
-          <!-- تفصيل الجلسات -->
-          ${sessRows}
-          <!-- زر دفع المتبقي لو في متبقي -->
-          ${pkgRemain>0?`<div style="padding:10px 14px;background:var(--bg-secondary);">
-            <button class="btn btn-teal btn-sm" onclick="openPayFromProfile()" style="width:100%">💳 دفع المتبقي (${pkgRemain.toLocaleString()} ج)</button>
-          </div>`:''}
-        </div>`;
+        return '<div style="border:1px solid var(--glass-border);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:14px;">'
+          + '<div style="padding:12px 14px;background:var(--glass);display:flex;justify-content:space-between;align-items:start;">'
+          + '<div><div style="font-weight:800;font-size:14px;">🎁 '+pk.name+'</div>'
+          + '<div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">'+(pk.services||'—')+' · '+(pk.startDate||'—')+' ← '+(pk.endDate||'—')+'</div></div>'
+          + '<span class="ast '+stCls+'" style="font-size:11px">'+pk.status+'</span>'
+          + '</div>'
+          + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--glass-border);">'
+          + '<div style="padding:10px;background:var(--bg-secondary);text-align:center;"><div style="font-weight:800;color:var(--gold-light);font-size:15px;">'+pkgPrice.toLocaleString()+' ج</div><div style="font-size:11px;color:var(--text-muted);">سعر الباقة</div></div>'
+          + '<div style="padding:10px;background:var(--bg-secondary);text-align:center;"><div style="font-weight:800;color:var(--emerald);font-size:15px;">'+pkgPaid.toLocaleString()+' ج</div><div style="font-size:11px;color:var(--text-muted);">المدفوع</div></div>'
+          + '<div style="padding:10px;background:var(--bg-secondary);text-align:center;"><div style="font-weight:800;color:'+(pkgRemain>0?'var(--rose)':'var(--teal)')+';font-size:15px;">'+pkgRemain.toLocaleString()+' ج</div><div style="font-size:11px;color:var(--text-muted);">المتبقي</div></div>'
+          + '</div>'
+          + '<div style="padding:10px 14px;background:var(--bg-secondary);">'
+          + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;"><span style="font-size:12px;font-weight:700;">🎯 الجلسات</span>'
+          + '<span style="font-size:13px;font-weight:800;color:'+sessColor+'">'+sessUsed+'/'+sessTotal+' <span style="font-size:11px;color:var(--text-muted)">(متبقي: '+sessLeft+')</span></span></div>'
+          + '<div class="prog"><div class="prog-f" style="width:'+sessPct+'%;background:'+sessColor+'"></div></div>'
+          + '</div>'
+          + sessRows
+          + (pkgRemain>0?'<div style="padding:10px 14px;background:var(--bg-secondary);"><button class="btn btn-teal btn-sm" onclick="openPayFromProfile()" style="width:100%">💳 دفع المتبقي ('+pkgRemain.toLocaleString()+' ج)</button></div>':'')
+          + '</div>';
       }).join('');
     }
   }
