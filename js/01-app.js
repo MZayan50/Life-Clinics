@@ -496,8 +496,23 @@ function importData(){
         const data=JSON.parse(ev.target.result);
         const KEYS=['patients','appointments','inventory','invoices','services','leads','expenses','doctors','staff','sessions','packages','installments','suppliers','purchases','transfers','campaigns'];
         let imported=0;
-        KEYS.forEach(k=>{if(data[k]&&Array.isArray(data[k])){DB.set(k,data[k]);imported++;}});
-        showToast('success',`✅ تم استيراد ${imported} مجموعة بيانات`,'أُعيد تحميل البيانات');
+        KEYS.forEach(k=>{
+          if(data[k]&&Array.isArray(data[k])){
+            // ✅ اكتب كل record عبر DB.push ليصل Firestore مباشرة
+            // امسح القديم أولاً ثم أضف الجديد
+            const existing = DB.get(k).map(r=>r.id);
+            data[k].forEach(rec=>{
+              if(!rec.id) return;
+              if(existing.includes(rec.id)){
+                DB.upd(k, rec.id, rec);
+              } else {
+                DB.push(k, rec);
+              }
+            });
+            imported++;
+          }
+        });
+        showToast('success',`✅ تم استيراد ${imported} مجموعة بيانات`,window._fbReady?'البيانات رُفعت لـ Firestore':'محفوظة محلياً — تُزامَن عند الاتصال');
         init();
         const as=document.querySelector('.screen.active')?.id?.replace('screen-','');
         if(as)showScreen(as);
@@ -511,7 +526,34 @@ function importData(){
 }
 function syncData(){
   const ic=document.getElementById('sync-icon');if(ic)ic.classList.add('spin');
-  setTimeout(()=>{if(ic)ic.classList.remove('spin');showToast('info','💾 البيانات محفوظة محلياً','أعد الإعداد عبر Firebase للمزامنة السحابية');},1200);
+  if(window._fbReady && window._firestore){
+    // Firestore متصل → flush أي عمليات معلقة
+    if(typeof flushOfflineQueue==='function'){
+      flushOfflineQueue().then(()=>{
+        if(ic)ic.classList.remove('spin');
+        showToast('success','☁️ تمت المزامنة مع Firebase','جميع البيانات محدّثة');
+      });
+    } else {
+      if(ic)ic.classList.remove('spin');
+      showToast('success','☁️ Firebase متصل','البيانات تتزامن تلقائياً');
+    }
+  } else {
+    // غير متصل → حاول إعادة الاتصال
+    const saved = localStorage.getItem('ha_fb_config');
+    if(saved){
+      try{
+        initFirebase(JSON.parse(saved)).then(()=>{
+          if(ic)ic.classList.remove('spin');
+        });
+      } catch(e){
+        if(ic)ic.classList.remove('spin');
+        showToast('warning','⚠️ فشل الاتصال','تحقق من اتصال الإنترنت أو إعدادات Firebase');
+      }
+    } else {
+      if(ic)ic.classList.remove('spin');
+      showToast('info','💾 وضع محلي','أعد إعداد Firebase من شاشة الإعدادات للمزامنة السحابية');
+    }
+  }
 }
 
 // GLOBAL SEARCH
@@ -604,14 +646,25 @@ function buildDashAlertsEnhanced(){
   const alerts = [];
   const today = new Date().toISOString().split('T')[0];
   const tomorrow = new Date(Date.now()+86400000).toISOString().split('T')[0];
+  const _relTime = (dateStr) => {
+    if(!dateStr) return 'الآن';
+    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+    if(diff < 1) return 'الآن';
+    if(diff < 60) return `منذ ${diff} دقيقة`;
+    if(diff < 1440) return `منذ ${Math.floor(diff/60)} ساعة`;
+    return `منذ ${Math.floor(diff/1440)} يوم`;
+  };
   const lowStock = DB.get('inventory').filter(i=>i.status==='منخفض'||i.status==='نفذ');
-  lowStock.slice(0,2).forEach(i=>alerts.push({dot:'var(--rose)',icon:'📦',title:`${i.name}: ${i.status}`,time:'الآن'}));
+  lowStock.slice(0,2).forEach(i=>alerts.push({dot:'var(--rose)',icon:'📦',title:`${i.name}: ${i.status}`,time:_relTime(i.updatedAt||i.createdAt)}));
   const overdue = DB.get('invoices').filter(i=>i.remaining>0);
-  if(overdue.length) alerts.push({dot:'var(--amber)',icon:'💳',title:`${overdue.length} مدفوعات معلقة`,time:'منذ ساعة'});
+  if(overdue.length){
+    const last = overdue.sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
+    alerts.push({dot:'var(--amber)',icon:'💳',title:`${overdue.length} مدفوعات معلقة`,time:_relTime(last.updatedAt||last.date+'T00:00:00')});
+  }
   const tomAppts = DB.get('appointments').filter(a=>a.date===tomorrow);
-  if(tomAppts.length) alerts.push({dot:'var(--blue)',icon:'📅',title:`${tomAppts.length} مواعيد غداً`,time:'منذ 12 ساعة'});
+  if(tomAppts.length) alerts.push({dot:'var(--blue)',icon:'📅',title:`${tomAppts.length} مواعيد غداً`,time:'غداً'});
   const expire = DB.get('inventory').filter(i=>{if(!i.expiry)return false;const d=(new Date(i.expiry)-new Date())/(86400000);return d>0&&d<30;});
-  if(expire.length) alerts.push({dot:'var(--purple)',icon:'⏰',title:`${expire.length} منتجات قاربت على الانتهاء`,time:'اليوم'});
+  if(expire.length) alerts.push({dot:'var(--purple)',icon:'⏰',title:`${expire.length} منتجات قاربت على الانتهاء`,time:'هذا الشهر'});
   const countEl = document.getElementById('alerts-count');
   if(countEl) countEl.textContent = alerts.length||'';
   el.innerHTML = alerts.length ? alerts.map(a=>`
@@ -623,7 +676,6 @@ function buildDashAlertsEnhanced(){
       </div>
     </div>`).join('')
   : '<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:12.5px">✅ لا توجد تنبيهات</div>';
-  // Also update notification dot
   const nd = document.getElementById('notif-dot'); if(nd) nd.style.display = alerts.length?'block':'none';
   buildNotifList(alerts.map(a=>({cls:'ali-w',icon:a.icon,title:a.title,sub:a.time})));
 }

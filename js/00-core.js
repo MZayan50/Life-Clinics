@@ -543,27 +543,28 @@ if(!localStorage.getItem('ha_fix_commission_v1')){
 // يُنشئ الهيكل فقط — لا بيانات وهمية
 // ══════════════════════════════════════════
 if(!localStorage.getItem('ha_seeded_v2')){
-  // حذف أي seed قديم إن وجد
   localStorage.removeItem('ha_seeded');
 
-  // ── إعدادات افتراضية قابلة للتعديل من شاشة الإعدادات ──
+  // ── إعدادات افتراضية: تُكتب في cache فقط — Firestore يُحدَّث من saveSettings() ──
   if(!DB.obj('settings') || !DB.obj('settings').clinicName){
-    DB.set('settings',{clinicName:'عيادتي للتجميل',phone:'',managerName:'',managerRole:'مدير النظام',schemaVersion:2});
+    // فقط cache + localStorage backup — لا نكتب Firestore هنا (يحصل من initFirebase → loadSettingsFromFirestore)
+    DB._cache['settings'] = {clinicName:'عيادتي للتجميل',phone:'',managerName:'',managerRole:'مدير النظام',schemaVersion:2};
+    try{ localStorage.setItem('ha_settings', JSON.stringify(DB._cache['settings'])); } catch(e){}
   }
 
-  // ── تهيئة جميع المجموعات فارغة ──
+  // ── تهيئة cache للمجموعات الفارغة (لا كتابة Firestore — Firestore يملأها عبر onSnapshot) ──
   const EMPTY_COLLECTIONS = [
     'branches','doctors','rooms','equipment','services',
     'patients','appointments','invoices','invoice_items',
     'inventory','suppliers','purchases','purchase_items',
     'leads','staff','expenses','visits','inventory_transactions',
     'sessions','packages','waitlist','campaigns','audit_log',
-    'photos','installments','cashlog'
+    'photos','installments','cashlog','transfers'
   ];
   EMPTY_COLLECTIONS.forEach(col => {
-    // لا تمسح مجموعة فيها بيانات فعلية مدخلة مسبقاً
-    if(!localStorage.getItem('ha_' + col)){
-      DB.set(col, []);
+    if(!DB._cache[col] && !localStorage.getItem('ha_' + col)){
+      DB._cache[col] = [];
+      try{ localStorage.setItem('ha_' + col, '[]'); } catch(e){}
     }
   });
 
