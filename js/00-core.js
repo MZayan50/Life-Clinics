@@ -174,19 +174,30 @@ const DB = {
 // بدل الاستدعاء اليدوي المتكرر في كل دالة
 // ══════════════════════════════════════════
 
+// ── دالة مساعدة: إعادة حساب إجمالي إنفاق ومديونية العميل (فواتير + باقات) ──
+function _recalcPatFinancials(patId){
+  const pat = DB.get('patients').find(p => String(p.id) === String(patId));
+  if(!pat) return;
+  // إجمالي الفواتير
+  const allInvs    = DB.get('invoices').filter(i => String(i.patId) === String(pat.id) || i.patient === pat.name);
+  const invSpent   = allInvs.reduce((s, i) => s + (i.total     || 0), 0);
+  const invBalance = allInvs.reduce((s, i) => s + (i.remaining || 0), 0);
+  // إجمالي الباقات (سعر الباقة = إنفاق، والمتبقي غير المدفوع = مديونية)
+  const allPkgs    = DB.get('packages').filter(p => String(p.patId) === String(pat.id));
+  const pkgSpent   = allPkgs.reduce((s, p) => s + (p.price  || 0), 0);
+  const pkgBalance = allPkgs.reduce((s, p) => s + Math.max(0, (p.price || 0) - (p.paid || 0)), 0);
+  const totalSpent   = invSpent   + pkgSpent;
+  const totalBalance = invBalance + pkgBalance;
+  DB.upd('patients', pat.id, {
+    spent:   totalSpent,
+    balance: totalBalance,
+    status:  totalBalance > 0 ? 'قسط' : (pat.status === 'قسط' ? 'نشط' : pat.status)
+  });
+}
+
 // ── 1. فاتورة جديدة → تحديث إنفاق العميل + تسجيل الخزينة ──
 EventBus.on('invoices:created', function(inv){
-  const pat = DB.get('patients').find(p => String(p.id) === String(inv.patId));
-  if(pat){
-    const allInvs = DB.get('invoices').filter(i => String(i.patId) === String(pat.id) || i.patient === pat.name);
-    const totalSpent = allInvs.reduce((s, i) => s + (i.total || 0), 0);
-    const totalRemaining = allInvs.reduce((s, i) => s + (i.remaining || 0), 0);
-    DB.upd('patients', pat.id, {
-      spent: totalSpent,
-      balance: totalRemaining,
-      status: totalRemaining > 0 ? 'قسط' : (pat.status === 'غير نشط' ? 'نشط' : pat.status)
-    });
-  }
+  _recalcPatFinancials(inv.patId);
   if((inv.paid || 0) > 0){
     DB.push('cashlog', {
       type: 'وارد', source: `فاتورة — ${inv.patient||''}`, refId: inv.id,
@@ -217,17 +228,7 @@ EventBus.on('invoices:created', function(inv){
 
 // ── 2. تحديث فاتورة → إعادة حساب رصيد العميل + تسجيل الدفع الجديد في الخزينة ──
 EventBus.on('invoices:updated', function(inv){
-  const pat = DB.get('patients').find(p => String(p.id) === String(inv.patId) || p.name === inv.patient);
-  if(pat){
-    const allInvs = DB.get('invoices').filter(i => String(i.patId) === String(pat.id) || i.patient === pat.name);
-    const totalRemaining = allInvs.reduce((s, i) => s + (i.remaining || 0), 0);
-    const totalSpent     = allInvs.reduce((s, i) => s + (i.total || 0), 0);
-    DB.upd('patients', pat.id, {
-      spent: totalSpent,
-      balance: totalRemaining,
-      status: totalRemaining > 0 ? 'قسط' : (pat.status === 'قسط' ? 'نشط' : pat.status)
-    });
-  }
+  _recalcPatFinancials(inv.patId || (DB.get('patients').find(p => p.name === inv.patient)?.id));
   // إذا كانت الفاتورة تحمل دفعة جديدة (paidDelta) سجّلها في الخزينة
   if((inv.paidDelta || 0) > 0){
     DB.push('cashlog', {
@@ -294,6 +295,18 @@ EventBus.on('sessions:updated', function(session){
   const allSessions = DB.get('sessions').filter(s => s.patId === session.patId);
   const totalDone = allSessions.reduce((s, x) => s + (x.done || 0), 0);
   DB.upd('patients', pat.id, { sessions: totalDone });
+});
+
+// ── 4b. باقة جديدة / تحديث باقة / حذف باقة → إعادة حساب إنفاق ومديونية العميل ──
+EventBus.on('packages:created', function(pkg){
+  if(pkg && pkg.patId) _recalcPatFinancials(pkg.patId);
+});
+EventBus.on('packages:updated', function(pkg){
+  if(pkg && pkg.patId) _recalcPatFinancials(pkg.patId);
+});
+EventBus.on('packages:deleted', function(payload){
+  const pkg = (typeof payload === 'object' && payload?.record) ? payload.record : null;
+  if(pkg && pkg.patId) _recalcPatFinancials(pkg.patId);
 });
 
 // ── 5. مصروف جديد → تسجيل في الخزينة ──
