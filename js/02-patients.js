@@ -185,6 +185,35 @@ function viewPat(id){
     </tr>`;
   }).join('')||'<tr><td colspan="14" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد فواتير</td></tr>';
   showScreen('patient-profile');
+
+  // ── مزامنة لحظية: تحديث ملف العميل تلقائياً عند أي تغيير ──
+  if(window._patProfileListener) { try{ window._patProfileListener(); }catch(e){} }
+  const _refreshProfile = () => {
+    if(window._curPat !== id) return;
+    const _scr = document.getElementById('screen-patient-profile');
+    if(!_scr || !_scr.classList.contains('active')) return;
+    const _p2 = DB.get('patients').find(x => x.id === id);
+    if(!_p2) return;
+    const _invs = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===_p2.name));
+    const _sp = _invs.reduce((s,i)=>s+(i.total||0),0);
+    const _pd = _invs.reduce((s,i)=>s+(i.paid||0),0);
+    const _rm = _invs.reduce((s,i)=>s+(i.remaining||0),0);
+    txt('pp-sessions', _invs.length);
+    txt('pp-spent',    _sp.toLocaleString()+' ج');
+    txt('pp-paid-total',_pd.toLocaleString()+' ج');
+    const _bEl = document.getElementById('pp-balance');
+    if(_bEl){ _bEl.textContent=_rm.toLocaleString()+' ج'; _bEl.style.color=_rm>0?'var(--rose)':'var(--emerald)'; }
+    const _ppPayBtn = document.getElementById('pp-pay-btn');
+    if(_ppPayBtn) _ppPayBtn.style.display = _rm>0 ? '' : 'none';
+    // لو تاب "حساب العميل" ظاهر، حدّث الجدول أيضاً
+    const tInv = document.getElementById('t-inv');
+    if(tInv && tInv.style.display !== 'none') renderPatAccount(id);
+  };
+  var _ppEvts = ['invoices:created','invoices:updated','invoices:deleted','packages:created','packages:updated','sessions:updated','db:changed'];
+  _ppEvts.forEach(function(ev){ EventBus.on(ev, _refreshProfile); });
+  window._patProfileListener = () => {
+    _ppEvts.forEach(function(ev){ EventBus.off(ev, _refreshProfile); });
+  };
 }
 
 // ══════════════════════════════════════════════════════
@@ -196,7 +225,22 @@ function renderPatAccount(id){
   const p = DB.get('patients').find(x => x.id === id);
   if(!p) return;
 
-  const invoices = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===p.name));
+  // ── تحديث الكروت الإحصائية في رأس الملف أيضاً (مزامنة لحظية) ──
+  const _txt = (elId,v) => { const el=document.getElementById(elId); if(el) el.textContent=v; };
+  const allPatInvs = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===p.name));
+  const _totalSpent  = allPatInvs.reduce((s,i)=>s+(i.total||0),0);
+  const _totalPaid   = allPatInvs.reduce((s,i)=>s+(i.paid||0),0);
+  const _totalRemain = allPatInvs.reduce((s,i)=>s+(i.remaining||0),0);
+  _txt('pp-sessions',  allPatInvs.length);
+  _txt('pp-spent',     _totalSpent.toLocaleString()+' ج');
+  _txt('pp-paid-total',_totalPaid.toLocaleString()+' ج');
+  const _balEl = document.getElementById('pp-balance');
+  if(_balEl){ _balEl.textContent=_totalRemain.toLocaleString()+' ج'; _balEl.style.color=_totalRemain>0?'var(--rose)':'var(--emerald)'; }
+  // ── زر "دفع متبقي" ──
+  const ppPayBtn = document.getElementById('pp-pay-btn');
+  if(ppPayBtn) ppPayBtn.style.display = _totalRemain>0 ? '' : 'none';
+
+  const invoices = allPatInvs;
   const sessions = DB.get('sessions').filter(s => s.patId===id);
   const packages = DB.get('packages').filter(pk => pk.patId===id);
 
