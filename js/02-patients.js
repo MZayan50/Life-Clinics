@@ -322,28 +322,34 @@ function renderPatAccount(id){
       pitbFull.innerHTML = allTx.map((tx, rowIdx) => {
         const num = '#' + String(rowIdx+1).padStart(3,'0');
 
+        // ── الأعمدة بالترتيب الدقيق للجدول (14 عمود): ──
+        // 1:#  2:التاريخ  3:الطبيب  4:الخدمات  5:المنتجات  6:الخصم  7:الضريبة
+        // 8:الإجمالي  9:المدفوع  10:المتبقي  11:طريقة الدفع  12:الحالة  13:ملاحظات  14:إجراءات
+
         if(tx._type === 'invoice'){
           const i = tx._raw;
           const stCls = i.status==='مدفوع'?'sc':i.status==='جزئي'?'sp':'sd';
           const items = i.items||[];
           const svcs  = items.filter(x=>x.type==='service'||!x.type).map(x=>x.name||x.service||'—').join('، ')||i.service||'—';
-          const prods = items.filter(x=>x.type==='product').map(x=>(x.name||'—')+' ('+( x.qty||1)+')').join('، ')||'—';
+          const prods = items.filter(x=>x.type==='product').map(x=>(x.name||'—')+' ('+(x.qty||1)+')').join('، ')||'—';
           const disc  = i.discount||0;
           const tax   = i.tax||0;
+          // badge النوع يظهر داخل عمود # مع الرقم
           return '<tr style="border-right:3px solid var(--gold-light)">'
-            + '<td style="font-size:11px;color:var(--gold-light);font-weight:700">'+num+'</td>'
-            + '<td style="font-size:11.5px"><span class="tag tg-gold" style="font-size:10px">🧾 فاتورة</span></td>'
-            + '<td style="font-size:12px;color:var(--text-muted)">'+(i.date||'—')+'</td>'
-            + '<td style="font-size:12px">'+(i.doctor||'—')+'</td>'
-            + '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+svcs+'">'+svcs+'</td>'
-            + '<td style="font-size:12px;color:var(--amber)">'+(disc>0?disc.toLocaleString()+' ج':'—')+'</td>'
-            + '<td style="font-weight:800;color:var(--gold-light)">'+(i.total||0).toLocaleString()+' ج</td>'
-            + '<td style="color:var(--emerald);font-weight:700">'+(i.paid||0).toLocaleString()+' ج</td>'
-            + '<td style="color:'+((i.remaining||0)>0?'var(--rose)':'var(--text-muted)')+';font-weight:700">'+(i.remaining||0).toLocaleString()+' ج</td>'
-            + '<td><span class="tag tg-teal" style="font-size:11px">'+(i.method||'—')+'</span></td>'
-            + '<td><span class="ast '+stCls+'">'+(i.status||'—')+'</span></td>'
-            + '<td style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(i.notes||'')+'">'+(i.notes||'—')+'</td>'
-            + '<td style="white-space:nowrap"><div style="display:flex;gap:4px;">'
+            + '<td style="font-size:11px;color:var(--gold-light);font-weight:700">'+num+'<br><span class="tag tg-gold" style="font-size:9px">🧾</span></td>'  // 1:#
+            + '<td style="font-size:12px;color:var(--text-muted)">'+(i.date||'—')+'</td>'  // 2:التاريخ
+            + '<td style="font-size:12px">'+(i.doctor||'—')+'</td>'  // 3:الطبيب
+            + '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+svcs+'">'+svcs+'</td>'  // 4:الخدمات
+            + '<td style="font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+prods+'">'+prods+'</td>'  // 5:المنتجات
+            + '<td style="font-size:12px;color:var(--amber)">'+(disc>0?disc.toLocaleString()+' ج':'—')+'</td>'  // 6:الخصم
+            + '<td style="font-size:12px;color:var(--text-muted)">'+(tax>0?tax+'%':'—')+'</td>'  // 7:الضريبة
+            + '<td style="font-weight:800;color:var(--gold-light)">'+(i.total||0).toLocaleString()+' ج</td>'  // 8:الإجمالي
+            + '<td style="color:var(--emerald);font-weight:700">'+(i.paid||0).toLocaleString()+' ج</td>'  // 9:المدفوع
+            + '<td style="color:'+((i.remaining||0)>0?'var(--rose)':'var(--text-muted)')+';font-weight:700">'+(i.remaining||0).toLocaleString()+' ج</td>'  // 10:المتبقي
+            + '<td><span class="tag tg-teal" style="font-size:11px">'+(i.method||'—')+'</span></td>'  // 11:طريقة الدفع
+            + '<td><span class="ast '+stCls+'">'+(i.status||'—')+'</span></td>'  // 12:الحالة
+            + '<td style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(i.notes||'')+'">'+(i.notes||'—')+'</td>'  // 13:ملاحظات
+            + '<td style="white-space:nowrap"><div style="display:flex;gap:4px;">'  // 14:إجراءات
             + ((i.remaining||0)>0?'<button class="btn btn-teal btn-xs" onclick="openSmartPay(\''+i.id+'\')">💳</button>':'')
             + '<button class="btn btn-ghost btn-xs" onclick="sendInvoiceWA(\''+i.id+'\')">💬</button>'
             + '<button class="btn btn-ghost btn-xs" onclick="printInvoice(\''+i.id+'\')">🖨️</button>'
@@ -357,41 +363,44 @@ function renderPatAccount(id){
           const pkgRem   = Math.max(0,pkgPrice-pkgPaid);
           const stCls    = pk.status==='نشطة'?'sc':pk.status==='منتهية'?'sd':'sp';
           const sessInfo = (pk.sessionsUsed||0)+'/'+(pk.sessionsCount||0)+' جلسة';
+          const pkgLabel = pk.name+(pk.services?' · '+pk.services:'');
           return '<tr style="border-right:3px solid var(--teal)">'
-            + '<td style="font-size:11px;color:var(--teal);font-weight:700">'+num+'</td>'
-            + '<td style="font-size:11.5px"><span class="tag tg-teal" style="font-size:10px">🎁 باقة</span></td>'
-            + '<td style="font-size:12px;color:var(--text-muted)">'+(pk.startDate||'—')+'</td>'
-            + '<td style="font-size:12px">—</td>'
-            + '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(pk.name||'')+ ' - '+(pk.services||'')+'">'+pk.name+(pk.services?' · '+pk.services:'')+'</td>'
-            + '<td style="font-size:12px;color:var(--text-muted)">'+sessInfo+'</td>'
-            + '<td style="font-weight:800;color:var(--gold-light)">'+pkgPrice.toLocaleString()+' ج</td>'
-            + '<td style="color:var(--emerald);font-weight:700">'+pkgPaid.toLocaleString()+' ج</td>'
-            + '<td style="color:'+(pkgRem>0?'var(--rose)':'var(--text-muted)')+';font-weight:700">'+pkgRem.toLocaleString()+' ج</td>'
-            + '<td><span class="tag tg-teal" style="font-size:11px">'+(pk.payMethod||'—')+'</span></td>'
-            + '<td><span class="ast '+stCls+'">'+(pk.status||'—')+'</span></td>'
-            + '<td style="font-size:11px;color:var(--text-muted)">'+(pk.startDate||'—')+' ← '+(pk.endDate||'—')+'</td>'
-            + '<td style="white-space:nowrap"><div style="display:flex;gap:4px;">'
+            + '<td style="font-size:11px;color:var(--teal);font-weight:700">'+num+'<br><span class="tag tg-teal" style="font-size:9px">🎁</span></td>'  // 1:#
+            + '<td style="font-size:12px;color:var(--text-muted)">'+(pk.startDate||'—')+'</td>'  // 2:التاريخ
+            + '<td style="font-size:12px">—</td>'  // 3:الطبيب
+            + '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+pkgLabel+'">'+pkgLabel+'</td>'  // 4:الخدمات
+            + '<td style="font-size:12px;color:var(--text-muted)">'+sessInfo+'</td>'  // 5:المنتجات → جلسات
+            + '<td>—</td>'  // 6:الخصم
+            + '<td>—</td>'  // 7:الضريبة
+            + '<td style="font-weight:800;color:var(--gold-light)">'+pkgPrice.toLocaleString()+' ج</td>'  // 8:الإجمالي
+            + '<td style="color:var(--emerald);font-weight:700">'+pkgPaid.toLocaleString()+' ج</td>'  // 9:المدفوع
+            + '<td style="color:'+(pkgRem>0?'var(--rose)':'var(--text-muted)')+';font-weight:700">'+pkgRem.toLocaleString()+' ج</td>'  // 10:المتبقي
+            + '<td><span class="tag tg-teal" style="font-size:11px">'+(pk.payMethod||'—')+'</span></td>'  // 11:طريقة الدفع
+            + '<td><span class="ast '+stCls+'">'+(pk.status||'—')+'</span></td>'  // 12:الحالة
+            + '<td style="font-size:11px;color:var(--text-muted)">'+(pk.startDate||'—')+' ← '+(pk.endDate||'—')+'</td>'  // 13:ملاحظات
+            + '<td style="white-space:nowrap"><div style="display:flex;gap:4px;">'  // 14:إجراءات
             + (pkgRem>0?'<button class="btn btn-teal btn-xs" onclick="openPayFromProfile()">💳</button>':'')
             + '</div></td>'
             + '</tr>';
 
         } else {
-          // cashlog
+          // cashlog — 14 عمود بنفس الترتيب
           const c = tx._raw;
           return '<tr style="border-right:3px solid var(--emerald);opacity:.85">'
-            + '<td style="font-size:11px;color:var(--emerald);font-weight:700">'+num+'</td>'
-            + '<td style="font-size:11.5px"><span class="tag tg-green" style="font-size:10px">💰 دفعة</span></td>'
-            + '<td style="font-size:12px;color:var(--text-muted)">'+(c.date||'—')+'</td>'
-            + '<td style="font-size:12px">—</td>'
-            + '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(c.source||c.service||'')+'">'+( c.source||c.service||'دفعة')+'</td>'
-            + '<td>—</td>'
-            + '<td>—</td>'
-            + '<td style="color:var(--emerald);font-weight:800">'+(c.amount||0).toLocaleString()+' ج</td>'
-            + '<td style="color:var(--text-muted)">—</td>'
-            + '<td><span class="tag tg-teal" style="font-size:11px">'+(c.method||'—')+'</span></td>'
-            + '<td><span class="ast sc">مدفوع</span></td>'
-            + '<td style="font-size:11px;color:var(--text-muted)">'+(c.notes||'—')+'</td>'
-            + '<td>—</td>'
+            + '<td style="font-size:11px;color:var(--emerald);font-weight:700">'+num+'<br><span class="tag tg-green" style="font-size:9px">💰</span></td>'  // 1:#
+            + '<td style="font-size:12px;color:var(--text-muted)">'+(c.date||'—')+'</td>'  // 2:التاريخ
+            + '<td style="font-size:12px">—</td>'  // 3:الطبيب
+            + '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(c.source||c.service||'')+'">'+(c.source||c.service||'دفعة')+'</td>'  // 4:الخدمات
+            + '<td>—</td>'  // 5:المنتجات
+            + '<td>—</td>'  // 6:الخصم
+            + '<td>—</td>'  // 7:الضريبة
+            + '<td>—</td>'  // 8:الإجمالي
+            + '<td style="color:var(--emerald);font-weight:800">'+(c.amount||0).toLocaleString()+' ج</td>'  // 9:المدفوع
+            + '<td style="color:var(--text-muted)">—</td>'  // 10:المتبقي
+            + '<td><span class="tag tg-teal" style="font-size:11px">'+(c.method||'—')+'</span></td>'  // 11:طريقة الدفع
+            + '<td><span class="ast sc">مدفوع</span></td>'  // 12:الحالة
+            + '<td style="font-size:11px;color:var(--text-muted)">'+(c.notes||'—')+'</td>'  // 13:ملاحظات
+            + '<td>—</td>'  // 14:إجراءات
             + '</tr>';
         }
       }).join('');
