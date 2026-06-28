@@ -267,45 +267,19 @@ function renderPatAccount(id){
   if(ppPayBtn) ppPayBtn.style.display = _totalRemain>0 ? '' : 'none';
 
   // ══════════════════════════════════════════════════════
-  // بناء قائمة موحدة من كل التعاملات مرتبة بالتاريخ
+  // جدول حساب العميل: باقات + cashlog فقط
+  // الفواتير تظهر في الطباعة فقط — راجع printProfile()
   // ══════════════════════════════════════════════════════
   const allTx = [];
 
-  // 1️⃣ فواتير
-  allPatInvs.forEach((inv, idx) => {
-    const items = inv.items||[];
-    const svcs  = items.filter(x=>x.type==='service'||!x.type).map(x=>x.name||x.service||'—').join('، ')||inv.service||'—';
-    allTx.push({
-      _date : inv.date||'',
-      _type : 'invoice',
-      _raw  : inv,
-      _idx  : idx,
-      _svcs : svcs
-    });
-  });
-
-  // 2️⃣ باقات (بدون فاتورة مرتبطة فقط — لتفادي التكرار)
+  // 1️⃣ كل الباقات
   allPatPkgs.forEach(pk => {
-    const linkedInv = allPatInvs.find(i => i.pkgId===pk.id);
-    if(!linkedInv) {
-      allTx.push({
-        _date : pk.startDate||'',
-        _type : 'package',
-        _raw  : pk
-      });
-    }
+    allTx.push({ _date: pk.startDate||'', _type: 'package', _raw: pk });
   });
 
-  // 3️⃣ مدفوعات cashlog المرتبطة بالعميل (التي ليست مرتبطة بفاتورة موجودة بالفعل)
+  // 2️⃣ مدفوعات cashlog المرتبطة بالعميل
   allCashLog.forEach(c => {
-    const alreadyInInv = c.invId && allPatInvs.find(i => String(i.id)===String(c.invId));
-    if(!alreadyInInv) {
-      allTx.push({
-        _date : c.date||'',
-        _type : 'cashlog',
-        _raw  : c
-      });
-    }
+    allTx.push({ _date: c.date||'', _type: 'cashlog', _raw: c });
   });
 
   // ترتيب تنازلي بالتاريخ
