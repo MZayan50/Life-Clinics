@@ -195,6 +195,7 @@ EventBus.on('invoices:created', function(inv){
       doctor: inv.doctor || '', branch: inv.branch || '',
       method: inv.method || 'كاش',
       date: inv.date || new Date().toISOString().split('T')[0],
+      timestamp: new Date().toISOString(),
       notes: 'دفعة فاتورة'
     });
   }
@@ -236,6 +237,7 @@ EventBus.on('invoices:updated', function(inv){
       doctor: inv.doctor || '', branch: inv.branch || '',
       method: inv.method || 'كاش',
       date: inv.date || new Date().toISOString().split('T')[0],
+      timestamp: new Date().toISOString(),
       notes: 'دفعة جزئية على فاتورة'
     });
     // ── عمولة الطبيب على الدفعة الجديدة ──
@@ -300,6 +302,7 @@ EventBus.on('expenses:created', function(exp){
     type: 'صادر', source: 'مصروف', refId: exp.id,
     amount: exp.amount || 0, method: 'كاش',
     date: exp.date || new Date().toISOString().split('T')[0],
+    timestamp: new Date().toISOString(),
     notes: exp.name || 'مصروف'
   });
 });
@@ -374,11 +377,10 @@ function _flushUIRefresh(){
     if(_pendingRefresh.has('suppliers')    && active==='purchases')    { renderPurchases(); if(typeof fillPurchaseSuppliers==='function') fillPurchaseSuppliers(); }
     if(_pendingRefresh.has('transfers')    && active==='transfers')    renderTransfers();
     if(_pendingRefresh.has('sessions')     && active==='sessions')     renderSessions();
+    if(_pendingRefresh.has('sessions')     && active==='packages')     renderPackages();
     if(_pendingRefresh.has('services')     && active==='services')     renderSvcs();
     if(_pendingRefresh.has('leads')        && active==='leads')        renderLeads();
     if(_pendingRefresh.has('photos')       && active==='photos')       renderPhotos();
-    if(_pendingRefresh.has('sessions')     && active==='sessions')     renderSessions();
-    if(_pendingRefresh.has('sessions')     && active==='packages')     renderPackages();
   } catch(e){ console.warn('[UI Refresh]', e); }
   _pendingRefresh.clear();
 }

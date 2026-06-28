@@ -103,11 +103,34 @@ function saveLead(){
   // renderLeads() يُستدعى تلقائياً عبر leads:created
 }
 
-// ── تحويل Lead إلى عميل + موعد حقيقي ──
+// ── فتح modal لاختيار تاريخ الموعد قبل التحويل ──
 function convertToAppt(leadId){
   const lead = DB.get('leads').find(l => l.id === leadId);
   if(!lead){ showToast('error', '❌ الـ Lead غير موجود'); return; }
   if(lead.status === 'تم التحويل'){ showToast('warning', '⚠️ هذا الـ Lead تم تحويله مسبقاً'); return; }
+
+  // تعيين الـ ID وتاريخ افتراضي (غداً)
+  const el = document.getElementById('cvt-lead-id');
+  if(el) el.value = leadId;
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  const dateEl = document.getElementById('cvt-appt-date');
+  if(dateEl) dateEl.value = tomorrow.toISOString().split('T')[0];
+  const notesEl = document.getElementById('cvt-appt-notes');
+  if(notesEl) notesEl.value = '';
+  openModal('lead-convert-modal');
+}
+
+// ── تنفيذ التحويل الفعلي بعد اختيار التاريخ ──
+function confirmConvertToAppt(){
+  const leadId = document.getElementById('cvt-lead-id')?.value;
+  const apptDate = document.getElementById('cvt-appt-date')?.value;
+  const apptTime = document.getElementById('cvt-appt-time')?.value || '10:00';
+  const extraNotes = document.getElementById('cvt-appt-notes')?.value || '';
+
+  if(!apptDate){ showToast('warning', '⚠️ اختر تاريخ الموعد'); return; }
+
+  const lead = DB.get('leads').find(l => l.id === leadId);
+  if(!lead){ showToast('error', '❌ الـ Lead غير موجود'); return; }
 
   // 1. إيجاد أو إنشاء عميل
   let pat = DB.get('patients').find(p => (lead.phone && p.phone === lead.phone) || p.name === lead.name);
@@ -122,16 +145,15 @@ function convertToAppt(leadId){
     showToast('info', `👤 تم إنشاء ملف عميل جديد لـ ${lead.name}`);
   }
 
-  // 2. إنشاء موعد مبدئي لليوم التالي
-  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-  const apptDate = tomorrow.toISOString().split('T')[0];
+  // 2. إنشاء موعد بالتاريخ المختار
   const svc = DB.get('services').find(s => s.name === lead.service) || DB.get('services')[0];
   DB.push('appointments', {
     patId: pat.id, patient: pat.name,
     serviceId: svc?.id || '', service: lead.service || svc?.name || 'استشارة',
     type: 'كشف', doctor: svc?.doctor || '', doctorId: svc?.doctorId || '',
-    date: apptDate, time: '10:00', status: 'مؤكد',
-    branch: pat.branch || '', notes: `محوّل من Lead — ${lead.notes || ''}`,
+    date: apptDate, time: apptTime, status: 'مؤكد',
+    branch: pat.branch || '',
+    notes: `محوّل من Lead${extraNotes ? ' — ' + extraNotes : (lead.notes ? ' — ' + lead.notes : '')}`,
   });
 
   // 3. تحديث حالة الـ Lead
@@ -140,6 +162,8 @@ function convertToAppt(leadId){
     convertedPatId: pat.id,
     convertedAt: new Date().toISOString(),
   });
+
+  closeModal('lead-convert-modal');
   showToast('success', `✅ تم تحويل ${lead.name} إلى عميل وموعد`, `📅 ${apptDate} — راجع شاشة المواعيد لتأكيد الوقت`);
   // renderLeads() يُستدعى تلقائياً عبر leads:updated
 }

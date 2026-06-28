@@ -199,7 +199,9 @@ function payInstallment(planId){
   DB.push('cashlog',{
     type:'وارد', source:`دفعة قسط #${nextInst.num} — ${plan.patientName}`,
     service:plan.service||'', amount:plan.installmentAmount, method:'كاش',
-    date:nextInst.paidDate, refId:planId, notes:`قسط ${nextInst.num}/${plan.count}`
+    date:nextInst.paidDate, refId:planId,
+    timestamp: new Date().toISOString(),
+    notes:`قسط ${nextInst.num}/${plan.count}`
   });
   // ✅ BUG#2 FIX: تحديث الفاتورة الأصلية المرتبطة بخطة الأقساط
   if(plan.fromInvId){
@@ -297,16 +299,19 @@ function renderAccounts(){
   const cfTb=document.getElementById('cf-tbody');if(!cfTb)return;
   const MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
   const year=new Date().getFullYear();
+  const currentMonth=new Date().getMonth(); // 0-indexed
   let cumulative=0;
   cfTb.innerHTML=MONTHS.map((m,i)=>{
     const mStr=`${year}-${String(i+1).padStart(2,'0')}`;
-    const inflow=invoices.filter(x=>(x.date||'').startsWith(mStr)).reduce((s,x)=>s+(x.paid||0),0);
+    // ✅ مصدر الإيراد: cashlog:وارد فقط (موحَّد مع الداشبورد والخزينة)
+    const inflow=cashlog.filter(c=>c.type==='وارد'&&(c.date||'').startsWith(mStr)).reduce((s,c)=>s+(c.amount||0),0);
     const expOutflow=expenses.filter(x=>(x.date||'').startsWith(mStr)).reduce((s,x)=>s+(x.amount||0),0);
-    // الرواتب تظهر شهرياً حتى لو مش مسجلة بتاريخ
-    const outflow=expOutflow+staffSalariesMonth;
+    // ✅ الرواتب تُحسب فقط للأشهر الحالية والمستقبلية — لا رواتب ثابتة على الماضي
+    const salaryForMonth = i <= currentMonth ? staffSalariesMonth : 0;
+    const outflow=expOutflow+salaryForMonth;
     const net=inflow-outflow;cumulative+=net;
     return `<tr>
-      <td style="font-weight:600">${m}</td>
+      <td style="font-weight:600">${m}${i===currentMonth?' <span style="font-size:10px;color:var(--gold-light)">(الحالي)</span>':''}</td>
       <td style="color:var(--emerald);font-weight:700">${inflow.toLocaleString()} ج</td>
       <td style="color:var(--rose);font-weight:700">${outflow.toLocaleString()} ج</td>
       <td style="color:${net>=0?'var(--teal)':'var(--rose)'};font-weight:800">${net>=0?'+':''}${net.toLocaleString()} ج</td>
@@ -381,8 +386,10 @@ function renderTreasury(){
   const totalIn=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
   const totalOutCash=cashlog.filter(c=>c.type==='صادر').reduce((s,c)=>s+(c.amount||0),0);
   const totalOutExp=expenses.reduce((s,e)=>s+(e.amount||0),0);
-  const totalOut=Math.max(totalOutCash, totalOutExp); // نأخذ الأكبر لتجنب double-counting
-  const balance=totalIn-totalOutExp; // balance حقيقي = وارد - مصروفات
+  // ✅ الصادر الصحيح = cashlog:صادر هو المصدر الوحيد (كل مصروف يُسجَّل فيه تلقائياً)
+  // نستخدمه إذا كان أكبر (يعني sync تام) وإلا نرجع للمصروفات مباشرة
+  const totalOut = totalOutCash >= totalOutExp ? totalOutCash : totalOutExp;
+  const balance=totalIn-totalOut; // balance حقيقي = وارد - صادر
 
   const todayIn=cashlog.filter(c=>c.type==='وارد'&&c.date===today).reduce((s,c)=>s+(c.amount||0),0);
   const todayOut=expenses.filter(e=>e.date===today).reduce((s,e)=>s+(e.amount||0),0);

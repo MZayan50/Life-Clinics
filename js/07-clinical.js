@@ -671,8 +671,12 @@ function renderDoctorView(){
   const dlbl=document.getElementById('dv-date-lbl');
   if(dlbl) dlbl.textContent=now.toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const docSel=document.getElementById('dv-doc-select');
-  if(docSel && docSel.options.length<=1){
-    DB.get('doctors').forEach(d=>{const o=document.createElement('option');o.value=d.name;o.textContent=d.name;docSel.appendChild(o);});
+  if(docSel){
+    // ✅ إعادة ملء القائمة دائماً من DB لضمان تحديثها عند إضافة/حذف أطباء
+    const prevVal = docSel.value;
+    docSel.innerHTML = '<option value="">— اختر طبيباً —</option>' +
+      DB.get('doctors').map(d=>`<option value="${d.name}">${d.name}</option>`).join('');
+    if(prevVal && DB.get('doctors').some(d=>d.name===prevVal)) docSel.value = prevVal;
   }
   const docName=docSel?.value||'';
   const docInfo=DB.get('doctors').find(d=>d.name===docName);
