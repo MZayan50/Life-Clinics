@@ -279,8 +279,9 @@ function openStaffModal(id){
 function saveStaff(){
   const name = gv('st-name').trim();
   if(!name){ showToast('warning', '⚠️ اسم الموظف مطلوب'); return; }
-  const dueDate = gv('st-duedate');
-  if(!dueDate){ showToast('warning', '⚠️ تاريخ استحقاق الراتب مطلوب'); return; }
+  // تاريخ الاستحقاق: لو مش متعبّى (خطأ أو تأخير في التحميل) نستخدم تاريخ اليوم كقيمة افتراضية
+  // بدل رفض حفظ الموظف بالكامل
+  const dueDate = gv('st-duedate') || new Date().toISOString().split('T')[0];
   const id   = gv('st-id');
   const data = {
     name,
