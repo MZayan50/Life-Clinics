@@ -135,6 +135,40 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg-primary);color:var(--t
 @media(max-width:1100px){#dash-main-grid{grid-template-columns:1fr!important;}#dash-kpi-grid{grid-template-columns:repeat(2,1fr)!important;}}
 @media(max-width:640px){#dash-kpi-grid{grid-template-columns:1fr!important;}}
 /* ── End Dashboard ── */
+/* ── Dashboard v2 widgets — بيانات حقيقية من النظام ── */
+.dgrid-3{display:grid;grid-template-columns:1fr 1.6fr 1fr;gap:16px;margin-bottom:18px;}
+.dgrid-2{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:18px;}
+.dgrid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:18px;}
+@media(max-width:1200px){.dgrid-3{grid-template-columns:1fr;}.dgrid-2{grid-template-columns:1fr;}.dgrid-4{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:640px){.dgrid-4{grid-template-columns:1fr;}}
+.donut-wrap{position:relative;width:150px;height:150px;margin:6px auto;}
+.donut-ring{width:100%;height:100%;border-radius:50%;background:var(--glass);transition:background .4s;}
+.donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.donut-center .dv{font-size:19px;font-weight:900;}
+.donut-center .dl{font-size:10px;color:var(--text-muted);}
+.dleg{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+.dleg-item{display:flex;align-items:center;gap:8px;font-size:12px;}
+.dleg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.dleg-val{margin-right:auto;font-weight:700;}
+.rep-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;}
+.rep-card{display:flex;flex-direction:column;align-items:center;gap:7px;padding:13px 6px;border-radius:13px;cursor:pointer;transition:all .2s;text-align:center;}
+.rep-card:hover{transform:translateY(-2px);filter:brightness(1.08);}
+.rep-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;}
+.rep-lbl{font-size:10.5px;font-weight:700;line-height:1.3;}
+.task-card{border-radius:16px;padding:15px;color:#fff;position:relative;overflow:hidden;min-height:120px;display:flex;flex-direction:column;justify-content:space-between;transition:transform .2s;}
+.task-card:hover{transform:translateY(-2px);}
+.task-card .tc-title{font-size:13px;font-weight:800;margin-bottom:3px;}
+.task-card .tc-sub{font-size:11px;opacity:.85;}
+.task-card .tc-meta{display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:11px;font-weight:800;}
+.task-card .tc-bar{height:5px;border-radius:3px;background:rgba(255,255,255,.28);margin-top:7px;overflow:hidden;}
+.task-card .tc-bar-f{height:100%;background:#fff;border-radius:3px;transition:width .5s;}
+.linechart-wrap{height:104px;margin-top:6px;}
+.mini-bars{display:flex;align-items:flex-end;gap:3px;height:34px;}
+.mini-bars div{flex:1;border-radius:2px 2px 0 0;transition:height .4s;}
+.icon-mini-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.icon-mini-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:11px 5px;border-radius:12px;cursor:pointer;transition:all .2s;font-size:10.5px;font-weight:700;}
+.icon-mini-btn:hover{transform:translateY(-2px);filter:brightness(1.08);}
+/* ── End Dashboard v2 ── */
 .g2{display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:18px;}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:18px;}
 .g2c{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
@@ -511,7 +545,86 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     </div>
   </div>
 
-  <!-- ══ MAIN GRID: Today Appointments (center) + Sidebar ══ -->
+  <!-- ══ ROW A: نظرة عامة على الفواتير (Donut) + نظرة عامة على الدخل (Bar) + أحدث التقارير ══ -->
+  <div class="dgrid-3">
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">📊 نظرة عامة على الفواتير</div><span class="card-sub">إجمالي</span></div>
+      <div class="donut-wrap">
+        <div class="donut-ring" id="dash-donut"></div>
+        <div class="donut-center"><div class="dv" id="dash-donut-total">0</div><div class="dl">إجمالي (ج)</div></div>
+      </div>
+      <div class="dleg" id="dash-donut-legend"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-hdr">
+        <div><div class="card-title">📈 نظرة عامة على الدخل</div><div class="card-sub" id="dash-income-sub">جارٍ التحميل...</div></div>
+        <select class="selbox" id="dash-income-year-sel" onchange="buildIncomeOverview()" style="padding:5px 10px;font-size:12px;"></select>
+      </div>
+      <div class="chart-bar" id="dash-income-chart" style="height:150px;"></div>
+      <div class="clbls" id="dash-income-labels"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">🗂️ أحدث التقارير</div></div>
+      <div class="rep-grid">
+        <div class="rep-card" style="background:rgba(59,130,246,.08);" onclick="showReport('revenue')"><div class="rep-ic" style="background:rgba(59,130,246,.18);color:var(--blue);">📈</div><div class="rep-lbl">تقرير الإيرادات</div></div>
+        <div class="rep-card" style="background:rgba(139,92,246,.08);" onclick="showReport('patients')"><div class="rep-ic" style="background:rgba(139,92,246,.18);color:var(--purple);">👥</div><div class="rep-lbl">تقرير العملاء</div></div>
+        <div class="rep-card" style="background:rgba(245,158,11,.08);" onclick="showReport('inventory')"><div class="rep-ic" style="background:rgba(245,158,11,.18);color:var(--amber);">📦</div><div class="rep-lbl">تقرير المخزون</div></div>
+        <div class="rep-card" style="background:rgba(244,63,94,.08);" onclick="showReport('appointments')"><div class="rep-ic" style="background:rgba(244,63,94,.18);color:var(--rose);">📅</div><div class="rep-lbl">تقرير المواعيد</div></div>
+        <div class="rep-card" style="background:rgba(45,212,191,.08);" onclick="showReport('doctors')"><div class="rep-ic" style="background:rgba(45,212,191,.18);color:var(--teal);">🏆</div><div class="rep-lbl">تقرير الأطباء</div></div>
+        <div class="rep-card" style="background:rgba(196,168,130,.08);" onclick="showReport('branches')"><div class="rep-ic" style="background:rgba(196,168,130,.18);color:var(--gold-light);">🏢</div><div class="rep-lbl">تقرير الفروع</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROW B: خطط العلاج النشطة (Task Summary) + صافي الربح (Profit) ══ -->
+  <div class="dgrid-2">
+    <div class="card">
+      <div class="card-hdr">
+        <div><div class="card-title">✨ خطط العلاج النشطة</div><div class="card-sub">أحدث الجلسات الجارية</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="showScreen('sessions')">عرض الكل</button>
+      </div>
+      <div id="dash-task-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-hdr"><div><div class="card-title">💹 صافي الربح</div><div class="card-sub" id="dash-profit-sub">جارٍ التحميل...</div></div></div>
+      <div id="dash-profit-val" style="font-size:25px;font-weight:900;color:var(--emerald);">0 ج</div>
+      <div class="linechart-wrap" id="dash-profit-chart"></div>
+    </div>
+  </div>
+
+  <!-- ══ ROW C: عملاء + فروع + خزينة + إجراءات سريعة ══ -->
+  <div class="dgrid-4">
+    <div class="card">
+      <div class="card-title" style="font-size:12.5px;margin-bottom:8px;">👥 إجمالي العملاء</div>
+      <div style="font-size:23px;font-weight:900;color:var(--amber);" id="dash-mini-pat">0</div>
+      <div class="mini-bars" id="dash-mini-pat-bars" style="margin-top:10px;"></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="font-size:12.5px;margin-bottom:8px;">🏢 توزيع الفروع</div>
+      <div class="donut-wrap" style="width:84px;height:84px;margin:2px auto;">
+        <div class="donut-ring" id="dash-branch-donut"></div>
+        <div class="donut-center"><div class="dv" style="font-size:12px;" id="dash-branch-total">0</div></div>
+      </div>
+      <div class="dleg" id="dash-branch-legend" style="margin-top:8px;"></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="font-size:12.5px;margin-bottom:8px;">🏦 رصيد الخزينة</div>
+      <div style="font-size:23px;font-weight:900;color:var(--purple);" id="dash-mini-cash">0 ج</div>
+      <div class="mini-bars" id="dash-mini-cash-bars" style="margin-top:10px;"></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="font-size:12.5px;margin-bottom:8px;">⚡ إجراءات سريعة</div>
+      <div class="icon-mini-grid">
+        <div class="icon-mini-btn" style="background:rgba(245,158,11,.1);color:var(--amber);" onclick="showScreen('patients');openPatModal()">👤 عميل</div>
+        <div class="icon-mini-btn" style="background:rgba(244,63,94,.1);color:var(--rose);" onclick="openApptModal()">📅 موعد</div>
+        <div class="icon-mini-btn" style="background:rgba(16,185,129,.1);color:var(--emerald);" onclick="showScreen('invoices');openInvModal()">🧾 فاتورة</div>
+        <div class="icon-mini-btn" style="background:rgba(139,92,246,.1);color:var(--purple);" onclick="showScreen('reports')">📊 تقارير</div>
+      </div>
+    </div>
+  </div>
   <div style="display:grid;grid-template-columns:1fr 300px;gap:18px;margin-bottom:18px;" id="dash-main-grid">
 
     <!-- ── CENTER: Today's Appointments (primary widget) ── -->
@@ -695,13 +808,11 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     </div>
   </div>
   <!-- ملخص مالي تلقائي — يُحدَّث من الفواتير -->
-  <div class="pstats" id="pp-fin-summary" style="grid-template-columns:repeat(6,1fr);">
+  <div class="pstats" id="pp-fin-summary" style="grid-template-columns:repeat(4,1fr);">
     <div class="sbox2" title="إجمالي الزيارات"><div class="sval" id="pp-sessions" style="color:var(--teal)">0</div><div class="slbl">الزيارات</div></div>
     <div class="sbox2" title="إجمالي الفواتير"><div class="sval" id="pp-spent" style="color:var(--gold-light)">0</div><div class="slbl">إجمالي (ج)</div></div>
     <div class="sbox2" title="إجمالي المدفوع"><div class="sval" id="pp-paid-total" style="color:var(--emerald)">0</div><div class="slbl">المدفوع (ج)</div></div>
     <div class="sbox2" title="المتبقي"><div class="sval" id="pp-balance" style="color:var(--rose)">0</div><div class="slbl">المتبقي (ج)</div></div>
-    <div class="sbox2" title="عدد الفواتير"><div class="sval" id="pp-plans" style="color:var(--purple)">0</div><div class="slbl">فواتير</div></div>
-    <div class="sbox2" title="آخر زيارة"><div class="sval" id="pp-last-visit" style="color:var(--amber);font-size:13px;">—</div><div class="slbl">آخر زيارة</div></div>
   </div>
   <div class="tabs" id="ptabs">
     <div class="tab active" onclick="stab(this,'ptabs','t-med')">الملف الطبي</div>
@@ -723,16 +834,6 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div id="pp-packages-content"><div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px">جارٍ التحميل...</div></div>
   </div></div>
   <div id="t-inv" style="display:none">
-
-    <!-- ══ ملخص مالي تلقائي - مزامنة مع الفواتير ══ -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px;" id="pac-kpi-row">
-      <div class="sbox2"><div class="sval" id="pac-total" style="color:var(--gold-light)">0</div><div class="slbl">إجمالي (ج)</div></div>
-      <div class="sbox2"><div class="sval" id="pac-paid"  style="color:var(--emerald)">0</div><div class="slbl">المدفوع (ج)</div></div>
-      <div class="sbox2"><div class="sval" id="pac-remaining" style="color:var(--rose)">0</div><div class="slbl">المتبقي (ج)</div></div>
-      <div class="sbox2"><div class="sval" id="pac-invcount" style="color:var(--teal)">0</div><div class="slbl">الفواتير</div></div>
-      <div class="sbox2"><div class="sval" id="pac-lastvisit" style="color:var(--amber);font-size:13px;">—</div><div class="slbl">آخر زيارة</div></div>
-      <div class="sbox2"><div class="sval" id="pac-visits" style="color:var(--purple)">0</div><div class="slbl">الزيارات</div></div>
-    </div>
 
     <!-- ══ جدول الفواتير الموسَّع - مزامنة تلقائية ══ -->
     <div class="card" style="margin-bottom:14px;">
