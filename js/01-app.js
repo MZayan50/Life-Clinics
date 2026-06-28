@@ -68,9 +68,6 @@ function buildChart(){
     monthNames.push(MN2[d.getMonth()].slice(0,3));
   }
   const max=Math.max(...monthsData,1);
-  // Update monthly revenue KPI
-  const thisMonthRev=monthsData[6];
-  txt('kpi-mrev',thisMonthRev.toLocaleString());
   chart.innerHTML=monthsData.map((v,i)=>`<div class="bar" style="background:${i===6?'var(--teal)':'var(--glass-border)'};height:${Math.max(v/max*100,4)}%;min-height:6px;transition:height .5s ease;" title="${monthNames[i]}: ${v.toLocaleString()} ج" onclick="showToast('info','📅 ${monthNames[i]}: '+${v}.toLocaleString()+' ج')"></div>`).join('');
   if(labels)labels.innerHTML=monthNames.map((m,i)=>`<div class="blbl" style="flex:1;color:${i===6?'var(--teal)':'var(--text-muted)'}">${m}</div>`).join('');
 
@@ -759,10 +756,10 @@ function buildDashboard(){
   const todayRev = todayRevInvs.reduce((s,i)=>s+(i.paid||0),0);
   txt('kpi-rev', todayRev.toLocaleString());
 
-  // ── KPI 4: Cash Balance from cashlog ──
+  // ── KPI 4: Cash Balance from cashlog (وارد/صادر هي القيم الحقيقية المُخزَّنة) ──
   const cashBal = cashlog.reduce((s,e)=>{
-    if(e.type==='in'||e.type==='دخل'||e.dir==='in') return s+(e.amount||0);
-    if(e.type==='out'||e.type==='مصروف'||e.dir==='out') return s-(e.amount||0);
+    if(e.type==='وارد') return s+(e.amount||0);
+    if(e.type==='صادر') return s-(e.amount||0);
     return s;
   },0);
   txt('kpi-mrev', cashBal.toLocaleString());
@@ -772,7 +769,7 @@ function buildDashboard(){
   const days7 = Array.from({length:7},(_,i)=>{const d=new Date(now);d.setDate(d.getDate()-6+i);return d.toISOString().split('T')[0];});
   const revData  = days7.map(d=>allInvs.filter(i=>i.date===d).reduce((s,i)=>s+(i.paid||0),0));
   const apptData = days7.map(d=>allApts.filter(a=>a.date===d).length);
-  const patData  = days7.map(d=>allPats.filter(p=>(p.created||'').startsWith(d)).length);
+  const patData  = days7.map(d=>allPats.filter(p=>(p.createdAt||'').startsWith(d)).length);
 
   function sparkline(elId, data, color){
     const el=document.getElementById(elId);if(!el)return;
@@ -813,6 +810,201 @@ function buildDashboard(){
   // ── Date label ──
   const sub=document.getElementById('dash-sub');
   if(sub) sub.textContent=new Date().toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+(branch?` · فرع ${branch}`:'');
+
+  // ── Dashboard v2 widgets (بيانات حقيقية 100%) ──
+  buildInvoiceDonut();
+  buildIncomeOverview();
+  buildDashTaskCards();
+  buildProfitChart();
+  buildBranchDonut();
+  buildDashMiniCards();
+}
+
+// ══════════════════════════════════════════
+// 🆕 DASHBOARD v2 — Donut / Income / Reports / Tasks / Profit / Branches
+// كل الأرقام والرسوم هنا تُحسَب من قاعدة البيانات الفعلية مباشرة
+// ══════════════════════════════════════════
+
+// رسم دونات بـ conic-gradient — segments: [{value,color}]
+function buildDonut(elId, segments, totalOverride){
+  const el = document.getElementById(elId); if(!el) return;
+  const total = totalOverride!=null ? totalOverride : segments.reduce((s,x)=>s+x.value,0);
+  if(!total){ el.style.background='var(--glass)'; el.style.webkitMask=''; el.style.mask=''; return; }
+  let acc = 0;
+  const stops = segments.filter(s=>s.value>0).map(seg=>{
+    const start = acc/total*360; acc += seg.value; const end = acc/total*360;
+    return `${seg.color} ${start}deg ${end}deg`;
+  }).join(',');
+  el.style.background = `conic-gradient(${stops})`;
+  el.style.webkitMask = 'radial-gradient(circle,transparent 56%,#000 57%)';
+  el.style.mask = 'radial-gradient(circle,transparent 56%,#000 57%)';
+}
+
+// ── 1) نظرة عامة على الفواتير (Donut: المدفوع / المتبقي / الخصومات) ──
+function buildInvoiceDonut(){
+  const invoices = DB.get('invoices')||[];
+  const totalPaid = invoices.reduce((s,i)=>s+(i.paid||0),0);
+  const totalRemaining = invoices.reduce((s,i)=>s+(i.remaining||0),0);
+  const totalDiscount = invoices.reduce((s,i)=>s+(i.discount||0),0);
+  const total = totalPaid+totalRemaining+totalDiscount;
+  txt('dash-donut-total', total.toLocaleString());
+  buildDonut('dash-donut', [
+    {value:totalPaid, color:'var(--emerald)'},
+    {value:totalRemaining, color:'var(--rose)'},
+    {value:totalDiscount, color:'var(--amber)'}
+  ], total);
+  const leg = document.getElementById('dash-donut-legend');
+  if(leg) leg.innerHTML = `
+    <div class="dleg-item"><span class="dleg-dot" style="background:var(--emerald)"></span>المدفوع <span class="dleg-val">${totalPaid.toLocaleString()} ج</span></div>
+    <div class="dleg-item"><span class="dleg-dot" style="background:var(--rose)"></span>المتبقي <span class="dleg-val">${totalRemaining.toLocaleString()} ج</span></div>
+    <div class="dleg-item"><span class="dleg-dot" style="background:var(--amber)"></span>الخصومات <span class="dleg-val">${totalDiscount.toLocaleString()} ج</span></div>`;
+}
+
+// ── 2) نظرة عامة على الدخل (Bar chart بفلتر السنة) ──
+function buildIncomeOverview(){
+  const invoices = DB.get('invoices')||[];
+  const sel = document.getElementById('dash-income-year-sel');
+  const curYear = String(new Date().getFullYear());
+  const years = [...new Set(invoices.map(i=>(i.date||'').substring(0,4)).filter(Boolean).concat([curYear]))].sort((a,b)=>b-a);
+  if(sel && !sel.dataset.filled){
+    sel.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join('');
+    sel.value = curYear;
+    sel.dataset.filled = '1';
+  }
+  const year = (sel && sel.value) || curYear;
+  const MN = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  const monthsData = MN.map((_,i)=>{
+    const key = `${year}-${String(i+1).padStart(2,'0')}`;
+    return invoices.filter(inv=>(inv.date||'').startsWith(key)).reduce((s,inv)=>s+(inv.paid||0),0);
+  });
+  const max = Math.max(...monthsData,1);
+  const curMonthIdx = (year===curYear) ? new Date().getMonth() : -1;
+  const chart = document.getElementById('dash-income-chart');
+  if(chart) chart.innerHTML = monthsData.map((v,i)=>`<div class="bar" style="background:${i===curMonthIdx?'var(--gold)':'var(--teal)'};opacity:${i===curMonthIdx?1:.55};height:${Math.max(v/max*100,3)}%;" title="${MN[i]}: ${v.toLocaleString()} ج" onclick="showToast('info','📅 ${MN[i]} ${year}: '+(${v}).toLocaleString()+' ج')"></div>`).join('');
+  const labels = document.getElementById('dash-income-labels');
+  if(labels) labels.innerHTML = MN.map((m,i)=>`<div class="blbl" style="flex:1;color:${i===curMonthIdx?'var(--gold-light)':'var(--text-muted)'}">${m.slice(0,3)}</div>`).join('');
+  const subEl = document.getElementById('dash-income-sub');
+  if(subEl) subEl.textContent = `دخل عام ${year} — ${monthsData.reduce((a,b)=>a+b,0).toLocaleString()} ج`;
+}
+
+// ── 3) خطط العلاج النشطة (Task cards بتفاصيل حقيقية) ──
+function buildDashTaskCards(){
+  const el = document.getElementById('dash-task-cards'); if(!el) return;
+  const sessions = (DB.get('sessions')||[]).filter(s=>s.status==='جارية');
+  const patients = DB.get('patients')||[];
+  const grads = ['linear-gradient(135deg,#6366F1,#3B82F6)','linear-gradient(135deg,#F59E0B,#F43F5E)','linear-gradient(135deg,#8B5CF6,#EC4899)'];
+  if(!sessions.length){
+    el.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:24px;font-size:13px;">لا توجد خطط علاج جارية حالياً</div>';
+    return;
+  }
+  const top3 = sessions.slice(-3).reverse();
+  el.innerHTML = top3.map((s,i)=>{
+    const pat = patients.find(p=>String(p.id)===String(s.patId));
+    const done=s.done||0, total=s.total||1, pct=Math.round(done/total*100);
+    return `<div class="task-card" style="background:${grads[i%grads.length]};cursor:pointer;" onclick="${pat?`viewPat('${pat.id}')`:`showScreen('sessions')`}">
+      <div>
+        <div class="tc-title">${s.type||'خطة علاج'}</div>
+        <div class="tc-sub">${pat?pat.name:'—'} ${s.doc?'· د. '+s.doc:''}</div>
+      </div>
+      <div>
+        <div class="tc-meta"><span>${done}/${total} جلسة</span><span>${pct}%</span></div>
+        <div class="tc-bar"><div class="tc-bar-f" style="width:${pct}%"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 4) صافي الربح (Profit line chart — آخر 6 شهور، نفس معادلة شاشة التقارير) ──
+function buildProfitChart(){
+  const invoices  = DB.get('invoices')||[];
+  const cashlog   = DB.get('cashlog')||[];
+  const purchases = DB.get('purchases')||[];
+  const now = new Date();
+  const months = Array.from({length:6},(_,i)=>{
+    const d = new Date(now.getFullYear(), now.getMonth()-5+i, 1);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  });
+  const data = months.map(key=>{
+    const rev = invoices.filter(i=>(i.date||'').startsWith(key)).reduce((s,i)=>s+(i.paid||0),0);
+    const exp = cashlog.filter(c=>c.type==='صادر'&&(c.date||'').startsWith(key)).reduce((s,c)=>s+(c.amount||0),0);
+    const pur = purchases.filter(p=>(p.orderDate||'').startsWith(key)&&p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
+    return rev-exp-pur;
+  });
+  const curProfit = data[data.length-1];
+  const valEl = document.getElementById('dash-profit-val');
+  if(valEl){ valEl.textContent = (curProfit>=0?'+':'')+curProfit.toLocaleString()+' ج'; valEl.style.color = curProfit>=0?'var(--emerald)':'var(--rose)'; }
+  const subEl = document.getElementById('dash-profit-sub');
+  if(subEl) subEl.textContent = `صافي الربح — ${now.toLocaleDateString('ar-EG',{month:'long',year:'numeric'})}`;
+
+  const wrap = document.getElementById('dash-profit-chart'); if(!wrap) return;
+  const w=300,h=100,pad=8;
+  const min = Math.min(...data,0), max = Math.max(...data,1);
+  const range = (max-min)||1;
+  const pts = data.map((v,i)=>{
+    const x = pad + i*(w-2*pad)/(data.length-1);
+    const y = h-pad - ((v-min)/range)*(h-2*pad);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const lineColor = curProfit>=0 ? 'var(--emerald)' : 'var(--rose)';
+  const zeroY = (h-pad-((0-min)/range)*(h-2*pad)).toFixed(1);
+  wrap.innerHTML = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;overflow:visible;" preserveAspectRatio="none">
+    <line x1="0" y1="${zeroY}" x2="${w}" y2="${zeroY}" stroke="var(--glass-border)" stroke-dasharray="3,3"/>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${lineColor}" stroke-width="2.5"/>
+    ${pts.map((p,i)=>{const [x,y]=p.split(','); return `<circle cx="${x}" cy="${y}" r="3" fill="${lineColor}"><title>${months[i]}: ${data[i].toLocaleString()} ج</title></circle>`;}).join('')}
+  </svg>`;
+}
+
+// ── 5) توزيع الفروع (Branch revenue donut) ──
+function buildBranchDonut(){
+  const invoices = DB.get('invoices')||[];
+  const colors = ['var(--purple)','var(--teal)','var(--amber)','var(--rose)','var(--blue)'];
+  const map = {};
+  invoices.forEach(i=>{ const b=i.branch||'غير محدد'; map[b]=(map[b]||0)+(i.paid||0); });
+  const entries = Object.entries(map).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const total = entries.reduce((s,[,v])=>s+v,0);
+  txt('dash-branch-total', total?total.toLocaleString():'0');
+  const leg = document.getElementById('dash-branch-legend');
+  if(!entries.length){
+    buildDonut('dash-branch-donut', [], 0);
+    if(leg) leg.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:11px;">لا توجد بيانات</div>';
+    return;
+  }
+  buildDonut('dash-branch-donut', entries.map(([,v],i)=>({value:v,color:colors[i%colors.length]})), total);
+  if(leg) leg.innerHTML = entries.map(([name,v],i)=>{
+    const pct = total?Math.round(v/total*100):0;
+    return `<div class="dleg-item" style="font-size:11px;"><span class="dleg-dot" style="background:${colors[i%colors.length]}"></span>${name} <span class="dleg-val">${pct}%</span></div>`;
+  }).join('');
+}
+
+// ── 6) بطاقات مصغّرة: العملاء + الخزينة (Sparkbars حقيقية) ──
+function buildDashMiniCards(){
+  const pats = DB.get('patients')||[];
+  const cashlog = DB.get('cashlog')||[];
+  txt('dash-mini-pat', pats.length.toLocaleString());
+  const now = new Date();
+  const months6 = Array.from({length:6},(_,i)=>{
+    const d=new Date(now.getFullYear(), now.getMonth()-5+i,1);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  });
+  const patBars = months6.map(key=>pats.filter(p=>(p.createdAt||'').startsWith(key)).length);
+  const maxP = Math.max(...patBars,1);
+  const patEl = document.getElementById('dash-mini-pat-bars');
+  if(patEl) patEl.innerHTML = patBars.map((v,i)=>`<div style="height:${Math.max(v/maxP*100,6)}%;background:${i===patBars.length-1?'var(--amber)':'rgba(245,158,11,.35)'}" title="${v}"></div>`).join('');
+
+  const cashBal = cashlog.reduce((s,e)=>{
+    if(e.type==='وارد') return s+(e.amount||0);
+    if(e.type==='صادر') return s-(e.amount||0);
+    return s;
+  },0);
+  txt('dash-mini-cash', cashBal.toLocaleString()+' ج');
+  const cashBars = months6.map(key=>{
+    const inAmt  = cashlog.filter(c=>c.type==='وارد'&&(c.date||'').startsWith(key)).reduce((s,c)=>s+(c.amount||0),0);
+    const outAmt = cashlog.filter(c=>c.type==='صادر'&&(c.date||'').startsWith(key)).reduce((s,c)=>s+(c.amount||0),0);
+    return inAmt-outAmt;
+  });
+  const maxC = Math.max(...cashBars.map(Math.abs),1);
+  const cashEl = document.getElementById('dash-mini-cash-bars');
+  if(cashEl) cashEl.innerHTML = cashBars.map((v,i)=>`<div style="height:${Math.max(Math.abs(v)/maxC*100,6)}%;background:${v<0?'var(--rose)':(i===cashBars.length-1?'var(--purple)':'rgba(139,92,246,.35)')}" title="${v.toLocaleString()} ج"></div>`).join('');
 }
 
 // Render today's appointments in the main dashboard widget
