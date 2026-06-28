@@ -1597,9 +1597,22 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="fgrp"><label class="flbl">الهاتف</label><input class="fctl" id="st-phone" placeholder="01X-XXX-XXXX"></div>
     <div class="fgrp"><label class="flbl">البريد الإلكتروني</label><input class="fctl" id="st-email" placeholder="email@example.com"></div>
     <div class="fgrp"><label class="flbl">الراتب الشهري (ج)</label><input class="fctl" type="number" id="st-salary" placeholder="5000"></div>
+    <div class="fgrp"><label class="flbl">تاريخ استحقاق الراتب</label><input class="fctl" type="date" id="st-duedate"></div>
     <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="st-status"><option>نشط</option><option>غير نشط</option></select></div>
   </div></div>
   <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('staff-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveStaff()">💾 حفظ</button></div></div>
+</div>
+
+<div class="modal-overlay" id="advance-modal">
+  <div class="modal" style="max-width:440px"><div class="mhdr"><div class="mtitle" id="adv-modal-title">💵 سلفة جديدة</div><button class="mclose" onclick="closeModal('advance-modal')">✕</button></div>
+  <div class="mbody"><div class="fg">
+    <input type="hidden" id="adv-staff-id">
+    <div class="fgrp full"><label class="flbl">الموظف</label><input class="fctl" id="adv-staff-name" disabled></div>
+    <div class="fgrp full"><label class="flbl">قيمة السلفة (ج) *</label><input class="fctl" type="number" id="adv-amount" placeholder="1000"></div>
+    <div class="fgrp full"><label class="flbl">التاريخ</label><input class="fctl" type="date" id="adv-date"></div>
+    <div class="fgrp full"><label class="flbl">ملاحظات</label><input class="fctl" id="adv-note" placeholder="سبب السلفة (اختياري)"></div>
+  </div></div>
+  <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('advance-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveAdvance()">💾 صرف السلفة</button></div></div>
 </div>
 <div class="screen" id="screen-payments">
   <div class="kpi-grid" style="margin-bottom:18px;">
@@ -1684,7 +1697,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <div class="screen" id="screen-expenses">
   <div class="filter-bar">
     <div class="sbox"><span>🔍</span><input type="text" id="exp-search" placeholder="بحث عن مصروف..." oninput="renderExpenses()"></div>
-    <select class="selbox" id="exp-type-filter" onchange="renderExpenses()"><option value="">كل الأنواع</option><option value="إيجار">إيجار</option><option value="مرافق">مرافق</option><option value="رواتب">رواتب</option><option value="مخزون">مخزون</option><option value="تسويق">تسويق</option><option value="أخرى">أخرى</option></select>
+    <select class="selbox" id="exp-type-filter" onchange="renderExpenses()"><option value="">كل الأنواع</option><option value="إيجار">إيجار</option><option value="مرافق">مرافق</option><option value="رواتب">رواتب</option><option value="سلفة">سلفة</option><option value="مخزون">مخزون</option><option value="تسويق">تسويق</option><option value="أخرى">أخرى</option></select>
     <button class="btn btn-primary" onclick="openExpModal()">+ مصروف جديد</button>
   </div>
   <div class="kpi-grid">
@@ -1701,7 +1714,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   <div class="mbody"><div class="fg">
     <input type="hidden" id="exp-id">
     <div class="fgrp full"><label class="flbl">البيان *</label><input class="fctl" id="exp-name" placeholder="مثال: إيجار الفرع"></div>
-    <div class="fgrp"><label class="flbl">النوع</label><select class="fctl" id="exp-type"><option>إيجار</option><option>مرافق</option><option>رواتب</option><option>مخزون</option><option>تسويق</option><option>أخرى</option></select></div>
+    <div class="fgrp"><label class="flbl">النوع</label><select class="fctl" id="exp-type"><option>إيجار</option><option>مرافق</option><option>رواتب</option><option>سلفة</option><option>مخزون</option><option>تسويق</option><option>أخرى</option></select></div>
     <div class="fgrp"><label class="flbl">المبلغ (ج) *</label><input class="fctl" type="number" id="exp-amount" placeholder="0"></div>
     <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="exp-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
     <div class="fgrp"><label class="flbl">التاريخ</label><input class="fctl" type="date" id="exp-date"></div>

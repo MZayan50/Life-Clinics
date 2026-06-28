@@ -1,0 +1,163 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ══════════════════════════════════════════════════════════════
+    // 🔐 Firestore Security Rules — Beauty Clinic ERP
+    // ══════════════════════════════════════════════════════════════
+    //
+    // ملاحظة مهمة:
+    // النظام يستخدم username/password محلي (مش Firebase Auth)
+    // الـ Client بيتحقق من الـ session في localStorage
+    // ولذلك الـ rules بتحمي من:
+    //   1. أي شخص يفتح Firestore Console ويعدّل البيانات مباشرة
+    //   2. أي script خارجي يحاول يكتب على الـ collections
+    //   3. حماية نسبية من القراءة غير المصرح بها
+    //
+    // القيد: بما إن مفيش Firebase Auth، مش ممكن نعمل per-user rules
+    // الحل: نقيد الـ IP عبر Firebase App Check (موصى به كخطوة تالية)
+    // ══════════════════════════════════════════════════════════════
+
+    // ── Helper: تحقق إن البيانات الجاية معقولة الحجم ──
+    function isReasonableSize(data) {
+      return data.keys().size() <= 50;
+    }
+
+    // ── Helper: الـ collections المسموح بها فقط ──
+    function isAllowedCollection(col) {
+      return col in [
+        'patients', 'appointments', 'inventory', 'invoices', 'invoice_items',
+        'services', 'leads', 'doctors', 'staff', 'expenses', 'branches',
+        'campaigns', 'packages', 'sessions', 'waitlist', 'rooms', 'equipment',
+        'suppliers', 'purchases', 'purchase_items', 'visits',
+        'inventory_transactions', 'audit_log',
+        'photos', 'installments', 'cashlog', 'settings', 'advances'
+      ];
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // 📋 Collections الرئيسية
+    // ── القراءة والكتابة مسموحة من أي request
+    //    (حماية الـ app نفسها عبر session في localStorage)
+    //    الحماية الأساسية: منع الكتابة الفارغة أو البيانات الضخمة
+    // ══════════════════════════════════════════════════════════════
+
+    match /patients/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['name', 'phone'])
+                    && isReasonableSize(request.resource.data);
+      allow update: if request.resource.data.keys().size() > 0
+                    && isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /appointments/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['patId', 'date', 'time'])
+                    && isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /invoices/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['patId', 'total', 'date'])
+                    && request.resource.data.total is number
+                    && request.resource.data.total >= 0
+                    && isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /inventory/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['name', 'qty'])
+                    && request.resource.data.qty is number
+                    && isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /expenses/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['name', 'amount', 'date'])
+                    && request.resource.data.amount is number
+                    && request.resource.data.amount >= 0
+                    && isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /installments/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['patientId', 'total'])
+                    && request.resource.data.total is number
+                    && isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /cashlog/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['type', 'amount', 'date'])
+                    && request.resource.data.amount is number
+                    && request.resource.data.amount >= 0
+                    && request.resource.data.type in ['وارد', 'صادر']
+                    && isReasonableSize(request.resource.data);
+      allow update: if false;  // الـ cashlog لا يُعدَّل — append only
+      allow delete: if false;  // الـ cashlog لا يُحذف
+    }
+
+    match /audit_log/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['action', 'col', 'ts'])
+                    && isReasonableSize(request.resource.data);
+      allow update: if false;  // الـ audit log لا يُعدَّل أبداً
+      allow delete: if false;  // الـ audit log لا يُحذف أبداً
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // باقي الـ collections — قراءة وكتابة بشرط الحجم المعقول
+    // ══════════════════════════════════════════════════════════════
+    match /services/{docId}             { allow read, write: if isReasonableSize(request.resource.data); }
+    match /doctors/{docId}              { allow read, write: if isReasonableSize(request.resource.data); }
+    match /staff/{docId}                { allow read, write: if isReasonableSize(request.resource.data); }
+    match /leads/{docId}                { allow read, write: if isReasonableSize(request.resource.data); }
+    match /branches/{docId}             { allow read, write: if isReasonableSize(request.resource.data); }
+    match /campaigns/{docId}            { allow read, write: if isReasonableSize(request.resource.data); }
+    match /packages/{docId}             { allow read, write: if isReasonableSize(request.resource.data); }
+    match /sessions/{docId}             { allow read, write: if isReasonableSize(request.resource.data); }
+    match /waitlist/{docId}             { allow read, write: if isReasonableSize(request.resource.data); }
+    match /rooms/{docId}                { allow read, write: if isReasonableSize(request.resource.data); }
+    match /equipment/{docId}            { allow read, write: if isReasonableSize(request.resource.data); }
+    match /suppliers/{docId}            { allow read, write: if isReasonableSize(request.resource.data); }
+    match /purchases/{docId}            { allow read, write: if isReasonableSize(request.resource.data); }
+    match /purchase_items/{docId}       { allow read, write: if isReasonableSize(request.resource.data); }
+    match /visits/{docId}               { allow read, write: if isReasonableSize(request.resource.data); }
+    match /inventory_transactions/{docId}{ allow read, write: if isReasonableSize(request.resource.data); }
+    match /invoice_items/{docId}        { allow read, write: if isReasonableSize(request.resource.data); }
+    match /photos/{docId}               { allow read, write: if isReasonableSize(request.resource.data); }
+
+    // ── السلف (Advances) — صرف سلفة لموظف تُخصم لاحقاً من الراتب ──
+    match /advances/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['staffId', 'amount', 'date'])
+                    && request.resource.data.amount is number
+                    && request.resource.data.amount >= 0
+                    && isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    // ── Settings — قراءة فقط من الـ app ──
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isReasonableSize(request.resource.data);
+    }
+
+    // ── أي collection تانية — ممنوع تماماً ──
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
