@@ -254,8 +254,9 @@ function renderAccounts(){
   const cashlog=DB.get('cashlog')||[];
   // مصدر الإيراد: cashlog:وارد فقط (موحَّد مع الداشبورد والخزينة)
   const totalRevenue=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
-  // المصروفات تشمل الرواتب المصروفة فعلاً (عبر payStaffSalary في HR) — لا double-counting
-  const totalExpense=expenses.reduce((s,e)=>s+(e.amount||0),0);
+  // ✅ المصروفات الفعلية = cashlog:صادر (يُحذف منه عند حذف المصروف تلقائياً)
+  // expenses لا تزال تُستخدم لتفاصيل التصنيف فقط (Expense breakdown)
+  const totalExpense=cashlog.filter(c=>c.type==='صادر').reduce((s,c)=>s+(c.amount||0),0);
   const netProfit=totalRevenue-totalExpense;
   const margin=totalRevenue?Math.round(netProfit/totalRevenue*100):0;
 
@@ -284,20 +285,19 @@ function renderAccounts(){
   const invValue=DB.get('inventory').reduce((s,i)=>s+(i.qty*i.price),0);
   const receivables=(DB.get('installments')||[]).reduce((s,p)=>s+(p.remaining||0),0);
   const suppliersOwed=(DB.get('suppliers')||[]).reduce((s,x)=>s+(x.owed||0),0);
-  // الكاش = وارد ناقص كل المصروفات الفعلية (شاملة الرواتب المصروفة)
-  const cashIn=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
-  const cashBalance=Math.max(0,cashIn-totalExpense);
+  // الكاش = وارد ناقص صادر من cashlog (المصدر الوحيد الصحيح بعد الحذف)
+  const cashBalance=Math.max(0,totalRevenue-totalExpense);
   txt('bs-cash',cashBalance.toLocaleString()+' ج');
   txt('bs-inventory',invValue.toLocaleString()+' ج');
   txt('bs-receivables',receivables.toLocaleString()+' ج');
   txt('bs-total-assets',(cashBalance+invValue+receivables).toLocaleString()+' ج');
   txt('bs-suppliers',suppliersOwed.toLocaleString()+' ج');
-  // bs-salaries = رواتب مصروفة فعلاً من expenses (نوع رواتب)
-  const paidSalaries=expenses.filter(e=>e.type==='رواتب'||e.category==='رواتب').reduce((s,e)=>s+(e.amount||0),0);
+  // bs-salaries = رواتب مصروفة فعلاً من cashlog:صادر مصدره "رواتب"
+  const paidSalaries=cashlog.filter(c=>c.type==='صادر'&&(c.notes||'').includes('راتب')).reduce((s,c)=>s+(c.amount||0),0);
   txt('bs-salaries',paidSalaries.toLocaleString()+' ج');
   txt('bs-equity',(cashBalance+invValue+receivables-suppliersOwed-paidSalaries).toLocaleString()+' ج');
 
-  // Cash flow table — الصادر = expenses الفعلية فقط (الرواتب ضمنها)
+  // Cash flow table — الصادر من cashlog:صادر بالشهر
   const cfTb=document.getElementById('cf-tbody');if(!cfTb)return;
   const MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
   const year=new Date().getFullYear();
@@ -306,7 +306,7 @@ function renderAccounts(){
   cfTb.innerHTML=MONTHS.map((m,i)=>{
     const mStr=`${year}-${String(i+1).padStart(2,'0')}`;
     const inflow=cashlog.filter(c=>c.type==='وارد'&&(c.date||'').startsWith(mStr)).reduce((s,c)=>s+(c.amount||0),0);
-    const outflow=expenses.filter(x=>(x.date||'').startsWith(mStr)).reduce((s,x)=>s+(x.amount||0),0);
+    const outflow=cashlog.filter(c=>c.type==='صادر'&&(c.date||'').startsWith(mStr)).reduce((s,c)=>s+(c.amount||0),0);
     const net=inflow-outflow;cumulative+=net;
     return `<tr>
       <td style="font-weight:600">${m}${i===currentMonth?' <span style="font-size:10px;color:var(--gold-light)">(الحالي)</span>':''}</td>
@@ -376,28 +376,24 @@ function renderPayments(q){
 // ── Treasury rendering using cashlog ──
 function renderTreasury(){
   const cashlog=DB.get('cashlog')||[];
-  const expenses=DB.get('expenses')||[];
   const today=new Date().toISOString().split('T')[0];
 
-  // ✅ cashlog هو المصدر الوحيد للحسابات — لا double-counting مع الفواتير
-  // invoices:created hook في 00-core.js يضيف cashlog entry تلقائياً لكل فاتورة مدفوعة
-  const totalIn=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
-  const totalOutCash=cashlog.filter(c=>c.type==='صادر').reduce((s,c)=>s+(c.amount||0),0);
-  const totalOutExp=expenses.reduce((s,e)=>s+(e.amount||0),0);
-  // ✅ الصادر الصحيح = cashlog:صادر هو المصدر الوحيد (كل مصروف يُسجَّل فيه تلقائياً)
-  // نستخدمه إذا كان أكبر (يعني sync تام) وإلا نرجع للمصروفات مباشرة
-  const totalOut = totalOutCash >= totalOutExp ? totalOutCash : totalOutExp;
-  const balance=totalIn-totalOut; // balance حقيقي = وارد - صادر
+  // ✅ cashlog هو المصدر الوحيد — الوارد والصادر كلاهما مسجّل فيه تلقائياً
+  // expenses:created   → يُضيف cashlog:صادر
+  // expenses:deleted   → يحذف cashlog:صادر المقابل (refId)
+  // لا نقرأ expenses مباشرة هنا لتجنب double-counting بعد الحذف
+  const totalIn      = cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
+  const totalOut     = cashlog.filter(c=>c.type==='صادر').reduce((s,c)=>s+(c.amount||0),0);
+  const balance      = totalIn - totalOut;
 
-  const todayIn=cashlog.filter(c=>c.type==='وارد'&&c.date===today).reduce((s,c)=>s+(c.amount||0),0);
-  const todayOut=expenses.filter(e=>e.date===today).reduce((s,e)=>s+(e.amount||0),0);
+  const todayIn  = cashlog.filter(c=>c.type==='وارد'&&c.date===today).reduce((s,c)=>s+(c.amount||0),0);
+  const todayOut = cashlog.filter(c=>c.type==='صادر'&&c.date===today).reduce((s,c)=>s+(c.amount||0),0);
 
-  // Recent movements
-  // ✅ الحركات من cashlog فقط — لا إضافة فواتير منفصلة لتجنب double-counting
-  const movements=[
-    ...cashlog.map(c=>({...c,dir:c.type==='وارد'?'in':'out'})),
-    ...expenses.map(e=>({dir:'out',amount:e.amount,source:`مصروف — ${e.name||e.category||''}`,date:e.date,method:'نقدي'}))
-  ].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,30);
+  // ✅ الحركات من cashlog فقط — لا نضيف expenses مرة ثانية
+  const movements = [...cashlog]
+    .map(c=>({...c, dir: c.type==='وارد'?'in':'out'}))
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''))
+    .slice(0,30);
 
   const el=document.getElementById('treasury-content');if(!el)return;
   el.innerHTML=`

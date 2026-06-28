@@ -49,7 +49,9 @@ function renderReports(){
   const totalPend = invoices.reduce((s,i)=>s+(i.remaining||0),0);
   const newPats   = patients.filter(p=>(p.createdAt||'').startsWith(thisMonth)).length;
   const todayAppt = appts.filter(a=>a.date===today).length;
-  const monthExp  = expenses.filter(e=>(e.date||'').startsWith(thisMonth)).reduce((s,e)=>s+(e.amount||0),0);
+  // ✅ المصروفات من cashlog:صادر (يتزامن تلقائياً مع الحذف)
+  const cashlog   = DB.get('cashlog')||[];
+  const monthExp  = cashlog.filter(c=>c.type==='صادر'&&(c.date||'').startsWith(thisMonth)).reduce((s,c)=>s+(c.amount||0),0);
   const purchases = DB.get('purchases') || [];
   const monthPur  = purchases.filter(p=>(p.orderDate||'').startsWith(thisMonth) && p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
   const netProfit = monthRev - monthExp - monthPur;
