@@ -1850,7 +1850,8 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="mhdr"><div class="mtitle" id="pur-modal-title">🛒 طلب شراء جديد</div><button class="mclose" onclick="closeModal('purchase-modal')">✕</button></div>
     <div class="mbody"><div class="fg">
       <input type="hidden" id="pur-id">
-      <div class="fgrp full"><label class="flbl">المنتج *</label><input class="fctl" id="pur-product" placeholder="اسم المنتج أو المادة"></div>
+      <input type="hidden" id="pur-product-id">
+      <div class="fgrp full"><label class="flbl">المنتج *</label><select class="fctl" id="pur-product"><option value="">-- اختر منتج من المخزون --</option></select></div>
       <div class="fgrp"><label class="flbl">المورد</label><select class="fctl" id="pur-supplier"><option value="">-- اختر مورد --</option></select></div>
       <div class="fgrp"><label class="flbl">الكمية</label><input class="fctl" type="number" id="pur-qty" placeholder="0" oninput="calcPurTotal()"></div>
       <div class="fgrp"><label class="flbl">سعر الوحدة (ج)</label><input class="fctl" type="number" id="pur-unit-price" placeholder="0" oninput="calcPurTotal()"></div>
@@ -2062,6 +2063,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <input type="hidden" id="prod-id">
     <div class="fgrp full"><label class="flbl">اسم المنتج *</label><input class="fctl" id="prod-name" placeholder="اسم المنتج"></div>
     <div class="fgrp"><label class="flbl">الفئة</label><select class="fctl" id="prod-cat"><option>بشرة</option><option>شعر</option><option>أدوية</option><option>مستلزمات</option></select></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="prod-branch"><option value="مدينة نصر">مدينة نصر</option><option value="المهندسين">المهندسين</option></select></div>
     <div class="fgrp"><label class="flbl">الكمية</label><input class="fctl" type="number" id="prod-qty" placeholder="0"></div>
     <div class="fgrp"><label class="flbl">حد إعادة الطلب</label><input class="fctl" type="number" id="prod-reord" placeholder="5"></div>
     <div class="fgrp"><label class="flbl">سعر البيع (ج)</label><input class="fctl" type="number" id="prod-price" placeholder="0"></div>
