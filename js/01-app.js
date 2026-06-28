@@ -285,7 +285,7 @@ async function aiSend(q){
   aiRenderMessages();
 
   // Check API key before sending
-  const _apiKey = (DB.obj('settings').anthropicKey||'').trim();
+  const _apiKey = (localStorage.getItem('ha_anthropic_key')||DB.obj('settings').anthropicKey||'').trim();
   if(!_apiKey){
     window._aiMessages.push({ role:'assistant', text:'🔑 لم يتم إعداد مفتاح Anthropic API بعد.\n\nادخل الإعدادات ⚙️ ← تبويب عام ← حقل «مفتاح Anthropic API» والصق مفتاحك ثم اضغط حفظ.\n\nبعد الحفظ سيعمل المساعد على جميع الأجهزة تلقائياً ☁️', isError:true });
     window._aiLoading = false;
@@ -314,7 +314,7 @@ async function aiSend(q){
       })
     });
     if(res.status === 401){
-      const hasKey = !!(DB.obj('settings').anthropicKey||'').trim();
+      const hasKey = !!(localStorage.getItem('ha_anthropic_key')||DB.obj('settings').anthropicKey||'').trim();
       window._aiMessages.push({ role:'assistant', text: hasKey
         ? '🔑 مفتاح Anthropic API غير صحيح. تحقق منه في الإعدادات ⚙️ ← تبويب عام.'
         : '🔑 لم يتم إعداد مفتاح Anthropic API بعد.\n\nادخل الإعدادات ⚙️ ← تبويب عام ← حقل «مفتاح Anthropic API» والصق مفتاحك ثم اضغط حفظ.\n\nبعد الحفظ سيعمل المساعد على جميع الأجهزة تلقائياً.', isError:true });

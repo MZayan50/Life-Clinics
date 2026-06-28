@@ -119,6 +119,9 @@ function saveAppt(){
   const duration = svc ? (svc.duration||60) : 60;
   const endTime  = addMinutesToTime(time, duration);
   const doctor   = gv('am-doc');
+  // استخراج doctorId من الـ select
+  const amDocSel = document.getElementById('am-doc');
+  const doctorId = amDocSel?.options[amDocSel?.selectedIndex]?.dataset?.id || DB.get('doctors').find(d=>d.name===doctor)?.id || '';
   const room     = gv('am-room') || svc?.room || '';
   const equipment = svc?.equipment || '';
   const conflict = checkApptConflict({doctor, date, time, duration, room, equipment, excludeId: id});
@@ -130,7 +133,7 @@ function saveAppt(){
   }
   clearApptConflictBox();
   const data = { patId:pid, patient:pat?.name||pid, service:svcName, type:gv('am-type'),
-                 doctor, date, time, endTime, duration, room, equipment,
+                 doctor, doctorId, date, time, endTime, duration, room, equipment,
                  branch:gv('am-branch'), notes:gv('am-notes') };
   if(id){
     DB.upd('appointments', id, data);

@@ -532,10 +532,9 @@ function processSmartPayment(){
     DB.upd('invoices',invId,{method:'أقساط'});
   }
 
-  // 5. ✅ تحديث الشاشات + KPIs لوحة التحكم يحصل تلقائيًا عبر EventBus
-  // (DB.upd للفاتورة وDB.push لـ cashlog يجدولان _scheduleUIRefresh + _refreshDashKPIs في 00-core.js)
-  // renderPayments() لسه يدوية لأن شاشة المدفوعات مالها hint مخصص في _scheduleUIRefresh حتى الآن
-  renderPayments();
+  // 5. ✅ تحديث الشاشات + KPIs يحصل تلقائيًا عبر EventBus
+  // (DB.upd للفاتورة + DB.push لـ cashlog + DB.push لـ installments)
+  // كل منهم يُطلق _scheduleUIRefresh → _flushUIRefresh يتولى renderPayments تلقائياً
   txt('badge-inst',(DB.get('installments')||[]).filter(p=>p.remaining>0).length);
 
   closeModal('smart-pay-modal');

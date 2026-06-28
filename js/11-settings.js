@@ -1,6 +1,11 @@
 // SETTINGS
 function saveSettings(){
-  const s={clinicName:gv('s-cname'),phone:gv('s-cphone'),managerName:gv('s-mname'),managerRole:gv('s-mrole'),anthropicKey:gv('s-anthropic-key')};
+  // anthropicKey حساس — يُخزَّن في localStorage فقط، لا يُرفع لـ Firestore
+  const anthropicKey = gv('s-anthropic-key');
+  try { if(anthropicKey) localStorage.setItem('ha_anthropic_key', anthropicKey); } catch(e){}
+
+  // باقي الإعدادات (بدون anthropicKey) ترفع لـ Firestore
+  const s={clinicName:gv('s-cname'),phone:gv('s-cphone'),managerName:gv('s-mname'),managerRole:gv('s-mrole')};
   // تحديث الاسم/الدور فورًا على الشاشة الرئيسية والشريط الجانبي
   if(s.managerName){txt('user-name',s.managerName);txt('dash-uname',s.managerName);}
   if(s.managerRole)txt('user-role',s.managerRole);
@@ -44,6 +49,16 @@ async function loadSettingsFromFirestore(){
     const doc = await window._firestore.collection('config').doc('settings').get();
     if(doc.exists){
       const remote = doc.data();
+      // anthropicKey لا يُرفع لـ Firestore — أزله لو موجود من بيانات قديمة
+      if(remote.anthropicKey){
+        // انقله لـ localStorage المحلي لو لم يكن موجوداً، ثم احذفه من Firestore
+        const localKey = localStorage.getItem('ha_anthropic_key');
+        if(!localKey) try { localStorage.setItem('ha_anthropic_key', remote.anthropicKey); } catch(e){}
+        delete remote.anthropicKey;
+        // احذف من Firestore لتنظيف البيانات القديمة
+        window._firestore.collection('config').doc('settings').update({ anthropicKey: firebase.firestore.FieldValue.delete() })
+          .catch(()=>{}); // تجاهل الخطأ لو فشل
+      }
       // Firestore يفوز دايماً — ضع في الـ cache
       DB._cache['settings'] = remote;
       // حدّث localStorage كنسخة احتياطية فقط
@@ -54,7 +69,9 @@ async function loadSettingsFromFirestore(){
       fill('s-cphone', remote.phone);
       fill('s-mname', remote.managerName);
       fill('s-mrole', remote.managerRole);
-      fill('s-anthropic-key', remote.anthropicKey);
+      // anthropicKey من localStorage فقط (لا يُخزَّن في Firestore)
+      const localKey = localStorage.getItem('ha_anthropic_key')||'';
+      fill('s-anthropic-key', localKey);
     }
     // Listen for live changes (another device saves settings)
     window._firestore.collection('config').doc('settings').onSnapshot(doc=>{
@@ -73,7 +90,9 @@ function loadSettings(){
     (()=>{ try{ return JSON.parse(localStorage.getItem('ha_settings')||'{}'); }catch{return{};} })();
   // ملاحظة: لا نُحدّث user-name/user-role/dash-uname من هنا، لأنها مرتبطة بحساب المستخدم الفعلي
   ['s-cname','s-cphone','s-mname','s-mrole'].forEach((id,i)=>{const e=document.getElementById(id);if(e)e.value=[s.clinicName,s.phone,s.managerName,s.managerRole][i]||e.value;});
-  const akEl=document.getElementById('s-anthropic-key');if(akEl&&s.anthropicKey)akEl.value=s.anthropicKey;
+  // anthropicKey من localStorage المخصص فقط (لا يُخزَّن في Firestore)
+  const akEl=document.getElementById('s-anthropic-key');
+  if(akEl){ akEl.value = localStorage.getItem('ha_anthropic_key') || s.anthropicKey || ''; }
 }
 // ══════════════════════════════════════════
 // 🔥 FIREBASE REAL INTEGRATION

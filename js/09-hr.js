@@ -53,10 +53,10 @@ function docApptsToday(name){
 function docApptsTotal(name){
   return DB.get('appointments').filter(a => a.doctor === name).length;
 }
-function docRevenue(name){
-  const svcNames = DB.get('services').filter(s => s.doctor === name).map(s => s.name);
+function docRevenue(doctorName, doctorId){
+  // البحث بـ doctorId أولاً (دقيق) ثم بالاسم كـ fallback للسجلات القديمة
   return DB.get('invoices')
-    .filter(i => svcNames.includes(i.service))
+    .filter(i => (doctorId && i.doctorId === doctorId) || i.doctor === doctorName)
     .reduce((s, i) => s + (i.paid || 0), 0);
 }
 
@@ -71,7 +71,7 @@ function renderDocs(){
   let totalToday = 0, totalRevenue = 0, totalComm = 0;
   DB.get('doctors').forEach(d => {
     totalToday += docApptsToday(d.name);
-    const rev = docRevenue(d.name);
+    const rev = docRevenue(d.name, d.id);
     totalRevenue += rev;
     totalComm   += rev * (d.commission || 0) / 100;
   });
@@ -81,7 +81,7 @@ function renderDocs(){
   txt('doc-kpi-comm',    Math.round(totalComm).toLocaleString());
 
   grid.innerHTML = docs.map((d, i) => {
-    const rev   = docRevenue(d.name);
+    const rev   = docRevenue(d.name, d.id);
     const comm  = Math.round(rev * (d.commission || 0) / 100);
     const today = docApptsToday(d.name);
     const total = docApptsTotal(d.name);
@@ -175,7 +175,7 @@ function fillDocDropdowns(){
   ['am-doc','sv-doc'].forEach(did => {
     const sel = document.getElementById(did); if(!sel) return;
     const cur = sel.value;
-    sel.innerHTML = docs.map(d => `<option value="${d.name}">${d.name}</option>`).join('')
+    sel.innerHTML = docs.map(d => `<option value="${d.name}" data-id="${d.id}">${d.name}</option>`).join('')
       || '<option value="">-- لا يوجد أطباء --</option>';
     if(cur && docs.some(d => d.name === cur)) sel.value = cur;
   });

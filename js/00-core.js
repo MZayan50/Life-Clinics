@@ -335,6 +335,7 @@ function _flushUIRefresh(){
     if(_pendingRefresh.has('invoices')     && active==='installments') renderInstallments();
     if(_pendingRefresh.has('installments') && active==='installments') renderInstallments();
     if(_pendingRefresh.has('installments') && active==='payments')     renderPayments();
+    if(_pendingRefresh.has('invoices')     && active==='payments')     renderPayments();
     if(_pendingRefresh.has('inventory')    && active==='inventory')    renderInv();
     if(_pendingRefresh.has('expenses')     && active==='expenses')     renderExpenses();
     if(_pendingRefresh.has('expenses')     && active==='treasury')     renderTreasury();
@@ -545,9 +546,11 @@ if(!localStorage.getItem('ha_fix_commission_v1')){
 if(!localStorage.getItem('ha_seeded_v2')){
   localStorage.removeItem('ha_seeded');
 
-  // ── إعدادات افتراضية: تُكتب في cache فقط — Firestore يُحدَّث من saveSettings() ──
-  if(!DB.obj('settings') || !DB.obj('settings').clinicName){
-    // فقط cache + localStorage backup — لا نكتب Firestore هنا (يحصل من initFirebase → loadSettingsFromFirestore)
+  // ── إعدادات افتراضية: فقط لو لا توجد إعدادات محلية أو Firestore ──
+  // لو Firestore موصول، loadSettingsFromFirestore() ستُحدِّث الـ cache تلقائياً
+  // لا نلمس الإعدادات الحالية لو كانت موجودة (منع إعادة ضبط البيانات)
+  const existingSettings = (()=>{ try{ return JSON.parse(localStorage.getItem('ha_settings')||'null'); }catch{return null;} })();
+  if(!existingSettings || !existingSettings.clinicName){
     DB._cache['settings'] = {clinicName:'عيادتي للتجميل',phone:'',managerName:'',managerRole:'مدير النظام',schemaVersion:2};
     try{ localStorage.setItem('ha_settings', JSON.stringify(DB._cache['settings'])); } catch(e){}
   }

@@ -379,10 +379,17 @@ function generateDoctorsReport(){
     docStats[docName].patients.add(inv.patId||inv.patient);
   });
   appointments.forEach(a=>{
-    const d=a.doctor;if(!d)return;
-    if(!docStats[d]) docStats[d]={name:d,specialty:doctors.find(x=>x.name===d)?.specialty||'—',revenue:0,sessions:0,patients:new Set()};
-    docStats[d].sessions++;
-    if(a.patId||a.patient) docStats[d].patients.add(a.patId||a.patient);
+    // البحث بـ doctorId أولاً (دقيق) ثم بالاسم كـ fallback
+    let docName = '';
+    if(a.doctorId){
+      const d = doctors.find(x=>x.id===a.doctorId);
+      docName = d?.name || '';
+    }
+    if(!docName) docName = a.doctor || '';
+    if(!docName) return;
+    if(!docStats[docName]) docStats[docName]={name:docName,specialty:doctors.find(x=>x.name===docName)?.specialty||'—',revenue:0,sessions:0,patients:new Set()};
+    docStats[docName].sessions++;
+    if(a.patId||a.patient) docStats[docName].patients.add(a.patId||a.patient);
   });
   const sorted = Object.values(docStats).sort((a,b)=>b.revenue-a.revenue);
   const totalRev = sorted.reduce((s,d)=>s+d.revenue,0);
