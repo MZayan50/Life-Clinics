@@ -496,30 +496,23 @@ function disconnectFirebase(){
   showToast('info','🔌 تم قطع الاتصال بـ Firebase');
 }
 
-// ── Auto-reconnect on page load if config was saved before ──
+// ── Auto-connect on page load — config ثابت في الكود ──
 (function autoConnectFirebase(){
-  // ── Migration: توحيد المفتاحين تلقائياً عند التشغيل ──
-  // لو فيه config محفوظ بالمفتاح القديم (من login.html) بس مش موجود بالجديد → انقله
-  const _legacy = localStorage.getItem('ha_firebase_config');
-  const _current = localStorage.getItem('ha_fb_config');
-  if(_legacy && !_current){
-    localStorage.setItem('ha_fb_config', _legacy);
-  } else if(_current && !_legacy){
-    localStorage.setItem('ha_firebase_config', _current);
-  }
-  // ────────────────────────────────────────────────────────
-  const saved = localStorage.getItem('ha_fb_config');
-  if(!saved) return;
-  try {
-    const cfg = JSON.parse(saved);
-    if(cfg.apiKey && cfg.projectId){
-      // Pre-fill settings fields
-      const F = {apiKey:'fb-key',authDomain:'fb-auth',projectId:'fb-proj',storageBucket:'fb-stor',messagingSenderId:'fb-send',appId:'fb-app'};
-      Object.entries(F).forEach(([k,id])=>{ const e=document.getElementById(id); if(e) e.value=cfg[k]||''; });
-      // Connect after page is ready
-      setTimeout(()=>initFirebase(cfg), 1500);
-    }
-  } catch(e){}
+  const cfg = {
+    apiKey: "AIzaSyCSRzNyTLgcyCbFNXlIE4CbBGEJ943bMYg",
+    authDomain: "life-clinics2.firebaseapp.com",
+    projectId: "life-clinics2",
+    storageBucket: "life-clinics2.firebasestorage.app",
+    messagingSenderId: "1095839174310",
+    appId: "1:1095839174310:web:eac6d293e473cfafed6e67",
+    measurementId: "G-9TVH7J2N9E"
+  };
+  const F = {apiKey:'fb-key',authDomain:'fb-auth',projectId:'fb-proj',storageBucket:'fb-stor',messagingSenderId:'fb-send',appId:'fb-app'};
+  Object.entries(F).forEach(([k,id])=>{ const e=document.getElementById(id); if(e) e.value=cfg[k]||''; });
+  const _cfgStr = JSON.stringify(cfg);
+  localStorage.setItem('ha_fb_config', _cfgStr);
+  localStorage.setItem('ha_firebase_config', _cfgStr);
+  setTimeout(()=>initFirebase(cfg), 1500);
 })();
 function toggleSw(el){const on=el.style.background.includes('2DD4BF')||el.style.background.includes('teal');el.style.background=on?'var(--glass-border)':'var(--teal)';const k=el.querySelector('div');if(k)k.style.cssText=`width:19px;height:19px;background:#fff;border-radius:50%;position:absolute;top:2px;transition:.2s;${on?'left:2px':'right:2px'}`;}
 function exportAll(){
