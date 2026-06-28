@@ -190,8 +190,20 @@ const db = getFirestore(app);
 localStorage.setItem('ha_fb_config', JSON.stringify(firebaseConfig));
 localStorage.setItem('ha_firebase_config', JSON.stringify(firebaseConfig));
 
-// لا نحفظ المستخدمين محلياً — Firestore هو المصدر الوحيد
-// (syncUsersFromFirestore حُذفت — التحقق يتم مباشرة عند تسجيل الدخول)
+// جلب مستخدمي Firestore وحفظهم محلياً (يحل مشكلة المتصفح الجديد)
+(async function syncUsersFromFirestore() {
+  try {
+    const usersSnap = await getDocs(collection(db, 'users'));
+    if (!usersSnap.empty) {
+      const usersObj = {};
+      usersSnap.forEach(doc => {
+        const u = doc.data();
+        if (u.username) usersObj[u.username] = u;
+      });
+      localStorage.setItem('ha_users_db', JSON.stringify(usersObj));
+    }
+  } catch(e) { console.warn('syncUsers:', e.message); }
+})();
 
 // تحديث شارة الاتصال
 const dot = document.getElementById('conn-status');
@@ -293,10 +305,19 @@ async function getUserByUsername(username) {
   }
 }
 
-// ✅ المستخدمون من Firestore فقط — لا يوجد fallback محلي
+// ============================================================
+// المستخدمون المحليون (Fallback عند انقطاع الإنترنت)
+// ============================================================
+const USERS_LOCAL = {
+  'admin':      { hash:'240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', role:'admin',         name:'د. نور حفني سليمان', branch:'all',       screens:['all'] },
+  'doctor':     { hash:'c3362e4da49c24d379b72152ae6c99f1fa035f52829dceed715a7bf8bb464b98', role:'doctor',        name:'د. منى سامي',         branch:'مدينة نصر', screens:['dashboard','patients','photos','calendar','appointments','waitlist','sessions','services'] },
+  'reception':  { hash:'1270ddbd388e309b1234f4e500ea78a83c9d111040fa6cce86c31df0144a3659', role:'receptionist',  name:'نور الاستقبال',        branch:'مدينة نصر', screens:['dashboard','patients','calendar','appointments','waitlist','invoices','payments','installments','leads','whatsapp'] },
+  'accountant': { hash:'2159157cf71913278f89c4a16bd7462481e41463ea0f8444523cd1c6887d1e4e', role:'accountant',    name:'أحمد المحاسب',         branch:'all',       screens:['dashboard','invoices','payments','installments','expenses','treasury','accounts','reports','inventory'] },
+  'manager2':   { hash:'49a0ac18e26df0b0724f5ac5837e436b336527485fc0a388f578913d6ee70e67', role:'branch_manager',name:'مدير المهندسين',       branch:'المهندسين', screens:['dashboard','patients','photos','calendar','appointments','waitlist','sessions','services','packages','doctors','staff','invoices','inventory','leads','campaigns','whatsapp','reports'] }
+};
 
 // ============================================================
-// تسجيل الدخول — Firestore فقط (لا يوجد fallback محلي)
+// تسجيل الدخول — Firestore أولاً ثم localStorage كـ fallback
 // ============================================================
 window.doLogin = async function() {
   const usernameInput = document.getElementById('username').value.trim().toLowerCase();
@@ -348,22 +369,27 @@ window.doLogin = async function() {
         handleFailedLogin(errEl, btn, loader);
         return;
       }
-      // لو ما في hash في Firestore — المستخدم غير مكتمل، ارفض
-      handleFailedLogin(errEl, btn, loader);
-      return;
+      // لو ما في hash في Firestore — نكمل للـ fallback المحلي
     }
   } catch (fsError) {
-    // خطأ في الشبكة أو Firebase — أبلغ المستخدم
-    console.warn('Firestore login error:', fsError.message);
-    loader.style.display = 'none';
-    btn.style.display = 'block';
-    errEl.textContent = '⚠️ تعذر الاتصال بـ Firebase — تأكد من الاتصال بالإنترنت وحاول مجدداً';
-    errEl.classList.add('show');
-    return;
+    console.warn('Firestore error, falling back to local:', fsError.message);
+    // خطأ في الشبكة — نكمل للـ fallback
   }
 
-  // المستخدم غير موجود في Firestore
-  handleFailedLogin(errEl, btn, loader);
+  // ══════════════════════════════════════════════════════
+  // Fallback: قاعدة المستخدمين المحلية (offline / ha_users_db)
+  // ══════════════════════════════════════════════════════
+  const _dynDB = (()=>{ try{ return JSON.parse(localStorage.getItem('ha_users_db')||'{}'); }catch(e){return{};} })();
+  const allUsers = Object.keys(_dynDB).length > 0 ? _dynDB : USERS_LOCAL;
+  const localUser = allUsers[usernameInput];
+
+  if (localUser && (localUser.hash || localUser.password || '') === inputHash) {
+    resetAttempts();
+    loginSuccess(usernameInput, localUser.name, localUser.role, localUser.branch, localUser.screens || localUser.permissions || ['all']);
+  } else {
+    handleFailedLogin(errEl, btn, loader);
+  }
+
 };
 
 // ============================================================
