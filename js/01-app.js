@@ -647,6 +647,8 @@ function setDate(){const el=document.getElementById('topbar-date');if(el)el.text
 // INIT
 function init(){
   buildChart();renderTodayAppts();loadSettings();setDate();buildDashAlerts();buildDashAlertsEnhanced();buildDashExtra();
+  // تحديث حالة الأقساط المتأخرة عند بدء التشغيل
+  setTimeout(()=>{ if(typeof updateInstallmentStatuses==='function') updateInstallmentStatuses(); }, 1500);
   // seedDefaultUsers() حُذفت — المستخدمون من Firestore فقط
   // لو في Firebase config → أظهر مؤشر sync مؤقت حتى تكتمل المزامنة
   if(localStorage.getItem('ha_fb_config')){
@@ -792,8 +794,9 @@ updateSessionTimer();
 function checkNotifications(){
   const today = new Date().toISOString().split('T')[0];
   const tomorrow = new Date(Date.now()+86400000).toISOString().split('T')[0];
+  const nowMin = new Date().getHours()*60 + new Date().getMinutes();
 
-  // Check tomorrow appointments
+  // ── 1. تنبيه مواعيد الغد ──
   const tomorrowAppts = DB.get('appointments').filter(a=>a.date===tomorrow && a.status==='مؤكد');
   if(tomorrowAppts.length > 0){
     setTimeout(()=>{
@@ -801,7 +804,7 @@ function checkNotifications(){
     }, 3000);
   }
 
-  // Check low stock
+  // ── 2. تنبيه مخزون منخفض ──
   const lowStock = DB.get('inventory').filter(i=>i.status==='منخفض'||i.status==='نفذ');
   if(lowStock.length > 0){
     setTimeout(()=>{
@@ -809,15 +812,55 @@ function checkNotifications(){
     }, 5000);
   }
 
-  // Check overdue installments
+  // ── 3. شارة الأقساط ──
   const overdueInvs = DB.get('invoices').filter(i=>i.remaining>0);
-  if(overdueInvs.length > 0){
-    txt('badge-inst', overdueInvs.length);
+  if(overdueInvs.length > 0) txt('badge-inst', overdueInvs.length);
+
+  // ── 4. Auto No-Show: موعد اليوم فات وقته بأكثر من 60 دقيقة ولم يحضر ──
+  const _toMin = (t) => { const [h,m]=(t||'00:00').split(':').map(Number); return h*60+(m||0); };
+  const todayAppts = DB.get('appointments').filter(a=>a.date===today);
+  let noShowChanged = false;
+  todayAppts.forEach(a=>{
+    if(['مكتمل','ملغي','لم يحضر','وصل','في الاستشارة'].includes(a.status)) return;
+    const apptMin = _toMin(a.time||'00:00');
+    if(nowMin >= apptMin + 60){ // فات الموعد أكثر من ساعة
+      DB.upd('appointments', a.id, { status:'لم يحضر' });
+      noShowChanged = true;
+    }
+  });
+  if(noShowChanged){
+    renderTodayAppts();
+    if(typeof renderWaitlist==='function') renderWaitlist();
+    if(typeof renderReception==='function') renderReception();
   }
+
+  // ── 5. Auto overdue installments: تحديث حالة الأقساط المتأخرة ──
+  if(typeof updateInstallmentStatuses==='function') updateInstallmentStatuses();
+
+  // ── 6. Auto doctor commission record: تسجيل عمولة الطبيب على الفواتير الجديدة ──
+  _autoRecordCommissions();
 }
 
-// Run checks after 2 seconds of loading
+// تسجيل عمولة الطبيب تلقائياً على كل فاتورة لم تُسجَّل عمولتها بعد
+function _autoRecordCommissions(){
+  const today = new Date().toISOString().split('T')[0];
+  const invoices = DB.get('invoices').filter(i=>i.date===today && i.doctor && !i.commissionRecorded);
+  invoices.forEach(inv=>{
+    const doc = DB.get('doctors').find(d=>d.name===inv.doctor||d.id===inv.doctorId);
+    if(!doc || !doc.commission) return;
+    const commAmt = Math.round((inv.paid||0) * (doc.commission/100));
+    if(commAmt <= 0) return;
+    DB.upd('invoices', inv.id, {
+      commissionRecorded: true,
+      commissionAmount: commAmt,
+      commissionPct: doc.commission
+    });
+  });
+}
+
+// Run checks after 2 seconds of loading, then every 5 minutes
 setTimeout(checkNotifications, 2000);
+setInterval(checkNotifications, 5 * 60 * 1000);
 
 // ══════════════════════════════════════════
 // 📱 ADD LOGOUT TO USER CARD

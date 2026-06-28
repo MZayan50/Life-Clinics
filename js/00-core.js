@@ -178,7 +178,6 @@ const DB = {
 EventBus.on('invoices:created', function(inv){
   const pat = DB.get('patients').find(p => String(p.id) === String(inv.patId));
   if(pat){
-    // spent يُجمع من كل الفواتير لتجنب التكرار عند إعادة الحساب
     const allInvs = DB.get('invoices').filter(i => String(i.patId) === String(pat.id) || i.patient === pat.name);
     const totalSpent = allInvs.reduce((s, i) => s + (i.total || 0), 0);
     const totalRemaining = allInvs.reduce((s, i) => s + (i.remaining || 0), 0);
@@ -199,6 +198,20 @@ EventBus.on('invoices:created', function(inv){
       notes: 'دفعة فاتورة'
     });
   }
+  // ── عمولة الطبيب: تسجيل تلقائي على الفاتورة ──
+  if(inv.doctor && !inv.commissionRecorded){
+    const doc = DB.get('doctors').find(d => d.name === inv.doctor || d.id === inv.doctorId);
+    if(doc && doc.commission > 0){
+      const commAmt = Math.round((inv.paid||0) * (doc.commission / 100));
+      if(commAmt > 0){
+        DB.upd('invoices', inv.id, {
+          commissionRecorded: true,
+          commissionAmount: commAmt,
+          commissionPct: doc.commission
+        });
+      }
+    }
+  }
 });
 
 // ── 2. تحديث فاتورة → إعادة حساب رصيد العميل + تسجيل الدفع الجديد في الخزينة ──
@@ -215,7 +228,6 @@ EventBus.on('invoices:updated', function(inv){
     });
   }
   // إذا كانت الفاتورة تحمل دفعة جديدة (paidDelta) سجّلها في الخزينة
-  // paidDelta يُحسب في saveInv عند كل تعديل يزيد المدفوع
   if((inv.paidDelta || 0) > 0){
     DB.push('cashlog', {
       type: 'وارد', source: `دفعة — ${inv.patient||''}`, refId: inv.id,
@@ -226,6 +238,21 @@ EventBus.on('invoices:updated', function(inv){
       date: inv.date || new Date().toISOString().split('T')[0],
       notes: 'دفعة جزئية على فاتورة'
     });
+    // ── عمولة الطبيب على الدفعة الجديدة ──
+    if(inv.doctor){
+      const doc = DB.get('doctors').find(d => d.name === inv.doctor || d.id === inv.doctorId);
+      if(doc && doc.commission > 0){
+        const commDelta = Math.round(inv.paidDelta * (doc.commission / 100));
+        if(commDelta > 0){
+          const prevComm = inv.commissionAmount || 0;
+          DB.upd('invoices', inv.id, {
+            commissionRecorded: true,
+            commissionAmount: prevComm + commDelta,
+            commissionPct: doc.commission
+          });
+        }
+      }
+    }
   }
 });
 
@@ -473,7 +500,7 @@ function showScreen(id){
   if (id === 'leads')          renderLeads();
   if (id === 'whatsapp')       renderWA();
   if (id === 'payments')       renderPayments();
-  if (id === 'installments')   renderInstallments();
+  if (id === 'installments')   { renderInstallments(); if(typeof updateInstallmentStatuses==='function') updateInstallmentStatuses(); }
   if (id === 'treasury')       renderTreasury();
   if (id === 'accounts')       renderAccounts();
   if (id === 'suppliers')      renderSuppliers();

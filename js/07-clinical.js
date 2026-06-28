@@ -392,8 +392,10 @@ function _startWLAutoRefresh(){
   if(window._wlTimer) clearInterval(window._wlTimer);
   window._wlTimer=setInterval(()=>{
     _wlAutoUpdateStatuses();
-    const scr=document.getElementById('screen-waitlist');
-    if(scr && scr.classList.contains('active')) renderWaitlist();
+    const active=document.querySelector('.screen.active')?.id?.replace('screen-','');
+    if(active==='waitlist')     renderWaitlist();
+    if(active==='reception')    renderReception();
+    if(active==='doctor-view')  renderDoctorView();
     renderTodayAppts(); // keep dashboard in sync
   },60000);
 }
