@@ -40,14 +40,41 @@ function saveExp(){
   const amount=parseFloat(gv('exp-amount'))||0;if(amount<=0){showToast('warning','⚠️ أدخل مبلغًا صحيحًا');return;}
   const id=gv('exp-id');
   const data={name,type:gv('exp-type'),amount,branch:gv('exp-branch'),date:gv('exp-date')||new Date().toISOString().split('T')[0],notes:gv('exp-notes')};
-  if(id){DB.upd('expenses',id,data);showToast('success',`✅ تم تحديث ${name}`);}
-  else{DB.push('expenses',data);showToast('success',`✅ تم إضافة مصروف: ${name}`,`${amount.toLocaleString()} ج`);}
+  if(id){
+    DB.upd('expenses',id,data);
+    showToast('success',`✅ تم تحديث ${name}`);
+    // ✅ تحديث سجل الخزينة المقابل مباشرةً
+    const cashlog=DB.get('cashlog')||[];
+    const idx=cashlog.findIndex(c=>String(c.refId)===String(id)&&c.source==='مصروف');
+    if(idx!==-1){cashlog[idx]={...cashlog[idx],amount:data.amount,date:data.date,notes:data.name};DB.set('cashlog',cashlog);}
+    else{
+      // لم يُسجَّل من قبل — أضفه الآن
+      DB.push('cashlog',{type:'صادر',source:'مصروف',refId:id,amount:data.amount,method:'كاش',date:data.date,timestamp:new Date().toISOString(),notes:data.name});
+    }
+  }
+  else{
+    const saved=DB.push('expenses',data);
+    // ✅ تسجيل في الخزينة مباشرةً (مع refId للربط عند الحذف)
+    DB.push('cashlog',{type:'صادر',source:'مصروف',refId:saved.id,amount:data.amount,method:'كاش',date:data.date,timestamp:new Date().toISOString(),notes:data.name});
+    showToast('success',`✅ تم إضافة مصروف: ${name}`,`${amount.toLocaleString()} ج`);
+  }
   closeModal('expense-modal');renderExpenses();
   if(document.getElementById('screen-treasury')?.classList.contains('active'))renderTreasury();
+  if(document.getElementById('screen-accounts')?.classList.contains('active')&&typeof renderAccounts==='function')renderAccounts();
 }
 function delExp(id){
   const e=DB.get('expenses').find(x=>x.id===id);
-  if(confirm(`حذف مصروف "${e?.name||''}"؟`)){DB.del('expenses',id);showToast('info','🗑 تم الحذف');renderExpenses();if(document.getElementById('screen-treasury')?.classList.contains('active'))renderTreasury();}
+  if(confirm(`حذف مصروف "${e?.name||''}"؟`)){
+    // ✅ حذف سجل الخزينة المقابل أولاً
+    const cashlog=DB.get('cashlog')||[];
+    const filtered=cashlog.filter(c=>!(String(c.refId)===String(id)&&c.source==='مصروف'));
+    if(filtered.length!==cashlog.length) DB.set('cashlog',filtered);
+    DB.del('expenses',id);
+    showToast('info','🗑 تم الحذف');
+    renderExpenses();
+    if(document.getElementById('screen-treasury')?.classList.contains('active'))renderTreasury();
+    if(document.getElementById('screen-accounts')?.classList.contains('active')&&typeof renderAccounts==='function')renderAccounts();
+  }
 }
 
 // ✅ renderInstallments الكاملة موجودة في الأسفل (النسخة المتطورة بـ plans)

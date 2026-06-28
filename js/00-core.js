@@ -310,38 +310,22 @@ EventBus.on('packages:deleted', function(payload){
 });
 
 // ── 5. مصروف جديد → تسجيل في الخزينة ──
+// ✅ cashlog يُضاف مباشرةً من saveExp() مع refId للربط — لا حاجة لإعادة الإضافة هنا
 EventBus.on('expenses:created', function(exp){
-  DB.push('cashlog', {
-    type: 'صادر', source: 'مصروف', refId: exp.id,
-    amount: exp.amount || 0, method: 'كاش',
-    date: exp.date || new Date().toISOString().split('T')[0],
-    timestamp: new Date().toISOString(),
-    notes: exp.name || 'مصروف'
-  });
+  // تحديث الواجهة فقط — cashlog مُضاف بالفعل في saveExp
+  _scheduleUIRefresh('cashlog');
 });
 
 // ── 5b. تعديل مصروف → تحديث سجله في الخزينة لتجنب قيم قديمة ──
+// ✅ يتم التحديث مباشرة في saveExp — هذا fallback للتأكد فقط
 EventBus.on('expenses:updated', function(exp){
-  const cashlog = DB.get('cashlog') || [];
-  const idx = cashlog.findIndex(c => c.refId === exp.id && c.source === 'مصروف');
-  if(idx !== -1){
-    cashlog[idx] = {
-      ...cashlog[idx],
-      amount: exp.amount || 0,
-      date:   exp.date   || cashlog[idx].date,
-      notes:  exp.name   || 'مصروف'
-    };
-    DB.set('cashlog', cashlog);
-  }
+  _scheduleUIRefresh('cashlog');
 });
 
 // ── 5c. حذف مصروف → حذف سجله من الخزينة ──
+// ✅ الحذف يتم مباشرة في delExp() قبل DB.del — هذا للـ Firestore sync فقط
 EventBus.on('expenses:deleted', function(payload){
-  // payload قد يكون { id, record } أو مجرد id
-  const expId = (typeof payload === 'object' && payload !== null) ? (payload.id || payload) : payload;
-  const cashlog = DB.get('cashlog') || [];
-  const filtered = cashlog.filter(c => !(String(c.refId) === String(expId) && c.source === 'مصروف'));
-  if(filtered.length !== cashlog.length) DB.set('cashlog', filtered);
+  _scheduleUIRefresh('cashlog');
 });
 
 // ══════════════════════════════════════════
@@ -371,6 +355,17 @@ function _flushUIRefresh(){
       if(active==='dashboard')    renderTodayAppts();
     }
     if(_pendingRefresh.has('patients')     && active==='patients')     renderPat();
+    // ✅ تحديث لوحة العميل المفتوحة تلقائياً عند أي تغيير مالي أو جلسات
+    if(window._curPat && typeof viewPat === 'function'){
+      const _needPatPanelRefresh = (
+        _pendingRefresh.has('patients') ||
+        _pendingRefresh.has('invoices') ||
+        _pendingRefresh.has('installments') ||
+        _pendingRefresh.has('sessions') ||
+        _pendingRefresh.has('cashlog')
+      );
+      if(_needPatPanelRefresh) viewPat(window._curPat);
+    }
     if(_pendingRefresh.has('invoices')     && active==='invoices')     renderInvs();
     if(_pendingRefresh.has('invoices')     && active==='installments') renderInstallments();
     if(_pendingRefresh.has('installments') && active==='installments') renderInstallments();
