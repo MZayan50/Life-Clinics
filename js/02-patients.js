@@ -897,6 +897,15 @@ ${sessions.length?`<h2>✨ خطط الجلسات (${sessions.length})</h2>
 // ══════════════════════════════════════════
 // SAVE / OPEN PATIENT MODAL
 // ══════════════════════════════════════════
+function toggleMedSection(){
+  const skinChk = document.getElementById('pm-chk-skin');
+  const hairChk = document.getElementById('pm-chk-hair');
+  const skinSec = document.getElementById('pm-skin-section');
+  const hairSec = document.getElementById('pm-hair-section');
+  if(skinSec) skinSec.style.display = skinChk&&skinChk.checked ? 'block' : 'none';
+  if(hairSec) hairSec.style.display = hairChk&&hairChk.checked ? 'block' : 'none';
+}
+
 function openPatModal(id){
   const p = id ? DB.get('patients').find(x => String(x.id)===String(id)) : null;
   document.getElementById('pat-modal-title').textContent = p ? '✏️ تعديل عميل' : '👥 عميل جديد';
@@ -910,6 +919,12 @@ function openPatModal(id){
   };
   Object.entries(fields).forEach(([id,val]) => { const el=document.getElementById(id); if(el) el.value=val; });
   const genderEl = document.getElementById('pm-gender'); if(genderEl) genderEl.value = p?.gender||'أنثى';
+  // استعادة checkboxes الملف الطبي
+  const skinChk = document.getElementById('pm-chk-skin');
+  const hairChk = document.getElementById('pm-chk-hair');
+  if(skinChk) skinChk.checked = p ? !!(p.skin||p.skinProbs) : false;
+  if(hairChk) hairChk.checked = p ? !!(p.hair||p.hairProbs) : false;
+  toggleMedSection();
   openModal('patient-modal');
 }
 
@@ -920,7 +935,10 @@ function savePat(){
   const id   = gv('pm-id');
   const data = {
     name, phone, email:gv('pm-email'), gender:gv('pm-gender')||'أنثى',
-    skin:gv('pm-skin'), hair:gv('pm-hair'), skinProbs:gv('pm-skinp'), hairProbs:gv('pm-hairp'),
+    skin: (document.getElementById('pm-chk-skin')?.checked ? gv('pm-skin') : ''),
+    hair: (document.getElementById('pm-chk-hair')?.checked ? gv('pm-hair') : ''),
+    skinProbs: (document.getElementById('pm-chk-skin')?.checked ? gv('pm-skinp') : ''),
+    hairProbs: (document.getElementById('pm-chk-hair')?.checked ? gv('pm-hairp') : ''),
     allergies:gv('pm-allergy'), pregnancy:gv('pm-preg'), meds:gv('pm-meds'),
     source:gv('pm-src'), branch:gv('pm-branch'), status:gv('pm-status'),
     dob:gv('pm-dob'), job:gv('pm-job'), whatsapp:gv('pm-wa')
@@ -941,4 +959,6 @@ function savePat(){
   // لا داعي لـ renderPat() — EventBus يتولى ذلك
   closeModal('patient-modal');
   ['pm-name','pm-phone','pm-email','pm-skinp','pm-hairp','pm-allergy','pm-meds','pm-job','pm-wa','pm-dob'].forEach(i => { const e=document.getElementById(i); if(e) e.value=''; });
+  ['pm-chk-skin','pm-chk-hair'].forEach(i => { const e=document.getElementById(i); if(e) e.checked=false; });
+  toggleMedSection();
 }
