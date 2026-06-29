@@ -93,7 +93,7 @@ const DB = {
     'patients', 'appointments', 'inventory', 'invoices', 'invoice_items',
     'services', 'leads', 'doctors', 'staff', 'expenses', 'branches',
     'campaigns', 'packages', 'sessions', 'waitlist', 'rooms', 'equipment',
-    'suppliers', 'purchases', 'purchase_items', 'visits',
+    'suppliers', 'purchases', 'purchase_items', 'supplier_payments', 'visits',
     'inventory_transactions', 'audit_log', 'transfers',
     'photos', 'installments', 'cashlog', 'advances'
   ],
@@ -325,12 +325,17 @@ EventBus.on('purchases:updated', function(purchase){
       notes: 'استلام مشتريات'
     });
   });
-  // ── ب. تحديث مديونية المورد تلقائياً (إن لم تُحدَّث مسبقاً) ──
-  if(purchase.supplierId && !purchase._owedUpdated){
+  // ── ب. إعادة حساب مديونية المورد من الصفر (كل مشترياته المستلمة) ──
+  if(purchase.supplierId){
     const sup = DB.get('suppliers').find(s => s.id === purchase.supplierId);
     if(sup){
-      DB.upd('suppliers', sup.id, { owed: (sup.owed||0) + (purchase.total||0) });
-      DB.upd('purchases', purchase.id, { _owedUpdated: true });
+      const totalOwed = (DB.get('purchases')||[])
+        .filter(p => p.supplierId === purchase.supplierId && p.status === 'مستلم')
+        .reduce((s, p) => s + (p.total||0), 0);
+      const totalPaid = (DB.get('supplier_payments')||[])
+        .filter(sp => sp.supplierId === purchase.supplierId)
+        .reduce((s, sp) => s + (sp.amount||0), 0);
+      DB.upd('suppliers', sup.id, { owed: Math.max(0, totalOwed - totalPaid) });
     }
   }
 });

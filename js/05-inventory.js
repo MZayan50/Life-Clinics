@@ -59,20 +59,37 @@ function renderSuppliers(q){
   txt('sup-kpi-orders', (DB.get('purchases')||[]).filter(p => p.status !== 'ملغي').length);
   txt('sup-count-lbl', sups.length+' مورد');
 
+  const allPurchases = DB.get('purchases') || [];
+  const allPayments  = DB.get('supplier_payments') || [];
+
+  // حساب owed لكل مورد من المشتريات
+  const calcOwed = (supId) => {
+    const bought = allPurchases.filter(p => p.supplierId === supId && p.status === 'مستلم').reduce((s,p)=>s+(p.total||0),0);
+    const paid   = allPayments.filter(sp => sp.supplierId === supId).reduce((s,sp)=>s+(sp.amount||0),0);
+    return Math.max(0, bought - paid);
+  };
+
   const tb = document.getElementById('sup-tbody'); if(!tb) return;
-  tb.innerHTML = sups.map(s => `<tr>
-    <td style="font-weight:700">${s.name}</td>
-    <td><span class="tag tg-purple">${s.cat||'—'}</span></td>
-    <td style="font-size:12px">${s.phone||'—'}</td>
-    <td style="font-size:11px;color:var(--text-muted)">${s.email||'—'}</td>
-    <td style="font-size:12px">${s.terms||'—'}</td>
-    <td style="color:${(s.owed||0)>0?'var(--rose)':'var(--emerald)'};font-weight:700">${(s.owed||0).toLocaleString()} ج</td>
-    <td><span class="ast ${s.status==='نشط'?'sc':'sd'}">${s.status}</span></td>
-    <td style="display:flex;gap:5px;">
-      <button class="btn btn-ghost btn-xs" onclick="openSupplierModal('${s.id}')">✏️</button>
-      <button class="btn btn-danger btn-xs" onclick="delSupplier('${s.id}')">🗑</button>
-    </td>
-  </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px">لا يوجد موردون</td></tr>';
+  tb.innerHTML = sups.map(s => {
+    const owed = calcOwed(s.id);
+    return `<tr>
+      <td style="font-weight:700">${s.name}</td>
+      <td><span class="tag tg-purple">${s.cat||'—'}</span></td>
+      <td style="font-size:12px">${s.phone||'—'}</td>
+      <td style="font-size:11px;color:var(--text-muted)">${s.email||'—'}</td>
+      <td style="font-size:12px">${s.terms||'—'}</td>
+      <td style="color:${owed>0?'var(--rose)':'var(--emerald)'};font-weight:700">${owed.toLocaleString()} ج</td>
+      <td><span class="ast ${s.status==='نشط'?'sc':'sd'}">${s.status}</span></td>
+      <td style="display:flex;gap:5px;">
+        <button class="btn btn-teal btn-xs" onclick="openSupplierDetail('${s.id}')">📋 حساب</button>
+        <button class="btn btn-ghost btn-xs" onclick="openSupplierModal('${s.id}')">✏️</button>
+        <button class="btn btn-danger btn-xs" onclick="delSupplier('${s.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px">لا يوجد موردون</td></tr>';
+
+  // تحديث KPI المستحقات من الحساب الفعلي
+  txt('sup-kpi-owed', all.reduce((s,x)=>s+calcOwed(x.id),0).toLocaleString()+' ج');
 }
 
 function openSupplierModal(id){
@@ -102,6 +119,87 @@ function delSupplier(id){
   const s = DB.get('suppliers').find(x => x.id === id);
   if(confirm(`حذف ${s?.name}؟`)){ DB.del('suppliers', id); showToast('info','🗑 تم الحذف'); }
 }
+// ══════════════════════════════════════════
+// 📋 حساب المورد التفصيلي
+// ══════════════════════════════════════════
+function openSupplierDetail(supId){
+  const sup = DB.get('suppliers').find(s => s.id === supId);
+  if(!sup) return;
+
+  const purchases = (DB.get('purchases')||[]).filter(p => p.supplierId === supId);
+  const payments  = (DB.get('supplier_payments')||[]).filter(sp => sp.supplierId === supId);
+
+  const totalBought = purchases.filter(p=>p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
+  const totalPaid   = payments.reduce((s,sp)=>s+(sp.amount||0),0);
+  const owed        = Math.max(0, totalBought - totalPaid);
+
+  const modal = document.getElementById('supplier-detail-modal');
+  if(!modal){ showToast('error','❌ modal غير موجود'); return; }
+
+  document.getElementById('sd-name').textContent  = sup.name;
+  document.getElementById('sd-phone').textContent = sup.phone||'—';
+  document.getElementById('sd-owed').textContent  = owed.toLocaleString()+' ج';
+  document.getElementById('sd-id').value          = supId;
+
+  // جدول المشتريات
+  const purTb = document.getElementById('sd-pur-tbody');
+  if(purTb){
+    purTb.innerHTML = purchases.length ? purchases.sort((a,b)=>(b.orderDate||'').localeCompare(a.orderDate||'')).map(p=>`
+      <tr>
+        <td style="font-size:12px">${p.orderDate||'—'}</td>
+        <td style="font-weight:600">${p.product||'—'}</td>
+        <td>${(p.qty||0).toLocaleString()}</td>
+        <td>${(p.unitPrice||0).toLocaleString()} ج</td>
+        <td style="font-weight:700">${(p.total||0).toLocaleString()} ج</td>
+        <td><span class="ast ${p.status==='مستلم'?'sc':p.status==='ملغي'?'sd':'sp'}">${p.status||'—'}</span></td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">لا توجد مشتريات</td></tr>';
+  }
+
+  // جدول الدفعات
+  const payTb = document.getElementById('sd-pay-tbody');
+  if(payTb){
+    payTb.innerHTML = payments.length ? payments.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(sp=>`
+      <tr>
+        <td style="font-size:12px">${sp.date||'—'}</td>
+        <td style="color:var(--emerald);font-weight:700">${(sp.amount||0).toLocaleString()} ج</td>
+        <td style="font-size:12px">${sp.method||'كاش'}</td>
+        <td style="font-size:11px;color:var(--text-muted)">${sp.notes||'—'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px">لا توجد دفعات</td></tr>';
+  }
+
+  openModal('supplier-detail-modal');
+}
+
+function paySupplier(){
+  const supId  = document.getElementById('sd-id')?.value;
+  const amount = parseFloat(document.getElementById('sd-pay-amount')?.value)||0;
+  const method = document.getElementById('sd-pay-method')?.value||'كاش';
+  const notes  = document.getElementById('sd-pay-notes')?.value||'';
+  if(!supId){ showToast('error','❌ مورد غير محدد'); return; }
+  if(amount <= 0){ showToast('warning','⚠️ أدخل مبلغ صحيح'); return; }
+
+  const sup = DB.get('suppliers').find(s => s.id === supId);
+  if(!sup) return;
+
+  const today = new Date().toISOString().split('T')[0];
+  DB.push('supplier_payments',{ supplierId:supId, supplierName:sup.name, amount, method, date:today, notes });
+  DB.push('cashlog',{ type:'صادر', source:`دفعة مورد — ${sup.name}`, amount, method, date:today, notes });
+
+  // إعادة حساب owed
+  const totalBought = (DB.get('purchases')||[]).filter(p=>p.supplierId===supId&&p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
+  const totalPaid   = (DB.get('supplier_payments')||[]).filter(sp=>sp.supplierId===supId).reduce((s,sp)=>s+(sp.amount||0),0);
+  DB.upd('suppliers', supId, { owed: Math.max(0, totalBought - totalPaid) });
+
+  document.getElementById('sd-pay-amount').value = '';
+  document.getElementById('sd-pay-notes').value  = '';
+  showToast('success',`✅ تم تسجيل دفعة ${amount.toLocaleString()} ج للمورد ${sup.name}`);
+  openSupplierDetail(supId); // تحديث الـ modal
+  renderSuppliers();
+}
+
+
 
 // ══════════════════════════════════════════
 // 🛒 PURCHASES SCREEN
