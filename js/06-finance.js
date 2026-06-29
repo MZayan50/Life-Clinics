@@ -320,7 +320,18 @@ function renderAccounts(){
   document.getElementById('acc-period-lbl').textContent=new Date().toLocaleDateString('ar-EG',{month:'long',year:'numeric'});
 
   // P&L
-  const cashlog=DB.get('cashlog')||[];
+  // deduplication للـ cashlog قبل أي حسابات
+  const _rawCashlog=DB.get('cashlog')||[];
+  const _seenRefsT=new Map();
+  _rawCashlog.forEach(c=>{
+    if(c.refId){
+      const ex=_seenRefsT.get(String(c.refId)+'_'+c.type);
+      if(!ex||(c.timestamp||'')>(ex.timestamp||'')) _seenRefsT.set(String(c.refId)+'_'+c.type,c);
+    } else {
+      if(!(c.source||'').includes('بيع منتج')) _seenRefsT.set('no-ref-'+c.id,c);
+    }
+  });
+  const cashlog=[..._seenRefsT.values()];
   // مصدر الإيراد: cashlog:وارد فقط (موحَّد مع الداشبورد والخزينة)
   const totalRevenue=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
   // ✅ المصروفات الفعلية = cashlog:صادر (يُحذف منه عند حذف المصروف تلقائياً)
@@ -403,10 +414,21 @@ function renderPayments(q){
   const method=document.getElementById('pay-method-filter')?.value||'';
   const dateFilter=document.getElementById('pay-date-filter')?.value||'';
 
-  // ✅ Payments = cashlog وارد فقط — المصدر الوحيد بعد توحيد منطق الفواتير
-  // invoices:created hook في 00-core.js يضيف cashlog entry تلقائياً لكل فاتورة
+  // ✅ Payments = cashlog وارد فقط مع deduplication بالـ refId
   const cashlog=DB.get('cashlog')||[];
-  let entries=cashlog.filter(c=>c.type==='وارد');
+  const _rawEntries=cashlog.filter(c=>c.type==='وارد');
+  // إزالة المكررات: لو نفس refId موجود أكتر من مرة، ناخد الأحدث بس
+  const _seenRefs=new Map();
+  _rawEntries.forEach(c=>{
+    if(c.refId){
+      const ex=_seenRefs.get(String(c.refId));
+      if(!ex||(c.timestamp||'')>(ex.timestamp||'')) _seenRefs.set(String(c.refId),c);
+    } else {
+      // مش عنده refId → ناخده بس لو مش عنده فاتورة مشابهة (بيع منتج يدوي قديم)
+      if(!(c.source||'').includes('بيع منتج')) _seenRefs.set('no-ref-'+c.id,c);
+    }
+  });
+  let entries=[..._seenRefs.values()];
 
   if(q) entries=entries.filter(e=>(e.source||'').includes(q)||(e.service||'').includes(q));
   if(method) entries=entries.filter(e=>e.method===method);
@@ -443,6 +465,96 @@ function renderPayments(q){
 };
 
 // ── Treasury rendering using cashlog ──
+async function cleanDuplicateCashlog(){
+  if(!window._fbReady || !window._firestore){ showToast('warning','⚠️ غير متصل بـ Firebase'); return; }
+  showToast('info','⏳ جارٍ فحص التكرار في الخزينة...');
+
+  try{
+    const snap = await window._firestore.collection('cashlog').get();
+    const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // تجميع بالـ refId + type
+    const grouped = new Map();
+    const noRefDups = [];
+
+    all.forEach(c => {
+      if(c.refId){
+        const key = String(c.refId) + '_' + (c.type||'');
+        if(!grouped.has(key)){
+          grouped.set(key, []);
+        }
+        grouped.get(key).push(c);
+      } else {
+        // بدون refId — تحقق من تكرار بيع منتج يدوي
+        if((c.source||'').includes('بيع منتج')){
+          noRefDups.push(c);
+        }
+      }
+    });
+
+    // جمع الـ IDs اللي هتتحذف (الأقدم في كل مجموعة، نفضل الأحدث)
+    const toDelete = [];
+    grouped.forEach((items) => {
+      if(items.length <= 1) return;
+      // ترتيب بالـ timestamp — الأحدث يفضل
+      items.sort((a,b) => (b.timestamp||b.date||'').localeCompare(a.timestamp||a.date||''));
+      // احذف كل حاجة غير الأول
+      items.slice(1).forEach(c => toDelete.push(c.id));
+    });
+
+    // كمان احذف بيع منتج يدوي بدون refId
+    noRefDups.forEach(c => toDelete.push(c.id));
+
+    if(!toDelete.length){
+      showToast('success','✅ لا يوجد تكرار في الخزينة');
+      return;
+    }
+
+    if(!confirm(`سيتم حذف ${toDelete.length} سجل مكرر من الخزينة. هل أنت متأكد؟`)) return;
+
+    // حذف batch
+    const BATCH = 400;
+    for(let i=0;i<toDelete.length;i+=BATCH){
+      const batch = window._firestore.batch();
+      toDelete.slice(i,i+BATCH).forEach(id => {
+        batch.delete(window._firestore.collection('cashlog').doc(id));
+      });
+      await batch.commit();
+    }
+
+    // تحديث الـ cache
+    const remaining = all.filter(c => !toDelete.includes(c.id));
+    DB._cache['cashlog'] = remaining;
+    try{ localStorage.setItem('ha_cashlog', JSON.stringify(remaining)); }catch(e){}
+
+    renderTreasury();
+    if(typeof renderPayments==='function') renderPayments();
+    showToast('success', `✅ تم حذف ${toDelete.length} سجل مكرر من الخزينة`);
+
+  }catch(e){ showToast('error','❌ خطأ: ' + e.message); console.error(e); }
+}
+
+async function clearCashlog(){
+  if(!confirm('⚠️ مسح كل حركات الخزينة (cashlog) من Firebase؟\nهذا لا يمكن التراجع عنه.')) return;
+  if(!window._fbReady || !window._firestore){ showToast('warning','⚠️ غير متصل بـ Firebase'); return; }
+  showToast('info','⏳ جارٍ مسح الخزينة...');
+  try{
+    const snap = await window._firestore.collection('cashlog').get();
+    const ids = snap.docs.map(d => d.id);
+    if(!ids.length){ showToast('info','الخزينة فارغة أصلاً'); return; }
+    const BATCH = 400;
+    for(let i=0;i<ids.length;i+=BATCH){
+      const batch = window._firestore.batch();
+      ids.slice(i,i+BATCH).forEach(id => batch.delete(window._firestore.collection('cashlog').doc(id)));
+      await batch.commit();
+    }
+    DB._cache['cashlog'] = [];
+    try{ localStorage.removeItem('ha_cashlog'); }catch(e){}
+    renderTreasury();
+    showToast('success','✅ تم مسح ' + ids.length + ' حركة من الخزينة');
+  }catch(e){ showToast('error','❌ خطأ: ' + e.message); }
+}
+
 function syncTreasury(){
   if(!confirm('سيتم إعادة مزامنة الخزينة بناءً على البيانات الحالية.\nأي مصروف محذوف سيُحذف من الخزينة تلقائياً.\nتكملة؟')) return;
 
@@ -489,6 +601,12 @@ function renderTreasury(){
     <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
       <button class="btn btn-ghost" onclick="syncTreasury()" style="gap:7px;font-size:13px;border:1px solid var(--glass-border);">
         🔄 مزامنة البيانات
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="cleanDuplicateCashlog()" style="font-size:13px;border:1px solid var(--amber);color:var(--amber);">
+        🧹 تنظيف التكرار
+      </button>
+      <button class="btn btn-danger btn-sm" onclick="clearCashlog()" style="font-size:13px;">
+        🗑️ مسح الخزينة
       </button>
     </div>
     <div class="kpi-grid" style="margin-bottom:18px;">
