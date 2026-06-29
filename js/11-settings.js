@@ -584,28 +584,31 @@ async function clearAll(){
 
   let totalDeleted = 0;
 
-  // ── 2. بدل DB.del (اللي بيطلق EventBus ويخلق race conditions)
-  //       نمسح الـ cache + localStorage فوراً ثم نحذف من Firestore بـ batch ──
+  // ── 2. لكل collection: نقرأ الـ IDs مباشرة من Firestore (مش من الـ cache)
+  //       لأن بعض collections ممكن تكون مش محملة في الـ cache وقت الضغط ──
   for(const col of _ALL_COLLECTIONS){
-    // snapshot من الـ IDs قبل أي تعديل
-    const ids = (DB.get(col)||[]).map(r => r.id).filter(Boolean);
-
     // مسح الـ cache + localStorage فوراً (بدون EventBus)
     DB._cache[col] = [];
     try{ localStorage.setItem('ha_' + col, '[]'); }catch(e){}
 
-    // حذف من Firestore بـ batch (max 500 per batch)
-    if(window._fbReady && window._firestore && ids.length){
-      const BATCH_SIZE = 400;
-      for(let i = 0; i < ids.length; i += BATCH_SIZE){
-        const batch = window._firestore.batch();
-        ids.slice(i, i + BATCH_SIZE).forEach(id => {
-          batch.delete(window._firestore.collection(col).doc(String(id)));
-        });
-        try{ await batch.commit(); }catch(e){ console.warn('batch delete error on', col, e.message); }
-      }
+    if(window._fbReady && window._firestore){
+      try{
+        // قراءة الـ IDs مباشرة من Firestore (الحقيقة لا الـ cache)
+        const snap = await window._firestore.collection(col).get();
+        const ids = snap.docs.map(d => d.id).filter(Boolean);
+        if(ids.length){
+          const BATCH_SIZE = 400;
+          for(let i = 0; i < ids.length; i += BATCH_SIZE){
+            const batch = window._firestore.batch();
+            ids.slice(i, i + BATCH_SIZE).forEach(id => {
+              batch.delete(window._firestore.collection(col).doc(String(id)));
+            });
+            try{ await batch.commit(); }catch(e){ console.warn('batch delete error on', col, e.message); }
+          }
+          totalDeleted += ids.length;
+        }
+      }catch(e){ console.warn('clearAll: failed reading', col, e.message); }
     }
-    totalDeleted += ids.length;
   }
 
   // ── 3. مسح الذاكرة المحلية ──
@@ -623,24 +626,34 @@ async function clearAll(){
 
 async function clearCollection(col){
   if(!col || !_ALL_COLLECTIONS.includes(col)) return;
-  const ids = (DB.get(col)||[]).map(r => r.id).filter(Boolean);
-  if(!ids.length){ showToast('info', 'المجموعة ' + col + ' فارغة'); return; }
-  if(!confirm('حذف كل بيانات "' + col + '" (' + ids.length + ' سجل) من Firebase؟')) return;
 
   // مسح فوري من الـ cache + localStorage
   DB._cache[col] = [];
   try{ localStorage.setItem('ha_' + col, '[]'); }catch(e){}
 
+  if(!window._fbReady || !window._firestore){
+    showToast('info', 'المجموعة ' + col + ' فارغة أو غير متصل بـ Firebase');
+    return;
+  }
+
+  // قراءة الـ IDs مباشرة من Firestore (مش من الـ cache)
+  let ids = [];
+  try{
+    const snap = await window._firestore.collection(col).get();
+    ids = snap.docs.map(d => d.id).filter(Boolean);
+  }catch(e){ console.warn('clearCollection: failed reading', col, e.message); }
+
+  if(!ids.length){ showToast('info', 'المجموعة ' + col + ' فارغة'); return; }
+  if(!confirm('حذف كل بيانات "' + col + '" (' + ids.length + ' سجل) من Firebase؟')) return;
+
   // حذف batch من Firestore
-  if(window._fbReady && window._firestore){
-    const BATCH_SIZE = 400;
-    for(let i = 0; i < ids.length; i += BATCH_SIZE){
-      const batch = window._firestore.batch();
-      ids.slice(i, i + BATCH_SIZE).forEach(id => {
-        batch.delete(window._firestore.collection(col).doc(String(id)));
-      });
-      try{ await batch.commit(); }catch(e){ console.warn('batch delete error:', e.message); }
-    }
+  const BATCH_SIZE = 400;
+  for(let i = 0; i < ids.length; i += BATCH_SIZE){
+    const batch = window._firestore.batch();
+    ids.slice(i, i + BATCH_SIZE).forEach(id => {
+      batch.delete(window._firestore.collection(col).doc(String(id)));
+    });
+    try{ await batch.commit(); }catch(e){ console.warn('batch delete error:', e.message); }
   }
   showToast('success', 'تم حذف ' + ids.length + ' سجل من "' + col + '"');
 }
