@@ -101,6 +101,48 @@ function sendAllReminders(){
 // ══════════════════════════════════════════
 // 📆 INSTALLMENTS SCREEN
 // ══════════════════════════════════════════
+// ✅ مزامنة أقساط الباقات — تحويل كل باقة فيها متبقي لقسط تلقائي
+async function syncPackageInstallments(){
+  const packages = DB.get('packages') || [];
+  const installments = DB.get('installments') || [];
+  const patients = DB.get('patients') || [];
+
+  let added = 0;
+  packages.forEach(pkg => {
+    const remaining = Math.max(0, (pkg.price||0) - (pkg.paid||0));
+    if(remaining <= 0) return; // مدفوع بالكامل
+
+    // تحقق لو فيه قسط موجود للباقة دي
+    const exists = installments.find(i => i.pkgId === pkg.id || i.fromPkgId === pkg.id);
+    if(exists) return;
+
+    const pat = patients.find(p => String(p.id) === String(pkg.patId));
+    DB.push('installments', {
+      patientId: pkg.patId,
+      patientName: pkg.patName || pat?.name || '—',
+      service: `باقة: ${pkg.name||''}`,
+      total: pkg.price || 0,
+      downPayment: pkg.paid || 0,
+      remaining: remaining,
+      installmentAmount: remaining,
+      count: 1,
+      payments: [{ num:1, dueDate: pkg.endDate || pkg.startDate || new Date().toISOString().split('T')[0], paid:false, paidDate:null }],
+      startDate: pkg.startDate || new Date().toISOString().split('T')[0],
+      status: 'نشط',
+      fromPkgId: pkg.id
+    });
+    if(pat) DB.upd('patients', pat.id, { status: 'قسط' });
+    added++;
+  });
+
+  if(added > 0){
+    showToast('success', `✅ تم إضافة ${added} قسط من الباقات تلقائياً`);
+    renderInstallments();
+  } else {
+    showToast('info', 'لا توجد باقات بمتبقي غير مسجلة في الأقساط');
+  }
+}
+
 function renderInstallments(q){
   q = q||'';
   const stFilter = document.getElementById('inst-status-filter')?.value||'';
@@ -401,27 +443,6 @@ function renderPayments(q){
 };
 
 // ── Treasury rendering using cashlog ──
-async function clearCashlog(){
-  if(!confirm('⚠️ مسح كل حركات الخزينة (cashlog) من Firebase؟\nهذا لا يمكن التراجع عنه.')) return;
-  if(!window._fbReady || !window._firestore){ showToast('warning','⚠️ غير متصل بـ Firebase'); return; }
-  showToast('info','⏳ جارٍ مسح الخزينة...');
-  try{
-    const snap = await window._firestore.collection('cashlog').get();
-    const ids = snap.docs.map(d => d.id);
-    if(!ids.length){ showToast('info','الخزينة فارغة أصلاً'); return; }
-    const BATCH = 400;
-    for(let i=0;i<ids.length;i+=BATCH){
-      const batch = window._firestore.batch();
-      ids.slice(i,i+BATCH).forEach(id => batch.delete(window._firestore.collection('cashlog').doc(id)));
-      await batch.commit();
-    }
-    DB._cache['cashlog'] = [];
-    try{ localStorage.removeItem('ha_cashlog'); }catch(e){}
-    renderTreasury();
-    showToast('success','✅ تم مسح ' + ids.length + ' حركة من الخزينة');
-  }catch(e){ showToast('error','❌ خطأ: ' + e.message); }
-}
-
 function syncTreasury(){
   if(!confirm('سيتم إعادة مزامنة الخزينة بناءً على البيانات الحالية.\nأي مصروف محذوف سيُحذف من الخزينة تلقائياً.\nتكملة؟')) return;
 
@@ -465,12 +486,9 @@ function renderTreasury(){
 
   const el=document.getElementById('treasury-content');if(!el)return;
   el.innerHTML=`
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px;">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
       <button class="btn btn-ghost" onclick="syncTreasury()" style="gap:7px;font-size:13px;border:1px solid var(--glass-border);">
         🔄 مزامنة البيانات
-      </button>
-      <button class="btn btn-danger btn-sm" onclick="clearCashlog()" style="font-size:13px;">
-        🗑️ مسح الخزينة
       </button>
     </div>
     <div class="kpi-grid" style="margin-bottom:18px;">
