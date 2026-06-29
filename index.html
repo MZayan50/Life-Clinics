@@ -1400,35 +1400,58 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <!-- ══════════ SMART PAYMENT MODAL (Phase 6) ══════════ -->
 <!-- ══ PATIENT PAY MODAL — دفع متبقي من شاشة ملف العميل ══ -->
 <div class="modal-overlay" id="patient-pay-modal">
-  <div class="modal" style="max-width:520px;">
+  <div class="modal" style="max-width:560px;">
     <div class="mhdr">
-      <div class="mtitle">💳 دفع مبالغ متبقية — <span id="ppay-pat-name"></span></div>
+      <div class="mtitle">💳 تسوية الحساب — <span id="ppay-pat-name"></span></div>
       <button class="mclose" onclick="closeModal('patient-pay-modal')">✕</button>
     </div>
-    <div class="mbody">
-      <div style="margin-bottom:14px;">
-        <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px;">اختر الفاتورة أو الباقة</div>
-        <div id="ppay-options"></div>
+    <div class="mbody" style="padding-bottom:4px;">
+
+      <!-- ملخص الحساب -->
+      <div id="ppay-summary" style="background:linear-gradient(135deg,var(--rose) 0%,#c0392b 100%);border-radius:12px;padding:14px 16px;margin-bottom:14px;color:#fff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div style="text-align:center;">
+          <div style="font-size:11px;opacity:.85;">إجمالي المستحق</div>
+          <div style="font-size:22px;font-weight:900;" id="ppay-total-due">0 ج</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:11px;opacity:.85;">عدد الفواتير</div>
+          <div style="font-size:20px;font-weight:800;" id="ppay-count">0</div>
+        </div>
+        <button onclick="ppayPayAll()" style="background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.6);border-radius:10px;color:#fff;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">
+          ✅ دفع الكل
+        </button>
       </div>
+
+      <!-- قائمة الفواتير / الباقات -->
+      <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px;">اختر فاتورة أو باقة للدفع عليها</div>
+      <div id="ppay-options" style="max-height:220px;overflow-y:auto;padding-left:2px;"></div>
+
       <input type="hidden" id="ppay-selected-id">
       <input type="hidden" id="ppay-selected-type">
-      <div class="fgrp">
-        <label class="flbl">المبلغ المدفوع (ج) *</label>
-        <input class="fctl" id="ppay-amount" type="number" min="1" placeholder="0" oninput="updatePatPayPreview()">
+
+      <hr style="margin:12px 0;border-color:var(--glass-border);">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="fgrp" style="margin:0;">
+          <label class="flbl">المبلغ المدفوع (ج) *</label>
+          <input class="fctl" id="ppay-amount" type="number" min="1" placeholder="0" oninput="updatePatPayPreview()">
+        </div>
+        <div class="fgrp" style="margin:0;">
+          <label class="flbl">طريقة الدفع</label>
+          <select class="fctl" id="ppay-method">
+            <option>كاش</option><option>فيزا</option><option>إنستاباي</option><option>فودافون</option><option>تحويل</option>
+          </select>
+        </div>
       </div>
-      <div class="fgrp">
-        <label class="flbl">طريقة الدفع</label>
-        <select class="fctl" id="ppay-method">
-          <option>كاش</option><option>فيزا</option><option>إنستاباي</option><option>فودافون</option><option>تحويل</option>
-        </select>
-      </div>
-      <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:10px;padding:12px;font-size:13px;color:var(--text-secondary);min-height:40px;" id="ppay-preview">
+
+      <!-- معاينة -->
+      <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:10px;padding:11px 14px;font-size:13px;color:var(--text-secondary);min-height:40px;margin-top:10px;" id="ppay-preview">
         اختر فاتورة أو باقة أعلاه ثم أدخل المبلغ
       </div>
     </div>
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeModal('patient-pay-modal')">إلغاء</button>
-      <button class="btn btn-teal" onclick="processPatientPayment()">✅ تأكيد الدفع</button>
+      <button class="btn btn-teal" onclick="processPatientPayment()">💾 تأكيد الدفع</button>
     </div>
   </div>
 </div>
