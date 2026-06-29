@@ -809,7 +809,7 @@ function fillAllBranchSelects(){
   const withAll   = ['doc-branch-filter','wl-branch-filter'];
   const withoutAll= ['wl-branch','sess-branch','doc-branch','st-branch','exp-branch',
                      'pur-branch','tr-from','tr-to','am-branch','pm-branch',
-                     'rm-branch','eq-branch'];
+                     'rm-branch','eq-branch','prod-branch'];
 
   withAll.forEach(id=>{
     const sel=document.getElementById(id); if(!sel)return;
