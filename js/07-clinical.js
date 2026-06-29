@@ -626,6 +626,8 @@ function savePackage(){
       });
     }
     // ✅ إنشاء فاتورة تلقائية للمبلغ المتبقي (لو فيه متبقي)
+    // paid=0 هنا عمداً — الدفعة الأولى اتسجلت في cashlog فوق مباشرة
+    // لو كان paid > 0 هنا، EventBus('invoices:created') سيسجلها مرة تانية في cashlog
     const remaining = Math.max(0, data.price - data.paid);
     if(remaining > 0){
       DB.push('invoices',{
@@ -635,9 +637,9 @@ function savePackage(){
         originalPrice: data.price,
         discount: 0,
         total: data.price,
-        paid: data.paid,
+        paid: 0,
         remaining: remaining,
-        status: data.paid > 0 ? 'جزئي' : 'معلق',
+        status: 'معلق',
         method: 'كاش',
         date: data.startDate || new Date().toISOString().split('T')[0],
         pkgId: newPkg?.id || null,

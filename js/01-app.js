@@ -882,7 +882,7 @@ function buildIncomeOverview(){
   const chart = document.getElementById('dash-income-chart');
   if(chart) chart.innerHTML = monthsData.map((v,i)=>`<div class="bar" style="background:${i===curMonthIdx?'var(--gold)':'var(--teal)'};opacity:${i===curMonthIdx?1:.55};height:${Math.max(v/max*100,3)}%;" title="${MN[i]}: ${v.toLocaleString()} ج" onclick="showToast('info','📅 ${MN[i]} ${year}: '+(${v}).toLocaleString()+' ج')"></div>`).join('');
   const labels = document.getElementById('dash-income-labels');
-  if(labels) labels.innerHTML = MN.map((m,i)=>`<div class="blbl" style="flex:1;color:${i===curMonthIdx?'var(--gold-light)':'var(--text-muted)'}">${m.slice(0,3)}</div>`).join('');
+  if(labels) labels.innerHTML = MN.map((m,i)=>`<div class="blbl" style="flex:1;color:${i===curMonthIdx?'var(--gold-light)':'var(--text-muted)'}">${m}</div>`).join('');
   const subEl = document.getElementById('dash-income-sub');
   if(subEl) subEl.textContent = `دخل عام ${year} — ${monthsData.reduce((a,b)=>a+b,0).toLocaleString()} ج`;
 }
