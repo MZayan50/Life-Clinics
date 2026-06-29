@@ -705,8 +705,8 @@ function ppayPayAll(){
   pendingInvs.forEach(inv => {
     const rem = inv.remaining||0;
     const newPaid = (inv.paid||0) + rem;
-    DB.upd('invoices', inv.id, { paid:newPaid, remaining:0, status:'مدفوع', method, lastPayDate:today });
-    DB.push('cashlog',{ type:'وارد', amount:rem, source:`تسوية كاملة — ${inv.patient}`, service:inv.service||'', method, date:today, refId:inv.id, patId, patient:pat.name });
+    // paidDelta يُفعّل تسجيل cashlog تلقائياً عبر EventBus('invoices:updated') في 00-core.js
+    DB.upd('invoices', inv.id, { paid:newPaid, remaining:0, status:'مدفوع', method, lastPayDate:today, paidDelta:rem });
     totalPaid += rem;
   });
   pendingPkgs.forEach(pk => {
@@ -775,8 +775,7 @@ function processPatientPayment(){
     if(amount > (inv.remaining||0)){ showToast('warning',`⚠️ المبلغ أكبر من المتبقي (${(inv.remaining||0).toLocaleString()} ج)`); return; }
     const newPaid = (inv.paid||0)+amount;
     const newRem  = Math.max(0,(inv.remaining||0)-amount);
-    DB.upd('invoices',id,{ paid:newPaid, remaining:newRem, status:newRem===0?'مدفوع':'جزئي', method, lastPayDate:today });
-    DB.push('cashlog',{ type:'وارد', amount, source:`دفعة فاتورة — ${inv.patient}`, service:inv.service||'', method, date:today, refId:id, patId, patient:inv.patient||'' });
+    DB.upd('invoices',id,{ paid:newPaid, remaining:newRem, status:newRem===0?'مدفوع':'جزئي', method, lastPayDate:today, paidDelta:amount }); // paidDelta → cashlog عبر EventBus
     showToast('success',`✅ تم استلام ${amount.toLocaleString()} ج`, newRem===0?'الفاتورة مغلقة بالكامل':'المتبقي: '+newRem.toLocaleString()+' ج');
   } else {
     const pk = DB.get('packages').find(p=>String(p.id)===String(id));
