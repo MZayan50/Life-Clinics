@@ -610,12 +610,15 @@ function openPayFromProfile(){
   const pat = DB.get('patients').find(p => p.id === id);
   if(!pat){ return; }
 
-  const pendingInvs = DB.get('invoices').filter(i =>
-    (String(i.patId)===String(id) || i.patient===pat.name) &&
-    (i.remaining||0) > 0
-  );
   const pendingPkgs = DB.get('packages').filter(pk =>
     pk.patId===id && ((pk.price||0)-(pk.paid||0)) > 0
+  );
+  // استبعاد فواتير الباقات لتجنب الاحتساب المزدوج
+  const _pkgIds = new Set(pendingPkgs.map(pk => String(pk.id)));
+  const pendingInvs = DB.get('invoices').filter(i =>
+    (String(i.patId)===String(id) || i.patient===pat.name) &&
+    (i.remaining||0) > 0 &&
+    (!i.pkgId || !_pkgIds.has(String(i.pkgId)))
   );
 
   if(!pendingInvs.length && !pendingPkgs.length){
@@ -688,11 +691,14 @@ function ppayPayAll(){
   if(!pat){ return; }
   const today  = new Date().toISOString().split('T')[0];
 
-  const pendingInvs = DB.get('invoices').filter(i =>
-    (String(i.patId)===String(patId) || i.patient===pat.name) && (i.remaining||0) > 0
-  );
   const pendingPkgs = DB.get('packages').filter(pk =>
     pk.patId===patId && ((pk.price||0)-(pk.paid||0)) > 0
+  );
+  const _pkgIdsAll = new Set(pendingPkgs.map(pk => String(pk.id)));
+  const pendingInvs = DB.get('invoices').filter(i =>
+    (String(i.patId)===String(patId) || i.patient===pat.name) &&
+    (i.remaining||0) > 0 &&
+    (!i.pkgId || !_pkgIdsAll.has(String(i.pkgId)))
   );
 
   let totalPaid = 0;
