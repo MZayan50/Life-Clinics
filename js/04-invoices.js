@@ -414,7 +414,7 @@ function renderInvs(){
 
   const STATUS_CLS={مدفوع:'sc',جزئي:'sp',معلق:'sx'};
   const METHOD_ICO={'كاش':'💵','فيزا':'💳','إنستاباي':'📱','فودافون':'📱','تحويل':'🏦','أقساط':'📆'};
-  const tb=document.getElementById('inv-tbody');if(!tb)return;
+  const tb=document.getElementById('invoices-tbody');if(!tb)return;
   tb.innerHTML=invs.map((inv,i)=>`<tr>
     <td style="font-size:11px;color:var(--gold-light);font-weight:700">#INV-${String(i+1).padStart(3,'0')}</td>
     <td style="font-weight:600">${_patName(inv.patId)||inv.patient||'—'}</td>
