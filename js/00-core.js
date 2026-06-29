@@ -25,10 +25,10 @@ function genUUID(){
 // ══════════════════════════════════════════
 function _now(){ return new Date().toISOString(); }
 function _currentUser(){
-  // اقرأ من الـ cache أولاً (Firestore data)، وإلا من localStorage
+  // الـ cache (Firestore) هو المصدر الوحيد — localStorage fallback فقط لو offline
   try{
-    const s = (DB && DB._cache && DB._cache['settings']) ||
-              JSON.parse(localStorage.getItem('ha_settings')||'{}');
+    const s = (DB && DB._cache && DB._cache['settings'])
+      || (!window._fbReady ? JSON.parse(localStorage.getItem('ha_settings')||'{}') : {});
     return s.managerName || 'النظام';
   }
   catch{ return 'النظام'; }
@@ -101,25 +101,32 @@ const DB = {
   // ── In-memory cache: Firestore data lives here ──
   _cache: {},
 
-  // ── Load from cache (Firestore data) — fallback to localStorage if offline ──
+  // ── Load from cache (Firestore data) ──
+  // لو Firestore متصل → الـ cache هو المصدر الوحيد (لا قراءة من localStorage)
+  // لو offline → localStorage كـ fallback مؤقت فقط
   get(k){
     if (DB._cache[k]) return DB._cache[k];
-    // Offline fallback: read from localStorage
+    // Firestore متصل لكن الـ cache فاضي بعد → ارجع array فاضية (لا تقرأ من localStorage)
+    if (window._fbReady) return [];
+    // Offline fallback فقط
     try { return JSON.parse(localStorage.getItem('ha_' + k)) || []; }
     catch { return []; }
   },
   obj(k){
     if (DB._cache[k] && !Array.isArray(DB._cache[k])) return DB._cache[k];
-    // Offline fallback
+    if (window._fbReady) return {};
+    // Offline fallback فقط
     try { return JSON.parse(localStorage.getItem('ha_' + k)) || {}; }
     catch { return {}; }
   },
 
-  // ── Internal: update cache + localStorage (offline backup) ──
+  // ── Internal: update cache (+ localStorage كـ offline backup فقط) ──
   set(k, v){
     DB._cache[k] = v;
-    // Always keep localStorage in sync as offline backup
-    try { localStorage.setItem('ha_' + k, JSON.stringify(v)); } catch(e){}
+    // localStorage: يُحدَّث فقط لو offline — لو Firestore متصل، onSnapshot هو اللي يحدّثه
+    if(!window._fbReady){
+      try { localStorage.setItem('ha_' + k, JSON.stringify(v)); } catch(e){}
+    }
   },
 
   push(k, o){
@@ -583,16 +590,16 @@ if(!localStorage.getItem('ha_fix_commission_v1')){
 if(!localStorage.getItem('ha_seeded_v2')){
   localStorage.removeItem('ha_seeded');
 
-  // ── إعدادات افتراضية: فقط لو لا توجد إعدادات محلية أو Firestore ──
+  // ── إعدادات افتراضية: فقط لو لا توجد إعدادات في الـ cache (Firestore لم يتصل بعد) ──
   // لو Firestore موصول، loadSettingsFromFirestore() ستُحدِّث الـ cache تلقائياً
-  // لا نلمس الإعدادات الحالية لو كانت موجودة (منع إعادة ضبط البيانات)
-  const existingSettings = (()=>{ try{ return JSON.parse(localStorage.getItem('ha_settings')||'null'); }catch{return null;} })();
-  if(!existingSettings || !existingSettings.clinicName){
+  if(!DB._cache['settings'] || !DB._cache['settings'].clinicName){
     DB._cache['settings'] = {clinicName:'عيادتي للتجميل',phone:'',managerName:'',managerRole:'مدير النظام',schemaVersion:2};
+    // احفظ في localStorage فقط كـ offline fallback أولي (قبل الاتصال بـ Firestore)
     try{ localStorage.setItem('ha_settings', JSON.stringify(DB._cache['settings'])); } catch(e){}
   }
 
-  // ── تهيئة cache للمجموعات الفارغة (لا كتابة Firestore — Firestore يملأها عبر onSnapshot) ──
+  // ── تهيئة الـ cache بـ arrays فاضية فقط (بدون كتابة localStorage) ──
+  // Firestore هو المصدر — onSnapshot سيملأ الـ cache تلقائياً عند الاتصال
   const EMPTY_COLLECTIONS = [
     'branches','doctors','rooms','equipment','services',
     'patients','appointments','invoices','invoice_items',
@@ -602,10 +609,8 @@ if(!localStorage.getItem('ha_seeded_v2')){
     'photos','installments','cashlog','transfers'
   ];
   EMPTY_COLLECTIONS.forEach(col => {
-    if(!DB._cache[col] && !localStorage.getItem('ha_' + col)){
-      DB._cache[col] = [];
-      try{ localStorage.setItem('ha_' + col, '[]'); } catch(e){}
-    }
+    if(!DB._cache[col]) DB._cache[col] = [];
+    // localStorage: لا نكتب إليه هنا — onSnapshot هو اللي يكتب الـ backup
   });
 
   localStorage.setItem('ha_seeded_v2','1');

@@ -85,9 +85,9 @@ async function loadSettingsFromFirestore(){
   } catch(e){ console.warn('loadSettingsFromFirestore:', e.message); }
 }
 function loadSettings(){
-  // اقرأ من الـ cache (Firestore data) أو localStorage لو offline
+  // الـ cache (Firestore) هو المصدر الوحيد — localStorage فقط لو offline
   const s = DB._cache['settings'] ||
-    (()=>{ try{ return JSON.parse(localStorage.getItem('ha_settings')||'{}'); }catch{return{};} })();
+    (!window._fbReady ? (()=>{ try{ return JSON.parse(localStorage.getItem('ha_settings')||'{}'); }catch{return{};} })() : {});
   // ملاحظة: لا نُحدّث user-name/user-role/dash-uname من هنا، لأنها مرتبطة بحساب المستخدم الفعلي
   ['s-cname','s-cphone','s-mname','s-mrole'].forEach((id,i)=>{const e=document.getElementById(id);if(e)e.value=[s.clinicName,s.phone,s.managerName,s.managerRole][i]||e.value;});
   // anthropicKey من localStorage المخصص فقط (لا يُخزَّن في Firestore)
@@ -576,42 +576,75 @@ async function clearAll(){
 
   showToast('info', '⏳ جارٍ حذف البيانات من Firebase...');
 
-  let totalDeleted = 0;
-
-  // ── حذف doc-by-doc من كل collection → DB.del يطلق fbDel تلقائياً ──
-  for(const col of _ALL_COLLECTIONS){
-    const records = DB.get(col)||[];
-    for(const rec of records){
-      DB.del(col, rec.id);
-      totalDeleted++;
-    }
-    // مسح الـ cache والـ localStorage مباشرة بعد حذف كل المستندات
-    DB._cache[col] = [];
-    try{ localStorage.setItem('ha_' + col, '[]'); }catch(e){}
+  // ── 1. إيقاف كل الـ onSnapshot listeners أولاً لمنع Firestore من إعادة تحميل البيانات ──
+  if(window._fbListeners){
+    Object.values(window._fbListeners).forEach(unsub => { try{ unsub(); }catch(e){} });
+    window._fbListeners = {};
   }
 
-  // مسح الإعدادات والذاكرة المحلية
+  let totalDeleted = 0;
+
+  // ── 2. بدل DB.del (اللي بيطلق EventBus ويخلق race conditions)
+  //       نمسح الـ cache + localStorage فوراً ثم نحذف من Firestore بـ batch ──
+  for(const col of _ALL_COLLECTIONS){
+    // snapshot من الـ IDs قبل أي تعديل
+    const ids = (DB.get(col)||[]).map(r => r.id).filter(Boolean);
+
+    // مسح الـ cache + localStorage فوراً (بدون EventBus)
+    DB._cache[col] = [];
+    try{ localStorage.setItem('ha_' + col, '[]'); }catch(e){}
+
+    // حذف من Firestore بـ batch (max 500 per batch)
+    if(window._fbReady && window._firestore && ids.length){
+      const BATCH_SIZE = 400;
+      for(let i = 0; i < ids.length; i += BATCH_SIZE){
+        const batch = window._firestore.batch();
+        ids.slice(i, i + BATCH_SIZE).forEach(id => {
+          batch.delete(window._firestore.collection(col).doc(String(id)));
+        });
+        try{ await batch.commit(); }catch(e){ console.warn('batch delete error on', col, e.message); }
+      }
+    }
+    totalDeleted += ids.length;
+  }
+
+  // ── 3. مسح الذاكرة المحلية ──
   localStorage.removeItem('ha_seeded');
   localStorage.removeItem('ha_seeded_v2');
   localStorage.removeItem('ha_offline_queue');
+  window._fbFirstSync = {};
 
-  showToast('success', `✅ تم حذف ${totalDeleted} سجل من Firebase`, 'تمت إعادة ضبط النظام بالكامل');
+  showToast('success', 'تم حذف ' + totalDeleted + ' سجل من Firebase', 'سيتم تحديث الصفحة...');
 
-  // إعادة التهيئة بعد ثانيتين
-  setTimeout(() => { try{ init(); }catch(e){ location.reload(); } }, 2000);
+  // ── 4. إعادة تحميل الصفحة (يبدأ onSnapshot من صفر نظيف) ──
+  setTimeout(() => { location.reload(); }, 2000);
 }
 
-// ── حذف مجموعة واحدة بالكامل من Firestore ──
+
 async function clearCollection(col){
   if(!col || !_ALL_COLLECTIONS.includes(col)) return;
-  const records = DB.get(col)||[];
-  if(!records.length){ showToast('info', `المجموعة ${col} فارغة`); return; }
-  if(!confirm(`حذف كل بيانات "${col}" (${records.length} سجل) من Firebase؟`)) return;
-  records.forEach(rec => DB.del(col, rec.id));
+  const ids = (DB.get(col)||[]).map(r => r.id).filter(Boolean);
+  if(!ids.length){ showToast('info', 'المجموعة ' + col + ' فارغة'); return; }
+  if(!confirm('حذف كل بيانات "' + col + '" (' + ids.length + ' سجل) من Firebase؟')) return;
+
+  // مسح فوري من الـ cache + localStorage
   DB._cache[col] = [];
   try{ localStorage.setItem('ha_' + col, '[]'); }catch(e){}
-  showToast('success', `✅ تم حذف ${records.length} سجل من "${col}"`);
+
+  // حذف batch من Firestore
+  if(window._fbReady && window._firestore){
+    const BATCH_SIZE = 400;
+    for(let i = 0; i < ids.length; i += BATCH_SIZE){
+      const batch = window._firestore.batch();
+      ids.slice(i, i + BATCH_SIZE).forEach(id => {
+        batch.delete(window._firestore.collection(col).doc(String(id)));
+      });
+      try{ await batch.commit(); }catch(e){ console.warn('batch delete error:', e.message); }
+    }
+  }
+  showToast('success', 'تم حذف ' + ids.length + ' سجل من "' + col + '"');
 }
+
 
 // ══════════════════════════════════════════
 // 🏢 BRANCHES — REAL DATA FROM DB
