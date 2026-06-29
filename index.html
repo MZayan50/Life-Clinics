@@ -1943,20 +1943,22 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 </div>
 <div class="screen" id="screen-purchases">
   <div class="filter-bar">
-    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث عن طلب شراء..." oninput="renderPurchases(this.value)"></div>
+    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث بالمنتج أو المورد..." oninput="renderPurchases(this.value)"></div>
     <select class="selbox" id="pur-status-filter" onchange="renderPurchases()"><option value="">كل الحالات</option><option value="معلق">معلق</option><option value="موافق عليه">موافق عليه</option><option value="مستلم">مستلم</option><option value="ملغي">ملغي</option></select>
+    <input type="date" class="selbox" id="pur-date-filter" onchange="renderPurchases()" style="font-size:12px;">
     <button class="btn btn-primary" onclick="openPurchaseModal()">+ طلب شراء</button>
   </div>
   <div class="kpi-grid" style="margin-bottom:14px;">
     <div class="kpi-card kc-amber"><div class="kpi-icon">🛒</div><div class="kpi-value" id="pur-kpi-pending">0</div><div class="kpi-label">طلبات معلقة</div></div>
     <div class="kpi-card kc-emerald"><div class="kpi-icon">✅</div><div class="kpi-value" id="pur-kpi-received">0</div><div class="kpi-label">مستلمة هذا الشهر</div></div>
     <div class="kpi-card kc-rose"><div class="kpi-icon">💰</div><div class="kpi-value" id="pur-kpi-total">0</div><div class="kpi-label">إجمالي المشتريات (ج)</div></div>
+    <div class="kpi-card kc-teal"><div class="kpi-icon">📦</div><div class="kpi-value" id="pur-kpi-items">0</div><div class="kpi-label">عدد الأصناف المستلمة</div></div>
   </div>
   <div class="card">
     <div class="card-hdr"><div class="card-title">طلبات الشراء</div><span class="card-sub" id="pur-count-lbl">0 طلب</span></div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>#</th><th>المنتج</th><th>المورد</th><th>الكمية</th><th>السعر الإجمالي</th><th>تاريخ الطلب</th><th>تاريخ التسليم</th><th>الحالة</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>المنتج</th><th>المورد</th><th>الكمية</th><th>السعر الإجمالي</th><th>تاريخ الطلب</th><th>تاريخ التسليم</th><th>الحالة</th><th>ملاحظات</th><th></th></tr></thead>
         <tbody id="pur-tbody"></tbody>
       </table>
     </div>
@@ -1977,6 +1979,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       <div class="fgrp"><label class="flbl">تاريخ التسليم المتوقع</label><input class="fctl" type="date" id="pur-delivery-date"></div>
       <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="pur-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
       <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="pur-status"><option>معلق</option><option>موافق عليه</option><option>مستلم</option><option>ملغي</option></select></div>
+      <div class="fgrp full"><label class="flbl">ملاحظات</label><input class="fctl" id="pur-notes" placeholder="ملاحظات اختيارية..."></div>
     </div>
     <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:11px;margin-top:12px;display:flex;justify-content:space-between;align-items:center;">
       <span style="color:var(--text-muted);font-size:13px;">الإجمالي:</span>
