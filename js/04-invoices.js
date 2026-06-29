@@ -728,8 +728,9 @@ function updQsTotal(){
   const qty   = parseFloat(document.getElementById('qs-qty')?.value)||1;
   const price = parseFloat(document.getElementById('qs-price')?.value)||0;
   const total = qty * price;
-  const paidRaw = parseFloat(document.getElementById('qs-paid')?.value);
-  const paid  = isNaN(paidRaw) ? total : Math.min(paidRaw, total);
+  const _qsPaidEl = document.getElementById('qs-paid');
+  const paidRaw = parseFloat(_qsPaidEl?.value);
+  const paid  = isNaN(paidRaw) || (_qsPaidEl?.value||'')=== '' ? 0 : Math.min(paidRaw, total);
   const rem   = Math.max(0, total - paid);
   const tl=document.getElementById('qs-total-lbl'); if(tl) tl.textContent=total.toLocaleString()+' ج';
   const rl=document.getElementById('qs-rem-lbl');
@@ -750,7 +751,8 @@ function saveQuickSell(){
   const price  = parseFloat(document.getElementById('qs-price')?.value)||0;
   const total  = qty * price;
   const paidRaw= parseFloat(document.getElementById('qs-paid')?.value);
-  const paid   = isNaN(paidRaw) ? total : Math.min(paidRaw, total);
+  // لو فاضي = مش تم دفع أي مبلغ (معلق) — مش مدفوع كامل
+  const paid   = isNaN(paidRaw) || document.getElementById('qs-paid')?.value==='' ? 0 : Math.min(paidRaw, total);
   const rem    = Math.max(0, total - paid);
   const method = document.querySelector('#qs-pay-g .pay-m.sel')?.textContent?.trim()||'كاش';
   const date   = document.getElementById('qs-date')?.value || new Date().toISOString().split('T')[0];

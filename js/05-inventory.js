@@ -107,19 +107,21 @@ function delSupplier(id){
 // 🛒 PURCHASES SCREEN
 // ══════════════════════════════════════════
 function renderPurchases(q){
-  q = q || '';
-  const stFilter = document.getElementById('pur-status-filter')?.value || '';
-  if(!DB.get('purchases').length) DB.set('purchases',[]);
-  let purs = DB.get('purchases');
-  if(q) purs = purs.filter(p => p.product.includes(q) || (p.supplier||'').includes(q));
+  q = q || (document.getElementById('pur-search')?.value||'');
+  const stFilter   = document.getElementById('pur-status-filter')?.value || '';
+  const dateFilter = document.getElementById('pur-date-filter')?.value || '';
+  let purs = DB.get('purchases') || [];
+  if(q) purs = purs.filter(p => (p.product||'').includes(q) || (p.supplier||'').includes(q) || (p.notes||'').includes(q));
   if(stFilter) purs = purs.filter(p => p.status === stFilter);
+  if(dateFilter) purs = purs.filter(p => p.orderDate === dateFilter);
   purs = [...purs].sort((a,b) => (b.orderDate||'').localeCompare(a.orderDate||''));
 
-  const all = DB.get('purchases');
+  const all = DB.get('purchases') || [];
   const thisMonth = new Date().toISOString().slice(0,7);
   txt('pur-kpi-pending',  all.filter(p => p.status==='معلق').length);
   txt('pur-kpi-received', all.filter(p => p.status==='مستلم' && (p.deliveryDate||'').startsWith(thisMonth)).length);
   txt('pur-kpi-total',    all.reduce((s,p) => s+(p.total||0), 0).toLocaleString()+' ج');
+  txt('pur-kpi-items',    all.filter(p => p.status==='مستلم').length);
   txt('pur-count-lbl',    purs.length+' طلب');
 
   const stClass = {'معلق':'sp','موافق عليه':'sw','مستلم':'sc','ملغي':'sx'};
@@ -133,12 +135,13 @@ function renderPurchases(q){
     <td style="font-size:12px">${p.orderDate||'—'}</td>
     <td style="font-size:12px;color:${p.deliveryDate&&new Date(p.deliveryDate)<new Date()&&p.status!=='مستلم'?'var(--rose)':'var(--text-muted)'}">${p.deliveryDate||'—'}</td>
     <td><span class="ast ${stClass[p.status]||'sd'}">${p.status}</span></td>
+    <td style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.notes||''}">${p.notes||'—'}</td>
     <td style="display:flex;gap:5px;">
       ${p.status==='معلق'||p.status==='موافق عليه'?`<button class="btn btn-teal btn-xs" onclick="recvPurchase('${p.id}')">✅ استلام</button>`:''}
       <button class="btn btn-ghost btn-xs" onclick="openPurchaseModal('${p.id}')">✏️</button>
       <button class="btn btn-danger btn-xs" onclick="delPurchase('${p.id}')">🗑</button>
     </td>
-  </tr>`).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px">لا توجد طلبات شراء</td></tr>';
+  </tr>`).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:24px">لا توجد طلبات شراء</td></tr>';
 }
 
 function openPurchaseModal(id){
@@ -159,6 +162,7 @@ function openPurchaseModal(id){
   document.getElementById('pur-delivery-date').value = p ? p.deliveryDate||'' : '';
   const statusEl = document.getElementById('pur-status');
   if(statusEl) statusEl.value = p ? p.status : 'معلق';
+  const notesEl=document.getElementById('pur-notes'); if(notesEl) notesEl.value=p?p.notes||'':'';
   openModal('purchase-modal');
 }
 
@@ -196,7 +200,8 @@ function savePurchase(){
   const data = { productId, product:productName, supplierId, supplier:supplierName,
                  qty, unitPrice, total:qty*unitPrice,
                  orderDate:gv('pur-order-date'), deliveryDate:gv('pur-delivery-date'),
-                 branch:gv('pur-branch'), status:gv('pur-status') };
+                 branch:gv('pur-branch'), status:gv('pur-status'),
+                 notes: (document.getElementById('pur-notes')?.value||'').trim() };
   if(!DB.get('purchases').length) DB.set('purchases',[]);
   let purchaseId;
   if(id){
