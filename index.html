@@ -2159,13 +2159,26 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       <div class="fgrp"><label class="flbl">العميل *</label><select class="fctl" id="im-pat"><option value="">-- اختر عميل --</option></select></div>
       <div class="fgrp"><label class="flbl">التاريخ</label><input class="fctl" type="date" id="im-date"></div>
       <div class="fgrp full"><label class="flbl">الخدمة</label><select class="fctl" id="im-svc"><option value="">-- اختر الخدمة --</option></select></div>
-      <div class="fgrp"><label class="flbl">السعر (ج)</label><input class="fctl" type="number" id="im-price" value="800" oninput="updInvTotal()"></div>
+      <div class="fgrp"><label class="flbl">السعر (ج)</label><input class="fctl" type="number" id="im-price" value="0" oninput="updInvTotal()"></div>
       <div class="fgrp"><label class="flbl">الخصم (ج)</label><input class="fctl" type="number" id="im-disc" value="0" oninput="updInvTotal()"></div>
+      <div class="fgrp"><label class="flbl">المدفوع الآن (ج)</label><input class="fctl" type="number" id="im-paid-now" placeholder="اتركه فارغاً = مدفوع كامل" oninput="updInvTotal()"></div>
     </div>
+
+    <!-- ── المنتجات ── -->
+    <div style="margin:14px 0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <label class="flbl" style="margin:0;">📦 المنتجات (اختياري)</label>
+        <button type="button" class="btn btn-ghost btn-xs" onclick="addInvProductRow()">+ إضافة منتج</button>
+      </div>
+      <div id="inv-products-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+
     <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:13px;margin:14px 0;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:13px;"><span style="color:var(--text-muted)">الإجمالي:</span><span id="ig">800 ج</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:13px;"><span style="color:var(--text-muted)">الخدمة:</span><span id="ig">0 ج</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:13px;"><span style="color:var(--text-muted)">المنتجات:</span><span id="ig-prod">0 ج</span></div>
       <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:13px;"><span style="color:var(--text-muted)">الخصم:</span><span style="color:var(--rose)" id="id2">0 ج</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;border-top:1px solid var(--glass-border);padding-top:6px;"><span>الصافي:</span><span style="color:var(--gold-light)" id="in2">800 ج</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;border-top:1px solid var(--glass-border);padding-top:6px;"><span>الصافي:</span><span style="color:var(--gold-light)" id="in2">0 ج</span></div>
+      <div style="text-align:left;margin-top:5px;font-size:13px;font-weight:700;" id="in-remaining"></div>
     </div>
     <label class="flbl" style="margin-bottom:9px;display:block;">طريقة الدفع</label>
     <div class="pay-g">
