@@ -2144,10 +2144,26 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="pm-status"><option value="نشط">نشط</option><option value="غير نشط">غير نشط</option></select></div>
     <hr class="fdivider">
     <div class="fsec">الملف الطبي</div>
-    <div class="fgrp"><label class="flbl">نوع البشرة</label><select class="fctl" id="pm-skin"><option>عادية</option><option>دهنية</option><option>جافة</option><option>مختلطة</option><option>حساسة</option></select></div>
-    <div class="fgrp"><label class="flbl">نوع الشعر</label><select class="fctl" id="pm-hair"><option>عادي</option><option>دهني</option><option>جاف</option><option>كيرلي</option><option>ناعم</option></select></div>
-    <div class="fgrp full"><label class="flbl">مشاكل البشرة</label><input class="fctl" id="pm-skinp" placeholder="حب شباب، بقع، تجاعيد..."></div>
-    <div class="fgrp full"><label class="flbl">مشاكل الشعر</label><input class="fctl" id="pm-hairp" placeholder="تساقط، جفاف..."></div>
+    <div class="fgrp full" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;padding:4px 0;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:600;">
+        <input type="checkbox" id="pm-chk-skin" onchange="toggleMedSection()" style="width:18px;height:18px;cursor:pointer;accent-color:var(--primary,#b48c6e);"> 💆 بشرة
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:600;">
+        <input type="checkbox" id="pm-chk-hair" onchange="toggleMedSection()" style="width:18px;height:18px;cursor:pointer;accent-color:var(--primary,#b48c6e);"> 💇 شعر
+      </label>
+    </div>
+    <div id="pm-skin-section" style="display:none;width:100%;grid-column:1/-1;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;">
+        <div class="fgrp" style="margin:0"><label class="flbl">نوع البشرة</label><select class="fctl" id="pm-skin"><option>عادية</option><option>دهنية</option><option>جافة</option><option>مختلطة</option><option>حساسة</option></select></div>
+        <div class="fgrp" style="margin:0"><label class="flbl">مشاكل البشرة</label><input class="fctl" id="pm-skinp" placeholder="حب شباب، بقع، تجاعيد..."></div>
+      </div>
+    </div>
+    <div id="pm-hair-section" style="display:none;width:100%;grid-column:1/-1;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;">
+        <div class="fgrp" style="margin:0"><label class="flbl">نوع الشعر</label><select class="fctl" id="pm-hair"><option>عادي</option><option>دهني</option><option>جاف</option><option>كيرلي</option><option>ناعم</option></select></div>
+        <div class="fgrp" style="margin:0"><label class="flbl">مشاكل الشعر</label><input class="fctl" id="pm-hairp" placeholder="تساقط، جفاف..."></div>
+      </div>
+    </div>
     <div class="fgrp full"><label class="flbl">الحساسية والأمراض المزمنة</label><textarea class="fctl ta" id="pm-allergy" placeholder="اكتب أي حساسية أو أمراض مزمنة..."></textarea></div>
     <div class="fgrp"><label class="flbl">الحمل أو الرضاعة</label><select class="fctl" id="pm-preg"><option>لا</option><option>حامل</option><option>مرضعة</option></select></div>
     <div class="fgrp"><label class="flbl">الأدوية الحالية</label><input class="fctl" id="pm-meds" placeholder="إن وجدت..."></div>
