@@ -630,7 +630,7 @@ function savePackage(){
     // لو كان paid > 0 هنا، EventBus('invoices:created') سيسجلها مرة تانية في cashlog
     const remaining = Math.max(0, data.price - data.paid);
     if(remaining > 0){
-      DB.push('invoices',{
+      const newInv = DB.push('invoices',{
         patId: data.patId, patientId: data.patId,
         patient: data.patName,
         service: `باقة: ${data.name}`,
@@ -645,7 +645,25 @@ function savePackage(){
         pkgId: newPkg?.id || null,
         notes: `فاتورة مرتبطة بالباقة — متبقي ${remaining.toLocaleString()} ج`
       });
-      showToast('success',`✅ تم إنشاء باقة "${name}" لـ ${data.patName}`, `🧾 فاتورة بالمتبقي ${remaining.toLocaleString()} ج أُنشئت تلقائياً`);
+      // ✅ إنشاء قسط تلقائي للمتبقي
+      const pat = DB.get('patients').find(p => String(p.id) === String(data.patId));
+      DB.push('installments',{
+        patientId: data.patId,
+        patientName: data.patName,
+        service: `باقة: ${data.name}`,
+        total: data.price,
+        downPayment: data.paid || 0,
+        remaining: remaining,
+        installmentAmount: remaining,
+        count: 1,
+        payments: [{ num:1, dueDate: data.endDate || data.startDate || new Date().toISOString().split('T')[0], paid:false, paidDate:null }],
+        startDate: data.startDate || new Date().toISOString().split('T')[0],
+        status: 'نشط',
+        fromInvId: newInv?.id || null,
+        pkgId: newPkg?.id || null
+      });
+      if(pat) DB.upd('patients', pat.id, { status: 'قسط' });
+      showToast('success',`✅ تم إنشاء باقة "${name}" لـ ${data.patName}`, `🧾 متبقي ${remaining.toLocaleString()} ج أُضيف للأقساط تلقائياً`);
     } else {
       showToast('success',`✅ تم إنشاء باقة "${name}" لـ ${data.patName}`);
     }
