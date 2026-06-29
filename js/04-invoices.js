@@ -5,7 +5,7 @@ function filterInvSt(s){_is=s;renderInv();}
 function renderInv(){
   const items=DB.get('inventory').filter(i=>(!_if||i.name.includes(_if))&&(!_is||i.status===_is));
   const tb=document.getElementById('inv-tbody');if(!tb)return;
-  tb.innerHTML=items.map(i=>`<tr><td style="font-weight:600">${i.name}</td><td style="font-weight:700;color:${i.qty===0?'var(--rose)':i.qty<=i.reorder?'var(--amber)':'var(--emerald)'}">${i.qty}</td><td>${i.reorder}</td><td style="font-size:12px;color:${i.expiry&&new Date(i.expiry)<new Date()?'var(--rose)':'var(--text-muted)'}">${i.expiry||'—'}</td><td>${i.price} ج</td><td><span class="stk ${i.status==='متوفر'?'stk-ok':i.status==='منخفض'?'stk-low':'stk-out'}">${i.status}</span></td><td><button class="btn btn-ghost btn-xs" onclick="openProductModal('${i.id}')">✏️</button> <button class="btn btn-danger btn-xs" onclick="delInv('${i.id}')">🗑</button></td></tr>`).join('');
+  tb.innerHTML=items.map(i=>`<tr><td style="font-weight:600">${i.name}</td><td style="font-weight:700;color:${i.qty===0?'var(--rose)':i.qty<=i.reorder?'var(--amber)':'var(--emerald)'}">${i.qty}</td><td>${i.reorder}</td><td style="font-size:12px;color:${i.expiry&&new Date(i.expiry)<new Date()?'var(--rose)':'var(--text-muted)'}">${i.expiry||'—'}</td><td>${i.price} ج</td><td><span class="stk ${i.status==='متوفر'?'stk-ok':i.status==='منخفض'?'stk-low':'stk-out'}">${i.status}</span></td><td><button class="btn btn-teal btn-xs" onclick="openQuickSell('${i.id}')">🛒</button> <button class="btn btn-ghost btn-xs" onclick="openProductModal('${i.id}')">✏️</button> <button class="btn btn-danger btn-xs" onclick="delInv('${i.id}')">🗑</button></td></tr>`).join('');
   const all=DB.get('inventory');
   const low=all.filter(i=>i.status==='منخفض').length,out=all.filter(i=>i.status==='نفذ').length;
   txt('inv-total',all.length);txt('inv-low',low);txt('inv-out',out);
@@ -681,3 +681,137 @@ function updateInstallmentStatuses(){
 }
 
 // ── Enhanced renderPayments with full history ──
+
+
+// ══════════════════════════════════════════
+// 🛒 QUICK SELL — بيع سريع من شاشة المنتجات
+// ══════════════════════════════════════════
+function openQuickSell(productId){
+  // ملء dropdown العملاء
+  const patSel = document.getElementById('qs-pat');
+  if(patSel){
+    const pats = DB.get('patients')||[];
+    patSel.innerHTML = '<option value="">-- اختر عميل --</option>'
+      + pats.map(p=>`<option value="${p.id}">${p.name}${p.phone?' — '+p.phone:''}</option>`).join('');
+  }
+  // ملء dropdown المنتجات
+  const prodSel = document.getElementById('qs-prod-sel');
+  if(prodSel){
+    const inv = DB.get('inventory')||[];
+    prodSel.innerHTML = '<option value="">-- اختر منتج --</option>'
+      + inv.map(i=>`<option value="${i.id}" data-price="${i.price||0}" data-name="${i.name}" data-qty="${i.qty||0}">${i.name} (${i.qty} متاح) — ${i.price||0} ج</option>`).join('');
+    if(productId) prodSel.value = productId;
+  }
+  // تحديث السعر لو منتج محدد
+  if(productId) onQsProdChange(prodSel);
+  // التاريخ
+  const dateEl = document.getElementById('qs-date');
+  if(dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+  // reset
+  const qtyEl=document.getElementById('qs-qty'); if(qtyEl) qtyEl.value=1;
+  const paidEl=document.getElementById('qs-paid'); if(paidEl) paidEl.value='';
+  // reset payment method
+  document.querySelectorAll('#qs-pay-g .pay-m').forEach((el,i)=>{ el.classList.toggle('sel',i===0); });
+  updQsTotal();
+  openModal('quick-sell-modal');
+}
+
+function onQsProdChange(sel){
+  const opt = sel?.options[sel.selectedIndex];
+  const price = parseFloat(opt?.dataset?.price)||0;
+  const priceEl = document.getElementById('qs-price');
+  if(priceEl) priceEl.value = price;
+  updQsTotal();
+}
+
+function updQsTotal(){
+  const qty   = parseFloat(document.getElementById('qs-qty')?.value)||1;
+  const price = parseFloat(document.getElementById('qs-price')?.value)||0;
+  const total = qty * price;
+  const paidRaw = parseFloat(document.getElementById('qs-paid')?.value);
+  const paid  = isNaN(paidRaw) ? total : Math.min(paidRaw, total);
+  const rem   = Math.max(0, total - paid);
+  const tl=document.getElementById('qs-total-lbl'); if(tl) tl.textContent=total.toLocaleString()+' ج';
+  const rl=document.getElementById('qs-rem-lbl');
+  if(rl){ rl.textContent=rem>0?rem.toLocaleString()+' ج':'مدفوع كامل ✅'; rl.style.color=rem>0?'var(--rose)':'var(--emerald)'; }
+}
+
+function saveQuickSell(){
+  const productId = document.getElementById('qs-prod-sel')?.value;
+  const patId     = document.getElementById('qs-pat')?.value;
+  if(!productId){ showToast('warning','⚠️ اختر المنتج'); return; }
+  if(!patId){ showToast('warning','⚠️ اختر العميل'); return; }
+
+  const prod = DB.get('inventory').find(i=>i.id===productId);
+  const pat  = DB.get('patients').find(p=>p.id===patId);
+  if(!prod){ showToast('error','❌ المنتج غير موجود'); return; }
+
+  const qty    = parseFloat(document.getElementById('qs-qty')?.value)||1;
+  const price  = parseFloat(document.getElementById('qs-price')?.value)||0;
+  const total  = qty * price;
+  const paidRaw= parseFloat(document.getElementById('qs-paid')?.value);
+  const paid   = isNaN(paidRaw) ? total : Math.min(paidRaw, total);
+  const rem    = Math.max(0, total - paid);
+  const method = document.querySelector('#qs-pay-g .pay-m.sel')?.textContent?.trim()||'كاش';
+  const date   = document.getElementById('qs-date')?.value || new Date().toISOString().split('T')[0];
+
+  if(qty > (prod.qty||0)){
+    showToast('warning',`⚠️ الكمية المطلوبة (${qty}) أكبر من المتاح (${prod.qty||0})`);
+    return;
+  }
+
+  const status = rem===0 ? 'مدفوع' : paid>0 ? 'جزئي' : 'معلق';
+
+  // ── 1. إنشاء فاتورة بيع منتج ──
+  DB.push('invoices',{
+    patId, patientId: patId,
+    patient: pat?.name||'—',
+    service: '',
+    serviceId: '',
+    products: [{ productId, productName: prod.name, qty, price, total }],
+    originalPrice: 0,
+    discount: 0,
+    total, paid, remaining: rem,
+    status, method, date,
+    notes: `بيع منتج: ${prod.name} × ${qty}`
+  });
+
+  // ── 2. خصم المخزون فوري ──
+  const newQty = Math.max(0,(prod.qty||0)-qty);
+  const newStatus = newQty===0?'نفذ':newQty<=(prod.reorder||5)?'منخفض':'متوفر';
+  DB.upd('inventory', productId, { qty: newQty, status: newStatus });
+
+  // ── 3. cashlog لو مدفوع ──
+  if(paid>0){
+    DB.push('cashlog',{
+      type:'وارد', source:`بيع منتج — ${prod.name}`,
+      patId, patient: pat?.name||'',
+      amount: paid, method, date,
+      service: prod.name,
+      timestamp: new Date().toISOString(),
+      notes:`بيع ${qty} × ${prod.name}`
+    });
+  }
+
+  // ── 4. قسط تلقائي لو فيه متبقي ──
+  if(rem>0){
+    DB.push('installments',{
+      patientId: patId,
+      patientName: pat?.name||'',
+      service: `منتج: ${prod.name}`,
+      total, downPayment: paid,
+      remaining: rem,
+      installmentAmount: rem,
+      count:1,
+      payments:[{num:1,dueDate:date,paid:false,paidDate:null}],
+      startDate: date,
+      status:'نشط'
+    });
+    if(pat) DB.upd('patients', pat.id, { status:'قسط' });
+  }
+
+  closeModal('quick-sell-modal');
+  renderInv();
+  showToast('success',`✅ تم بيع ${qty} × ${prod.name} لـ ${pat?.name||''}`,
+    rem>0?`متبقي ${rem.toLocaleString()} ج — أُضيف للأقساط`:'مدفوع بالكامل');
+}
