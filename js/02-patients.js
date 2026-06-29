@@ -295,7 +295,16 @@ function renderPatAccount(id){
 
   // 3️⃣ مدفوعات cashlog المرتبطة بالعميل (مش مرتبطة بفاتورة موجودة)
   const _invRefIds = new Set(allPatInvs.map(i => String(i.id)));
-  allCashLog.filter(c => !c.refId || !_invRefIds.has(String(c.refId))).forEach(c => {
+  // فلترة cashlog:
+  // 1. مش مرتبط بفاتورة موجودة (refId)
+  // 2. مش بيع منتج بدون refId (كان يتعمل يدوياً قبل الإصلاح)
+  allCashLog.filter(c => {
+    // لو عنده refId وموجود في الفواتير → مش يظهر (الفاتورة بتظهر بدله)
+    if(c.refId && _invRefIds.has(String(c.refId))) return false;
+    // لو مصدره "بيع منتج" أو notes فيها "بيع" ومش عنده refId → تحقق لو فيه فاتورة تغطيه
+    if(!c.refId && (c.source||'').includes('بيع منتج')) return false;
+    return true;
+  }).forEach(c => {
     allTx.push({ _date: c.date||'', _type: 'cashlog', _raw: c });
   });
 
