@@ -1755,6 +1755,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث بالعميل..." oninput="renderInstallments(this.value)"></div>
     <select class="selbox" id="inst-status-filter" onchange="renderInstallments()"><option value="">كل الحالات</option><option value="نشط">نشط</option><option value="متأخر">متأخر</option><option value="مكتمل">مكتمل</option></select>
     <button class="btn btn-primary" onclick="openInstModal()">+ قسط جديد</button>
+    <button class="btn btn-ghost" onclick="syncPackageInstallments()" style="border:1px solid var(--glass-border);font-size:13px;">🔄 مزامنة الباقات</button>
   </div>
   <div class="card" style="margin-bottom:14px;">
     <div class="card-hdr"><div class="card-title">📆 خطط الأقساط النشطة</div><span class="card-sub" id="inst-count-lbl">0 خطة</span></div>
