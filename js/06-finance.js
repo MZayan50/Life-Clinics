@@ -107,13 +107,22 @@ async function syncPackageInstallments(){
   const installments = DB.get('installments') || [];
   const patients = DB.get('patients') || [];
 
+  // نجيب فواتير الباقات عشان نتحقق بـ fromInvId كمان
+  const invoices = DB.get('invoices') || [];
+
   let added = 0;
   packages.forEach(pkg => {
     const remaining = Math.max(0, (pkg.price||0) - (pkg.paid||0));
     if(remaining <= 0) return; // مدفوع بالكامل
 
-    // تحقق لو فيه قسط موجود للباقة دي
-    const exists = installments.find(i => i.pkgId === pkg.id || i.fromPkgId === pkg.id);
+    // فاتورة الباقة دي (لو موجودة)
+    const pkgInv = invoices.find(i => String(i.pkgId) === String(pkg.id));
+
+    // تحقق لو فيه قسط موجود بـ pkgId أو fromPkgId أو fromInvId للفاتورة
+    const exists = installments.find(i =>
+      i.pkgId === pkg.id || i.fromPkgId === pkg.id ||
+      (pkgInv && i.fromInvId === pkgInv.id)
+    );
     if(exists) return;
 
     const pat = patients.find(p => String(p.id) === String(pkg.patId));
