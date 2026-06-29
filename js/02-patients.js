@@ -610,12 +610,10 @@ function openPayFromProfile(){
   const pat = DB.get('patients').find(p => p.id === id);
   if(!pat){ return; }
 
-  // جمع كل الفواتير غير المسددة بالكامل
   const pendingInvs = DB.get('invoices').filter(i =>
     (String(i.patId)===String(id) || i.patient===pat.name) &&
     (i.remaining||0) > 0
   );
-  // جمع الباقات بمتبقي مالي
   const pendingPkgs = DB.get('packages').filter(pk =>
     pk.patId===id && ((pk.price||0)-(pk.paid||0)) > 0
   );
@@ -625,20 +623,31 @@ function openPayFromProfile(){
     return;
   }
 
-  // بناء modal ديناميكي لاختيار الفاتورة / الباقة والدفع
+  // حساب الإجمالي الكلي
+  const totalInvDue  = pendingInvs.reduce((s,i)=>s+(i.remaining||0),0);
+  const totalPkgDue  = pendingPkgs.reduce((s,pk)=>s+Math.max(0,(pk.price||0)-(pk.paid||0)),0);
+  const grandTotal   = totalInvDue + totalPkgDue;
+  const totalCount   = pendingInvs.length + pendingPkgs.length;
+
+  // ملخص
+  document.getElementById('ppay-total-due').textContent = grandTotal.toLocaleString() + ' ج';
+  document.getElementById('ppay-count').textContent = totalCount;
+
+  // بناء قائمة الفواتير والباقات
   let optionsHtml = '';
   pendingInvs.forEach(inv => {
     const rem = inv.remaining||0;
-    const idx = DB.get('invoices').findIndex(x=>String(x.id)===String(inv.id));
-    optionsHtml += `<div class="pay-option" data-type="invoice" data-id="${inv.id}" onclick="selectPayOption(this)"
+    const allInvs = DB.get('invoices');
+    const idx = allInvs.findIndex(x=>String(x.id)===String(inv.id));
+    optionsHtml += `<div class="pay-option" data-type="invoice" data-id="${inv.id}" data-rem="${rem}" onclick="selectPayOption(this)"
       style="padding:11px;background:var(--glass);border:2px solid var(--glass-border);border-radius:10px;cursor:pointer;margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div>
           <div style="font-weight:700;font-size:13px;">🧾 #INV-${String(idx+1).padStart(3,'0')} — ${inv.service||'—'}</div>
-          <div style="font-size:11px;color:var(--text-muted);">فاتورة · ${inv.date||'—'}</div>
+          <div style="font-size:11px;color:var(--text-muted);">فاتورة · ${inv.date||'—'} · إجمالي: ${(inv.total||0).toLocaleString()} ج · مدفوع: ${(inv.paid||0).toLocaleString()} ج</div>
         </div>
-        <div style="text-align:left;">
-          <div style="color:var(--rose);font-weight:800;">${rem.toLocaleString()} ج</div>
+        <div style="text-align:left;min-width:70px;">
+          <div style="color:var(--rose);font-weight:800;font-size:15px;">${rem.toLocaleString()} ج</div>
           <div style="font-size:11px;color:var(--text-muted);">متبقي</div>
         </div>
       </div>
@@ -646,15 +655,15 @@ function openPayFromProfile(){
   });
   pendingPkgs.forEach(pk => {
     const rem = Math.max(0,(pk.price||0)-(pk.paid||0));
-    optionsHtml += `<div class="pay-option" data-type="package" data-id="${pk.id}" onclick="selectPayOption(this)"
+    optionsHtml += `<div class="pay-option" data-type="package" data-id="${pk.id}" data-rem="${rem}" onclick="selectPayOption(this)"
       style="padding:11px;background:var(--glass);border:2px solid var(--glass-border);border-radius:10px;cursor:pointer;margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div>
           <div style="font-weight:700;font-size:13px;">🎁 ${pk.name}</div>
-          <div style="font-size:11px;color:var(--text-muted);">باقة علاجية</div>
+          <div style="font-size:11px;color:var(--text-muted);">باقة علاجية · إجمالي: ${(pk.price||0).toLocaleString()} ج · مدفوع: ${(pk.paid||0).toLocaleString()} ج</div>
         </div>
-        <div style="text-align:left;">
-          <div style="color:var(--rose);font-weight:800;">${rem.toLocaleString()} ج</div>
+        <div style="text-align:left;min-width:70px;">
+          <div style="color:var(--rose);font-weight:800;font-size:15px;">${rem.toLocaleString()} ج</div>
           <div style="font-size:11px;color:var(--text-muted);">متبقي</div>
         </div>
       </div>
@@ -671,21 +680,49 @@ function openPayFromProfile(){
   openModal('patient-pay-modal');
 }
 
+// دفع الكل دفعة واحدة (يوزع على الفواتير تسلسلياً)
+function ppayPayAll(){
+  const method = document.getElementById('ppay-method')?.value||'كاش';
+  const patId  = window._curPat;
+  const pat    = DB.get('patients').find(p=>String(p.id)===String(patId));
+  if(!pat){ return; }
+  const today  = new Date().toISOString().split('T')[0];
+
+  const pendingInvs = DB.get('invoices').filter(i =>
+    (String(i.patId)===String(patId) || i.patient===pat.name) && (i.remaining||0) > 0
+  );
+  const pendingPkgs = DB.get('packages').filter(pk =>
+    pk.patId===patId && ((pk.price||0)-(pk.paid||0)) > 0
+  );
+
+  let totalPaid = 0;
+  pendingInvs.forEach(inv => {
+    const rem = inv.remaining||0;
+    const newPaid = (inv.paid||0) + rem;
+    DB.upd('invoices', inv.id, { paid:newPaid, remaining:0, status:'مدفوع', method, lastPayDate:today });
+    DB.push('cashlog',{ type:'وارد', amount:rem, source:`تسوية كاملة — ${inv.patient}`, service:inv.service||'', method, date:today, refId:inv.id, patId, patient:pat.name });
+    totalPaid += rem;
+  });
+  pendingPkgs.forEach(pk => {
+    const rem = Math.max(0,(pk.price||0)-(pk.paid||0));
+    DB.upd('packages', pk.id, { paid:(pk.paid||0)+rem });
+    DB.push('cashlog',{ type:'وارد', amount:rem, source:`تسوية باقة — ${pat.name}`, service:pk.name||'', method, date:today, patId, patient:pat.name });
+    totalPaid += rem;
+  });
+
+  closeModal('patient-pay-modal');
+  showToast('success', `✅ تم سداد ${totalPaid.toLocaleString()} ج بالكامل`, `تمت تسوية ${pendingInvs.length+pendingPkgs.length} فاتورة/باقة`);
+  if(window._curPat && typeof viewPat==='function') viewPat(window._curPat);
+}
+
 function selectPayOption(el){
   document.querySelectorAll('.pay-option').forEach(x => x.style.border='2px solid var(--glass-border)');
   el.style.border = '2px solid var(--teal)';
   document.getElementById('ppay-selected-id').value   = el.dataset.id;
   document.getElementById('ppay-selected-type').value = el.dataset.type;
-  // اقتراح المبلغ الكامل
-  const type = el.dataset.type;
-  const id   = el.dataset.id;
-  if(type==='invoice'){
-    const inv = DB.get('invoices').find(i=>String(i.id)===String(id));
-    if(inv){ document.getElementById('ppay-amount').value = inv.remaining||0; }
-  } else {
-    const pk = DB.get('packages').find(p=>String(p.id)===String(id));
-    if(pk){ document.getElementById('ppay-amount').value = Math.max(0,(pk.price||0)-(pk.paid||0)); }
-  }
+  // اقتراح المبلغ الكامل للعنصر المختار
+  const rem = parseFloat(el.dataset.rem)||0;
+  document.getElementById('ppay-amount').value = rem;
   updatePatPayPreview();
 }
 
@@ -695,19 +732,21 @@ function updatePatPayPreview(){
   const id     = document.getElementById('ppay-selected-id')?.value;
   const prev   = document.getElementById('ppay-preview');
   if(!id||!type){ if(prev) prev.textContent='اختر فاتورة أو باقة أعلاه'; return; }
-  if(amount<=0){ if(prev) prev.textContent='أدخل المبلغ'; return; }
+  if(amount<=0){ if(prev) prev.textContent='أدخل المبلغ المراد سداده'; return; }
   if(type==='invoice'){
     const inv = DB.get('invoices').find(i=>String(i.id)===String(id));
     if(inv){
+      if(amount > (inv.remaining||0)){ if(prev) prev.innerHTML=`<span style="color:var(--rose)">⚠️ المبلغ أكبر من المتبقي (${(inv.remaining||0).toLocaleString()} ج)</span>`; return; }
       const newRem = Math.max(0,(inv.remaining||0)-amount);
-      if(prev) prev.innerHTML = `سيُضاف <b style="color:var(--emerald)">${amount.toLocaleString()} ج</b> — المتبقي: <b style="color:${newRem>0?'var(--amber)':'var(--teal)'}">${newRem.toLocaleString()} ج</b>`;
+      if(prev) prev.innerHTML = `سيُضاف <b style="color:var(--emerald)">${amount.toLocaleString()} ج</b> — المتبقي بعد الدفع: <b style="color:${newRem>0?'var(--amber)':'var(--teal)'}">${newRem.toLocaleString()} ج</b> ${newRem===0?'<span style="color:var(--teal)">✅ مغلقة</span>':''}`;
     }
   } else {
     const pk = DB.get('packages').find(p=>String(p.id)===String(id));
     if(pk){
       const rem = Math.max(0,(pk.price||0)-(pk.paid||0));
+      if(amount > rem){ if(prev) prev.innerHTML=`<span style="color:var(--rose)">⚠️ المبلغ أكبر من المتبقي (${rem.toLocaleString()} ج)</span>`; return; }
       const newRem = Math.max(0,rem-amount);
-      if(prev) prev.innerHTML = `سيُضاف <b style="color:var(--emerald)">${amount.toLocaleString()} ج</b> على الباقة — المتبقي: <b style="color:${newRem>0?'var(--amber)':'var(--teal)'}">${newRem.toLocaleString()} ج</b>`;
+      if(prev) prev.innerHTML = `سيُضاف <b style="color:var(--emerald)">${amount.toLocaleString()} ج</b> على الباقة — المتبقي: <b style="color:${newRem>0?'var(--amber)':'var(--teal)'}">${newRem.toLocaleString()} ج</b> ${newRem===0?'<span style="color:var(--teal)">✅ مسددة</span>':''}`;
     }
   }
 }
@@ -727,17 +766,17 @@ function processPatientPayment(){
   if(type==='invoice'){
     const inv = DB.get('invoices').find(i=>String(i.id)===String(id));
     if(!inv){ showToast('error','❌ الفاتورة غير موجودة'); return; }
-    if(amount > (inv.remaining||0)){ showToast('warning','⚠️ المبلغ أكبر من المتبقي'); return; }
+    if(amount > (inv.remaining||0)){ showToast('warning',`⚠️ المبلغ أكبر من المتبقي (${(inv.remaining||0).toLocaleString()} ج)`); return; }
     const newPaid = (inv.paid||0)+amount;
     const newRem  = Math.max(0,(inv.remaining||0)-amount);
     DB.upd('invoices',id,{ paid:newPaid, remaining:newRem, status:newRem===0?'مدفوع':'جزئي', method, lastPayDate:today });
-    DB.push('cashlog',{ type:'وارد', amount, source:`دفعة فاتورة — ${inv.patient}`, service:inv.service||'', method, date:today, refId:id, patId, patient:inv.patient||'' }); // ✅ FIX: كان invId → refId
+    DB.push('cashlog',{ type:'وارد', amount, source:`دفعة فاتورة — ${inv.patient}`, service:inv.service||'', method, date:today, refId:id, patId, patient:inv.patient||'' });
     showToast('success',`✅ تم استلام ${amount.toLocaleString()} ج`, newRem===0?'الفاتورة مغلقة بالكامل':'المتبقي: '+newRem.toLocaleString()+' ج');
   } else {
     const pk = DB.get('packages').find(p=>String(p.id)===String(id));
     if(!pk){ showToast('error','❌ الباقة غير موجودة'); return; }
     const rem = Math.max(0,(pk.price||0)-(pk.paid||0));
-    if(amount > rem){ showToast('warning','⚠️ المبلغ أكبر من المتبقي'); return; }
+    if(amount > rem){ showToast('warning',`⚠️ المبلغ أكبر من المتبقي (${rem.toLocaleString()} ج)`); return; }
     const newPaid = (pk.paid||0)+amount;
     DB.upd('packages',id,{ paid:newPaid });
     const _patObj = DB.get('patients').find(p=>String(p.id)===String(patId));
@@ -745,7 +784,6 @@ function processPatientPayment(){
     showToast('success',`✅ تم استلام ${amount.toLocaleString()} ج على الباقة "${pk.name}"`);
   }
   closeModal('patient-pay-modal');
-  // تحديث ملف العميل تلقائياً
   if(window._curPat && typeof viewPat==='function') viewPat(window._curPat);
 }
 
