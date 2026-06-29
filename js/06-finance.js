@@ -401,6 +401,27 @@ function renderPayments(q){
 };
 
 // ── Treasury rendering using cashlog ──
+async function clearCashlog(){
+  if(!confirm('⚠️ مسح كل حركات الخزينة (cashlog) من Firebase؟\nهذا لا يمكن التراجع عنه.')) return;
+  if(!window._fbReady || !window._firestore){ showToast('warning','⚠️ غير متصل بـ Firebase'); return; }
+  showToast('info','⏳ جارٍ مسح الخزينة...');
+  try{
+    const snap = await window._firestore.collection('cashlog').get();
+    const ids = snap.docs.map(d => d.id);
+    if(!ids.length){ showToast('info','الخزينة فارغة أصلاً'); return; }
+    const BATCH = 400;
+    for(let i=0;i<ids.length;i+=BATCH){
+      const batch = window._firestore.batch();
+      ids.slice(i,i+BATCH).forEach(id => batch.delete(window._firestore.collection('cashlog').doc(id)));
+      await batch.commit();
+    }
+    DB._cache['cashlog'] = [];
+    try{ localStorage.removeItem('ha_cashlog'); }catch(e){}
+    renderTreasury();
+    showToast('success','✅ تم مسح ' + ids.length + ' حركة من الخزينة');
+  }catch(e){ showToast('error','❌ خطأ: ' + e.message); }
+}
+
 function syncTreasury(){
   if(!confirm('سيتم إعادة مزامنة الخزينة بناءً على البيانات الحالية.\nأي مصروف محذوف سيُحذف من الخزينة تلقائياً.\nتكملة؟')) return;
 
@@ -444,9 +465,12 @@ function renderTreasury(){
 
   const el=document.getElementById('treasury-content');if(!el)return;
   el.innerHTML=`
-    <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px;">
       <button class="btn btn-ghost" onclick="syncTreasury()" style="gap:7px;font-size:13px;border:1px solid var(--glass-border);">
         🔄 مزامنة البيانات
+      </button>
+      <button class="btn btn-danger btn-sm" onclick="clearCashlog()" style="font-size:13px;">
+        🗑️ مسح الخزينة
       </button>
     </div>
     <div class="kpi-grid" style="margin-bottom:18px;">
