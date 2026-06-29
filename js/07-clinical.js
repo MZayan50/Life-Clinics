@@ -616,56 +616,42 @@ function savePackage(){
     showToast('success','✅ تم تحديث الباقة');
   } else {
     const newPkg = DB.push('packages',data);
-    // ✅ BUG#3 FIX: تسجيل الدفعة الأولى في الخزينة عند إنشاء الباقة
-    if(data.paid > 0){
-      DB.push('cashlog',{
-        type:'وارد', source:`باقة — ${data.patName}`, refId:newPkg?.id||null,
-        amount:data.paid, service:data.name, method:'كاش',
-        date:data.startDate||new Date().toISOString().split('T')[0],
-        notes:`دفعة باقة: ${data.name}`
-      });
-    }
-    // ✅ إنشاء فاتورة تلقائية للمبلغ المتبقي (لو فيه متبقي)
-    // paid=0 هنا عمداً — الدفعة الأولى اتسجلت في cashlog فوق مباشرة
-    // لو كان paid > 0 هنا، EventBus('invoices:created') سيسجلها مرة تانية في cashlog
+    // الفاتورة هتتعمل بالـ paid الفعلي → EventBus('invoices:created') يسجل cashlog تلقائياً
     const remaining = Math.max(0, data.price - data.paid);
     if(remaining > 0){
-      const newInv = DB.push('invoices',{
+      // الفاتورة بتطلق invoices:created → EventBus في 00-core.js هو اللي يعمل القسط تلقائياً
+      // _noAutoInstallment:false = مش محتاجين نعمل قسط يدوي هنا تاني
+      DB.push('invoices',{
         patId: data.patId, patientId: data.patId,
         patient: data.patName,
         service: `باقة: ${data.name}`,
         originalPrice: data.price,
         discount: 0,
         total: data.price,
-        paid: 0,
+        paid: data.paid || 0,
         remaining: remaining,
         status: 'معلق',
         method: 'كاش',
         date: data.startDate || new Date().toISOString().split('T')[0],
         pkgId: newPkg?.id || null,
-        _noAutoInstallment: true,
         notes: `فاتورة مرتبطة بالباقة — متبقي ${remaining.toLocaleString()} ج`
       });
-      // ✅ إنشاء قسط تلقائي للمتبقي
       const pat = DB.get('patients').find(p => String(p.id) === String(data.patId));
-      DB.push('installments',{
-        patientId: data.patId,
-        patientName: data.patName,
-        service: `باقة: ${data.name}`,
-        total: data.price,
-        downPayment: data.paid || 0,
-        remaining: remaining,
-        installmentAmount: remaining,
-        count: 1,
-        payments: [{ num:1, dueDate: data.endDate || data.startDate || new Date().toISOString().split('T')[0], paid:false, paidDate:null }],
-        startDate: data.startDate || new Date().toISOString().split('T')[0],
-        status: 'نشط',
-        fromInvId: newInv?.id || null,
-        pkgId: newPkg?.id || null
-      });
       if(pat) DB.upd('patients', pat.id, { status: 'قسط' });
       showToast('success',`✅ تم إنشاء باقة "${name}" لـ ${data.patName}`, `🧾 متبقي ${remaining.toLocaleString()} ج أُضيف للأقساط تلقائياً`);
     } else {
+      // باقة مدفوعة بالكامل → فاتورة مغلقة لتسجيل cashlog تلقائياً
+      DB.push('invoices',{
+        patId: data.patId, patientId: data.patId,
+        patient: data.patName,
+        service: `باقة: ${data.name}`,
+        originalPrice: data.price, discount: 0,
+        total: data.price, paid: data.price, remaining: 0,
+        status: 'مدفوع', method: 'كاش',
+        date: data.startDate || new Date().toISOString().split('T')[0],
+        pkgId: newPkg?.id || null,
+        notes: `فاتورة باقة مدفوعة بالكامل`
+      });
       showToast('success',`✅ تم إنشاء باقة "${name}" لـ ${data.patName}`);
     }
   }
