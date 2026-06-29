@@ -254,7 +254,8 @@ function renderPatAccount(id){
   if(!p) return;
 
   // ── جمع كل مصادر البيانات ──
-  const allPatInvs = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===p.name));
+  const _allInvRaw = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===p.name));
+  const allPatInvs = [...new Map(_allInvRaw.map(i=>[i.id,i])).values()]; // deduplicate by id
   const allPatPkgs = DB.get('packages').filter(pk => String(pk.patId)===String(id));
   const allCashLog = (DB.get('cashlog')||[]).filter(c => String(c.patId)===String(id));
 

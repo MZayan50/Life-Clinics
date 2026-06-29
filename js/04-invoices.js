@@ -763,6 +763,7 @@ function saveQuickSell(){
   const status = rem===0 ? 'مدفوع' : paid>0 ? 'جزئي' : 'معلق';
 
   // ── 1. إنشاء فاتورة بيع منتج ──
+  // _noAutoInstallment=true لأننا بنعمل القسط يدوياً في الأسفل لو فيه متبقي
   DB.push('invoices',{
     patId, patientId: patId,
     patient: pat?.name||'—',
@@ -773,7 +774,8 @@ function saveQuickSell(){
     discount: 0,
     total, paid, remaining: rem,
     status, method, date,
-    notes: `بيع منتج: ${prod.name} × ${qty}`
+    notes: `بيع منتج: ${prod.name} × ${qty}`,
+    _noAutoInstallment: rem > 0
   });
 
   // ── 2. خصم المخزون فوري ──
@@ -781,17 +783,8 @@ function saveQuickSell(){
   const newStatus = newQty===0?'نفذ':newQty<=(prod.reorder||5)?'منخفض':'متوفر';
   DB.upd('inventory', productId, { qty: newQty, status: newStatus });
 
-  // ── 3. cashlog لو مدفوع ──
-  if(paid>0){
-    DB.push('cashlog',{
-      type:'وارد', source:`بيع منتج — ${prod.name}`,
-      patId, patient: pat?.name||'',
-      amount: paid, method, date,
-      service: prod.name,
-      timestamp: new Date().toISOString(),
-      notes:`بيع ${qty} × ${prod.name}`
-    });
-  }
+  // ── 3. cashlog يتسجل تلقائياً عبر EventBus('invoices:created') في 00-core.js ──
+  // لا نكتبه هنا لتجنب التكرار
 
   // ── 4. قسط تلقائي لو فيه متبقي ──
   if(rem>0){

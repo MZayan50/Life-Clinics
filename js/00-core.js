@@ -218,7 +218,8 @@ EventBus.on('invoices:created', function(inv){
     });
   }
   // ── إنشاء قسط تلقائي لو فيه متبقي على الفاتورة ──
-  if((inv.remaining||0) > 0){
+  // _noAutoInstallment تمنع التكرار لو saveQuickSell عمل القسط يدوياً
+  if((inv.remaining||0) > 0 && !inv._noAutoInstallment){
     DB.push('installments',{
       patientId: inv.patId,
       patientName: inv.patient||'',
