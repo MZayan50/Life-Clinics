@@ -614,11 +614,14 @@ function openPayFromProfile(){
     pk.patId===id && ((pk.price||0)-(pk.paid||0)) > 0
   );
   // استبعاد فواتير الباقات لتجنب الاحتساب المزدوج
+  // نستبعد بـ pkgId أو باسم الخدمة (للبيانات القديمة اللي pkgId فيها null)
   const _pkgIds = new Set(pendingPkgs.map(pk => String(pk.id)));
+  const _pkgNames = new Set(pendingPkgs.map(pk => `باقة: ${pk.name}`));
   const pendingInvs = DB.get('invoices').filter(i =>
     (String(i.patId)===String(id) || i.patient===pat.name) &&
     (i.remaining||0) > 0 &&
-    (!i.pkgId || !_pkgIds.has(String(i.pkgId)))
+    (!i.pkgId || !_pkgIds.has(String(i.pkgId))) &&
+    !_pkgNames.has(i.service||'')
   );
 
   if(!pendingInvs.length && !pendingPkgs.length){
@@ -695,10 +698,12 @@ function ppayPayAll(){
     pk.patId===patId && ((pk.price||0)-(pk.paid||0)) > 0
   );
   const _pkgIdsAll = new Set(pendingPkgs.map(pk => String(pk.id)));
+  const _pkgNamesAll = new Set(pendingPkgs.map(pk => `باقة: ${pk.name}`));
   const pendingInvs = DB.get('invoices').filter(i =>
     (String(i.patId)===String(patId) || i.patient===pat.name) &&
     (i.remaining||0) > 0 &&
-    (!i.pkgId || !_pkgIdsAll.has(String(i.pkgId)))
+    (!i.pkgId || !_pkgIdsAll.has(String(i.pkgId))) &&
+    !_pkgNamesAll.has(i.service||'')
   );
 
   let totalPaid = 0;

@@ -643,6 +643,7 @@ function savePackage(){
         method: 'كاش',
         date: data.startDate || new Date().toISOString().split('T')[0],
         pkgId: newPkg?.id || null,
+        _noAutoInstallment: true,
         notes: `فاتورة مرتبطة بالباقة — متبقي ${remaining.toLocaleString()} ج`
       });
       // ✅ إنشاء قسط تلقائي للمتبقي
