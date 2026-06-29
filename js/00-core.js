@@ -217,6 +217,41 @@ EventBus.on('invoices:created', function(inv){
       notes: 'دفعة فاتورة'
     });
   }
+  // ── إنشاء قسط تلقائي لو فيه متبقي على الفاتورة ──
+  if((inv.remaining||0) > 0){
+    DB.push('installments',{
+      patientId: inv.patId,
+      patientName: inv.patient||'',
+      service: inv.service||'فاتورة',
+      total: inv.total||0,
+      downPayment: inv.paid||0,
+      remaining: inv.remaining,
+      installmentAmount: inv.remaining,
+      count: 1,
+      payments: [{ num:1, dueDate: inv.date||new Date().toISOString().split('T')[0], paid:false, paidDate:null }],
+      startDate: inv.date||new Date().toISOString().split('T')[0],
+      status: 'نشط',
+      fromInvId: inv.id
+    });
+  }
+  // ── خصم المنتجات من المخزون تلقائياً ──
+  if(inv.products && inv.products.length){
+    inv.products.forEach(p => {
+      if(!p.productId) return;
+      const item = DB.get('inventory').find(i => i.id === p.productId);
+      if(!item) return;
+      const newQty = Math.max(0, (item.qty||0) - (p.qty||1));
+      const newStatus = newQty === 0 ? 'نفذ' : newQty <= (item.reorder||5) ? 'منخفض' : 'متوفر';
+      DB.upd('inventory', item.id, { qty: newQty, status: newStatus });
+      DB.push('inventory_transactions', {
+        type: 'صرف', productId: item.id, productName: item.name,
+        qty: p.qty||1, refId: inv.id, refType: 'invoice',
+        patId: inv.patId, patient: inv.patient||'',
+        date: inv.date || new Date().toISOString().split('T')[0],
+        notes: `بيع للعميل — فاتورة`
+      });
+    });
+  }
   // ── عمولة الطبيب: تسجيل تلقائي على الفاتورة ──
   if(inv.doctor && !inv.commissionRecorded){
     const doc = DB.get('doctors').find(d => d.name === inv.doctor || d.id === inv.doctorId);

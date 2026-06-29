@@ -42,8 +42,74 @@ let _vf='',_vs='';
 // ✅ filterInvs و renderInvs الكاملة موجودتان في الأسفل (النسخة المتطورة)
 // هذه النسخة البدائية محذوفة لتجنب التعارض
 function updInvTotal(){
-  const p=parseFloat(document.getElementById('im-price')?.value)||0,d=parseFloat(document.getElementById('im-disc')?.value)||0;
-  txt('ig',p+' ج');txt('id2',d+' ج');txt('in2',(p-d)+' ج');
+  const p=parseFloat(document.getElementById('im-price')?.value)||0;
+  const d=parseFloat(document.getElementById('im-disc')?.value)||0;
+  const prodTotal = _getInvProductsTotal();
+  const grandNet = p + prodTotal - d;
+  const paidNow = parseFloat(document.getElementById('im-paid-now')?.value);
+  const actualPaid = isNaN(paidNow) ? grandNet : Math.min(paidNow, grandNet);
+  const remaining = Math.max(0, grandNet - actualPaid);
+  txt('ig', p+' ج');
+  const igProd=document.getElementById('ig-prod');if(igProd)igProd.textContent=prodTotal+' ج';
+  txt('id2', d+' ج');
+  txt('in2', grandNet.toLocaleString()+' ج');
+  const remEl=document.getElementById('in-remaining');
+  if(remEl){ remEl.textContent=remaining>0?'متبقي: '+remaining.toLocaleString()+' ج':''; remEl.style.color='var(--rose)'; }
+}
+
+function _getInvProductsTotal(){
+  let total=0;
+  document.querySelectorAll('#inv-products-list .inv-prod-row').forEach(row=>{
+    const qty=parseFloat(row.querySelector('.prod-qty')?.value)||0;
+    const price=parseFloat(row.querySelector('.prod-price')?.value)||0;
+    total+=qty*price;
+  });
+  return total;
+}
+
+function addInvProductRow(prod){
+  const list=document.getElementById('inv-products-list');if(!list)return;
+  const inventory=DB.get('inventory')||[];
+  const row=document.createElement('div');
+  row.className='inv-prod-row';
+  row.style.cssText='display:flex;gap:6px;align-items:center;background:var(--glass);padding:7px;border-radius:6px;';
+  row.innerHTML=`
+    <select class="fctl prod-sel" style="flex:2;font-size:12px;" onchange="onInvProdSelect(this)">
+      <option value="">-- اختر منتج --</option>
+      ${inventory.map(i=>`<option value="${i.id}" data-price="${i.price||0}" data-name="${i.name}">${i.name} (${i.qty} متاح)</option>`).join('')}
+    </select>
+    <input class="fctl prod-qty" type="number" min="1" value="1" placeholder="كمية" style="width:60px;font-size:12px;" oninput="updInvTotal()">
+    <input class="fctl prod-price" type="number" value="${prod?.price||0}" placeholder="سعر" style="width:80px;font-size:12px;" oninput="updInvTotal()">
+    <button type="button" class="btn btn-danger btn-xs" onclick="this.closest('.inv-prod-row').remove();updInvTotal();">✕</button>
+  `;
+  if(prod){
+    row.querySelector('.prod-sel').value=prod.productId||'';
+    row.querySelector('.prod-qty').value=prod.qty||1;
+    row.querySelector('.prod-price').value=prod.price||0;
+  }
+  list.appendChild(row);
+  updInvTotal();
+}
+
+function onInvProdSelect(sel){
+  const opt=sel.options[sel.selectedIndex];
+  const price=parseFloat(opt?.dataset?.price)||0;
+  const row=sel.closest('.inv-prod-row');
+  if(row&&price>0) row.querySelector('.prod-price').value=price;
+  updInvTotal();
+}
+
+function _getInvProducts(){
+  const items=[];
+  document.querySelectorAll('#inv-products-list .inv-prod-row').forEach(row=>{
+    const sel=row.querySelector('.prod-sel');
+    const productId=sel?.value;
+    const productName=sel?.options[sel.selectedIndex]?.dataset?.name||'';
+    const qty=parseFloat(row.querySelector('.prod-qty')?.value)||1;
+    const price=parseFloat(row.querySelector('.prod-price')?.value)||0;
+    if(productId&&qty>0) items.push({productId,productName,qty,price,total:qty*price});
+  });
+  return items;
 }
 document.getElementById('im-svc')?.addEventListener('change',function(){const e=document.getElementById('im-price');if(e){e.value=this.value;updInvTotal();}});
 function selPay(el){el.closest('.pay-g').querySelectorAll('.pay-m').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');}
@@ -103,6 +169,17 @@ function openInvModal(id){
     if(inv&&el.textContent.trim()===inv.method)el.classList.add('sel');
   });
   if(!inv)document.querySelector('#invoice-modal .pay-m')?.classList.add('sel');
+  // تحميل المنتجات المحفوظة أو تفريغ القائمة
+  const prodList=document.getElementById('inv-products-list');
+  if(prodList){
+    prodList.innerHTML='';
+    if(inv && inv.products && inv.products.length){
+      inv.products.forEach(p=>addInvProductRow(p));
+    }
+  }
+  // reset حقل المدفوع الآن
+  const paidNowEl=document.getElementById('im-paid-now');
+  if(paidNowEl) paidNowEl.value = inv ? (inv.paid||'') : '';
   updInvTotal();
   openModal('invoice-modal');
 }
@@ -125,8 +202,16 @@ function saveInv(){
   const doctorId    = linkedAppt?.doctorId || svcObj?.doctorId || '';
   const serviceId   = svcObj?.id || '';
   const branchName  = linkedAppt?.branch  || pat?.branch || '';
+  const invProducts = _getInvProducts();
+  const prodTotal = invProducts.reduce((s,p)=>s+p.total,0);
+  const grandNet = net + prodTotal;
+  const paidNowRaw = parseFloat(document.getElementById('im-paid-now')?.value);
+  const actualPaid = isNaN(paidNowRaw) ? grandNet : Math.min(paidNowRaw, grandNet);
+  const remaining  = Math.max(0, grandNet - actualPaid);
+  const invStatus  = remaining === 0 ? 'مدفوع' : actualPaid > 0 ? 'جزئي' : 'معلق';
   const data={patId:pid,patientId:pid,patient:pat?.name||'—',service:svcName,serviceId,doctor:doctorName,doctorId,branch:branchName,
-    originalPrice:price,discount:disc,total:net,paid:net,remaining:0,status:'مدفوع',method,
+    originalPrice:price,discount:disc,total:grandNet,paid:actualPaid,remaining,status:invStatus,method,
+    products: invProducts,
     date:gv('im-date')||new Date().toISOString().split('T')[0]};
   if(id){
     // احسب الفرق في المدفوع مقارنة بالفاتورة الأصلية

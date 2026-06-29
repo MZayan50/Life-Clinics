@@ -281,13 +281,20 @@ function renderPatAccount(id){
   // ══════════════════════════════════════════════════════
   const allTx = [];
 
-  // 1️⃣ كل الباقات
+  // 1️⃣ الفواتير المستقلة (مش مرتبطة بباقة)
+  const _pkgIdsSet = new Set(allPatPkgs.map(pk => String(pk.id)));
+  allPatInvs.filter(i => !i.pkgId || !_pkgIdsSet.has(String(i.pkgId))).forEach(i => {
+    allTx.push({ _date: i.date||'', _type: 'invoice', _raw: i });
+  });
+
+  // 2️⃣ كل الباقات
   allPatPkgs.forEach(pk => {
     allTx.push({ _date: pk.startDate||'', _type: 'package', _raw: pk });
   });
 
-  // 2️⃣ مدفوعات cashlog المرتبطة بالعميل
-  allCashLog.forEach(c => {
+  // 3️⃣ مدفوعات cashlog المرتبطة بالعميل (مش مرتبطة بفاتورة موجودة)
+  const _invRefIds = new Set(allPatInvs.map(i => String(i.id)));
+  allCashLog.filter(c => !c.refId || !_invRefIds.has(String(c.refId))).forEach(c => {
     allTx.push({ _date: c.date||'', _type: 'cashlog', _raw: c });
   });
 
@@ -312,9 +319,8 @@ function renderPatAccount(id){
         if(tx._type === 'invoice'){
           const i = tx._raw;
           const stCls = i.status==='مدفوع'?'sc':i.status==='جزئي'?'sp':'sd';
-          const items = i.items||[];
-          const svcs  = items.filter(x=>x.type==='service'||!x.type).map(x=>x.name||x.service||'—').join('، ')||i.service||'—';
-          const prods = items.filter(x=>x.type==='product').map(x=>(x.name||'—')+' ('+(x.qty||1)+')').join('، ')||'—';
+          const prods = (i.products||[]).map(x=>(x.productName||'—')+' × '+(x.qty||1)).join('، ')||'—';
+          const svcs  = i.service||'—';
           const disc  = i.discount||0;
           const tax   = i.tax||0;
           // badge النوع يظهر داخل عمود # مع الرقم
