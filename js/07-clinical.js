@@ -920,16 +920,32 @@ function finalizeConsultation(){
   const durMin=Math.max(0,_timeToMin(now)-startMin);
   // 1. Complete appointment
   DB.upd('appointments',apptId,{status:'مكتمل',consultEnd:now,consultDuration:durMin,consultNotes:notes});
-  // 2. Auto-generate invoice
-  DB.push('invoices',{
-    patient:a.patient,patId:a.patId,doctor:a.doctor||'',service:svcName,
-    date:today,originalPrice:price,discount:disc,total:net,paid:net,remaining:0,
-    status:'مدفوع',method,fromAppt:apptId,commission:comm,commissionPct:doc?.commission||0,branch:a.branch||''
-  });
-  // 3. Deduct inventory — نبحث عن serviceId من جدول services بالاسم أو من الموعد مباشرةً
+  // 2. ✅ FIX: تحقق من باقة نشطة قبل إنشاء الفاتورة
+  // لو العميل في باقة تغطي هذه الخدمة → فاتورة بـ total=0 (مغطاة بالباقة) لتجنب المحاسبة المزدوجة
+  const _activePkgCheck = getPatientActivePackage(a.patId);
+  const _coveredByPkg   = _activePkgCheck &&
+    (!_activePkgCheck.services || !_activePkgCheck.services.trim() ||
+     _activePkgCheck.services.includes(svcName));
+  if(_coveredByPkg){
+    DB.push('invoices',{
+      patient:a.patient,patId:a.patId,doctor:a.doctor||'',service:svcName,
+      date:today,originalPrice:price,discount:price,total:0,paid:0,remaining:0,
+      status:'مدفوع',method:'باقة',fromAppt:apptId,
+      pkgId:_activePkgCheck.id,pkgName:_activePkgCheck.name,
+      commission:0,commissionPct:0,branch:a.branch||'',
+      notes:`مغطاة بباقة: ${_activePkgCheck.name}`
+    });
+  } else {
+    DB.push('invoices',{
+      patient:a.patient,patId:a.patId,doctor:a.doctor||'',service:svcName,
+      date:today,originalPrice:price,discount:disc,total:net,paid:net,remaining:0,
+      status:'مدفوع',method,fromAppt:apptId,commission:comm,commissionPct:doc?.commission||0,branch:a.branch||''
+    });
+  }
+  // 3. Deduct inventory
   const svcRecord = DB.get('services').find(s => s.name === svcName) || DB.get('services').find(s => s.id === a.serviceId);
   deductInventory(svcRecord?.id || a.serviceId, 1);
-  // 3b. ── خصم تلقائي من باقة العميل النشطة (إن وُجدت) ──
+  // 3b. خصم تلقائي من باقة العميل النشطة
   const pkgResult = deductPackageSession(a.patId, svcName);
   if(pkgResult){
     const pkgMsg = pkgResult.finished
@@ -939,21 +955,21 @@ function finalizeConsultation(){
       : `🎁 باقة: ${pkgResult.newUsed}/${pkgResult.pkg.sessionsCount} جلسة (متبقي: ${pkgResult.remaining})`;
     setTimeout(()=>showToast(pkgResult.finished?'info':pkgResult.remaining===1?'warning':'success', pkgMsg), 1500);
   }
-  // 4. تحديث ملف العميل — ✅ spent يُحدَّث تلقائيًا عبر EventBus('invoices:created') في 00-core.js
-  // sessions: نحسب من الـ sessions collection + عدد الاستشارات المكتملة من appointments
-  // بدل +1 اليدوية لتجنب التعارض مع sessions:updated hook في 00-core.js
+  // 4. تحديث ملف العميل
   if(pat){
     const sesssDone = DB.get('sessions').filter(s=>s.patId===pat.id).reduce((s,x)=>s+(x.done||0),0);
     const apptsDone = DB.get('appointments').filter(a=>a.patId===pat.id&&a.status==='مكتمل').length;
     DB.upd('patients',pat.id,{sessions: Math.max(sesssDone, apptsDone), lastVisit:today, lastDoctor:a.doctor||''});
   }
-  // 5. ✅ Sync screens — EventBus يتولى renderInvs وتحديث KPIs تلقائياً
-  // نُحدِّث فقط شاشات الاستقبال/الطبيب/الانتظار التي لا تغطيها آلية _flushUIRefresh
+  // 5. Sync screens
   if(document.getElementById('screen-doctor-view')?.classList.contains('active')) renderDoctorView();
   if(document.getElementById('screen-reception')?.classList.contains('active')) renderReception();
   if(document.getElementById('screen-waitlist')?.classList.contains('active')) renderWaitlist();
   closeModal('consult-done-modal');
-  showToast('success',`✅ اكتملت استشارة ${a.patient}`,`فاتورة ${net.toLocaleString()} ج · عمولة ${comm.toLocaleString()} ج`);
+  const _toastMsg = _coveredByPkg
+    ? `مغطاة بباقة "${_activePkgCheck.name}" 🎁`
+    : `فاتورة ${net.toLocaleString()} ج · عمولة ${comm.toLocaleString()} ج`;
+  showToast('success',`✅ اكتملت استشارة ${a.patient}`, _toastMsg);
 }
 
 // ✅ reception/doctor-view/waitlist في showScreen الموحدة بـ 00-core.js

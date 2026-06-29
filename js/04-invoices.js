@@ -217,14 +217,15 @@ function saveInv(){
     // احسب الفرق في المدفوع مقارنة بالفاتورة الأصلية
     const oldInv = DB.get('invoices').find(i=>String(i.id)===String(id));
     const oldPaid = oldInv?.paid || 0;
-    const paidDelta = Math.max(0, net - oldPaid); // الزيادة في المدفوع فقط
+    // ✅ FIX: كان (net - oldPaid) — net لا يشمل المنتجات. الصح actualPaid (يشمل الخدمة + المنتجات)
+    const paidDelta = Math.max(0, actualPaid - oldPaid);
     DB.upd('invoices',id,{...data, paidDelta});
     showToast('success','✅ تم تحديث الفاتورة');
   } else {
     DB.push('invoices',data);
     // ✅ spent + balance + cashlog يُحدَّثون تلقائياً عبر EventBus('invoices:created') في 00-core.js
     // لا تحديث يدوي هنا لتجنب الاحتساب المضاعف
-    showToast('success','✅ تم إصدار الفاتورة',`${net.toLocaleString()} ج - ${method}`);
+    showToast('success','✅ تم إصدار الفاتورة',`${grandNet.toLocaleString()} ج - ${method}`);
   }
   closeModal('invoice-modal');renderInvs();
 }
@@ -393,6 +394,12 @@ function renderInvs(){
   const methodFilter=document.getElementById('inv-method-filter')?.value||'';
   const dateFilter=document.getElementById('inv-date-filter')?.value||'';
 
+  // ✅ FIX: بناء خريطة ترقيم ثابتة من كل الفواتير مرتبة بالتاريخ (قبل الفلترة)
+  // هذا يضمن أن #INV-001 لنفس الفاتورة لا يتغير بتغير الفلتر
+  const allSorted=[...( DB.get('invoices')||[])].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const _invNumMap=new Map();
+  allSorted.forEach((inv,idx)=>_invNumMap.set(inv.id, String(idx+1).padStart(3,'0')));
+
   let invs=DB.get('invoices')||[];
   if(q) invs=invs.filter(i=>(i.patient||'').toLowerCase().includes(q)||(i.service||'').toLowerCase().includes(q));
   if(stFilter) invs=invs.filter(i=>i.status===stFilter);
@@ -416,7 +423,7 @@ function renderInvs(){
   const METHOD_ICO={'كاش':'💵','فيزا':'💳','إنستاباي':'📱','فودافون':'📱','تحويل':'🏦','أقساط':'📆'};
   const tb=document.getElementById('invoices-tbody');if(!tb)return;
   tb.innerHTML=invs.map((inv,i)=>`<tr>
-    <td style="font-size:11px;color:var(--gold-light);font-weight:700">#INV-${String(i+1).padStart(3,'0')}</td>
+    <td style="font-size:11px;color:var(--gold-light);font-weight:700">#INV-${_invNumMap.get(inv.id)||String(i+1).padStart(3,'0')}</td>
     <td style="font-weight:600">${_patName(inv.patId)||inv.patient||'—'}</td>
     <td style="font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${inv.service||'—'}</td>
     <td style="font-size:12px;color:var(--text-muted)">${inv.doctor||'—'}</td>
@@ -619,8 +626,9 @@ function processSmartPayment(){
     branch:inv.branch||'',
     method,
     date:today,
-    invId,
+    refId: invId,   // ✅ FIX: كان invId — تم التوحيد لـ refId لضمان الـ deduplication الصحيح
     patId:inv.patId||'',
+    patient: inv.patient||'',
     notes
   });
 

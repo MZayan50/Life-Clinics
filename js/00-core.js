@@ -185,12 +185,17 @@ const DB = {
 function _recalcPatFinancials(patId){
   const pat = DB.get('patients').find(p => String(p.id) === String(patId));
   if(!pat) return;
-  // إجمالي الفواتير
-  const allInvs    = DB.get('invoices').filter(i => String(i.patId) === String(pat.id) || i.patient === pat.name);
+  // إجمالي الباقات
+  const allPkgs    = DB.get('packages').filter(p => String(p.patId) === String(pat.id));
+  const _pkgIds    = new Set(allPkgs.map(p => String(p.id)));
+  // ✅ FIX: استثناء فواتير الباقات (pkgId) لتجنب الاحتساب المضاعف
+  // فواتير الباقات تُحتسب من جدول packages مباشرةً (pkgSpent/pkgBalance)
+  const allInvs    = DB.get('invoices').filter(i =>
+    (String(i.patId) === String(pat.id) || i.patient === pat.name) &&
+    (!i.pkgId || !_pkgIds.has(String(i.pkgId)))
+  );
   const invSpent   = allInvs.reduce((s, i) => s + (i.total     || 0), 0);
   const invBalance = allInvs.reduce((s, i) => s + (i.remaining || 0), 0);
-  // إجمالي الباقات (سعر الباقة = إنفاق، والمتبقي غير المدفوع = مديونية)
-  const allPkgs    = DB.get('packages').filter(p => String(p.patId) === String(pat.id));
   const pkgSpent   = allPkgs.reduce((s, p) => s + (p.price  || 0), 0);
   const pkgBalance = allPkgs.reduce((s, p) => s + Math.max(0, (p.price || 0) - (p.paid || 0)), 0);
   const totalSpent   = invSpent   + pkgSpent;

@@ -391,13 +391,24 @@ function payStaffSalary(id){
     : `صرف راتب ${s.name} (${salary.toLocaleString()} ج)؟\nتاريخ الاستحقاق: ${s.dueDate}`;
   if(!confirm(confirmMsg)) return;
 
-  DB.push('expenses', {
+  const _salExp = DB.push('expenses', {
     name:   `راتب: ${s.name}${deduction > 0 ? ` (بعد خصم سلفة ${deduction.toLocaleString()} ج)` : ''}`,
     type:   'رواتب',
     amount: net,
     branch: s.branch,
     date:   new Date().toISOString().split('T')[0],
     notes:  deduction > 0 ? `تم خصم سلفة بقيمة ${deduction.toLocaleString()} ج من راتب استحقاق ${s.dueDate}` : '',
+  });
+  // ✅ FIX: تسجيل الراتب في الخزينة مباشرةً باستخدام ID المصروف المُنشأ
+  DB.push('cashlog', {
+    type: 'صادر',
+    source: 'مصروف',
+    refId: _salExp?.id || null,
+    amount: net,
+    method: 'كاش',
+    date: new Date().toISOString().split('T')[0],
+    timestamp: new Date().toISOString(),
+    notes: `راتب: ${s.name}${deduction > 0 ? ` — خصم سلفة ${deduction.toLocaleString()} ج` : ''}`,
   });
 
   // ── تسوية السلف المستحقة (الأقدم أولاً) ──
@@ -462,13 +473,24 @@ function saveAdvance(){
   });
 
   // صرف السلفة فعليًا كمصروف نقدي (يُخصم لاحقًا من الراتب القادم)
-  DB.push('expenses', {
+  const _advExp = DB.push('expenses', {
     name:   `سلفة: ${s.name}`,
     type:   'سلفة',
     amount,
     branch: s.branch,
     date,
     notes:  note || '',
+  });
+  // ✅ FIX: تسجيل السلفة في الخزينة مباشرةً (نفس منطق payStaffSalary)
+  DB.push('cashlog', {
+    type: 'صادر',
+    source: 'مصروف',
+    refId: _advExp?.id || null,
+    amount,
+    method: 'كاش',
+    date,
+    timestamp: new Date().toISOString(),
+    notes: `سلفة: ${s.name}${note ? ' — ' + note : ''}`,
   });
 
   showToast('success', `✅ تم صرف سلفة لـ ${s.name}`, `${amount.toLocaleString()} ج - ستُخصم من راتبه القادم`);

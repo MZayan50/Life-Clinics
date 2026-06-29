@@ -731,7 +731,7 @@ function processPatientPayment(){
     const newPaid = (inv.paid||0)+amount;
     const newRem  = Math.max(0,(inv.remaining||0)-amount);
     DB.upd('invoices',id,{ paid:newPaid, remaining:newRem, status:newRem===0?'مدفوع':'جزئي', method, lastPayDate:today });
-    DB.push('cashlog',{ type:'وارد', amount, source:`دفعة فاتورة — ${inv.patient}`, service:inv.service||'', method, date:today, invId:id, patId });
+    DB.push('cashlog',{ type:'وارد', amount, source:`دفعة فاتورة — ${inv.patient}`, service:inv.service||'', method, date:today, refId:id, patId, patient:inv.patient||'' }); // ✅ FIX: كان invId → refId
     showToast('success',`✅ تم استلام ${amount.toLocaleString()} ج`, newRem===0?'الفاتورة مغلقة بالكامل':'المتبقي: '+newRem.toLocaleString()+' ج');
   } else {
     const pk = DB.get('packages').find(p=>String(p.id)===String(id));
