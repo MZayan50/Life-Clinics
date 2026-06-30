@@ -399,7 +399,9 @@ async function uploadSeedToFirestore(){
     'patients','appointments','inventory','invoices','invoice_items',
     'services','leads','doctors','staff','expenses','branches',
     'rooms','equipment','suppliers','purchases','purchase_items',
-    'sessions','packages','cashlog','installments','photos','transfers','audit_log'
+    'sessions','packages','cashlog','installments','photos','transfers','audit_log',
+    // ✅ FIX: كانت غائبة فلا تُرفع لـ Firestore عند الترحيل من بيانات محلية
+    'supplier_payments','inventory_transactions','advances','product_sales','session_completions'
   ];
   let total = 0;
   showToast('info','☁️ جارٍ رفع البيانات إلى Firebase...');
@@ -449,7 +451,9 @@ async function migrateToFirestore(){
     'services','leads','doctors','staff','expenses','branches',
     'rooms','equipment','suppliers','purchases','purchase_items',
     'visits','sessions','packages','waitlist','campaigns','audit_log',
-    'transfers','cashlog','installments','photos'
+    'transfers','cashlog','installments','photos',
+    // ✅ FIX: كانت غائبة فتبقى بيانات قديمة في Firestore حتى بعد "ترحيل/مسح كامل"
+    'supplier_payments','inventory_transactions','advances','product_sales','session_completions'
   ];
 
   // Step 1: Wipe existing Firestore docs
@@ -577,7 +581,9 @@ function disconnectFirebase(){
 })();
 function toggleSw(el){const on=el.style.background.includes('2DD4BF')||el.style.background.includes('teal');el.style.background=on?'var(--glass-border)':'var(--teal)';const k=el.querySelector('div');if(k)k.style.cssText=`width:19px;height:19px;background:#fff;border-radius:50%;position:absolute;top:2px;transition:.2s;${on?'left:2px':'right:2px'}`;}
 function exportAll(){
-  const ALL_COLS=['patients','appointments','inventory','invoices','invoice_items','services','leads','doctors','staff','expenses','branches','rooms','equipment','suppliers','purchases','purchase_items','sessions','packages','waitlist','campaigns','transfers','cashlog','installments','photos','audit_log'];
+  // ✅ FIX: كانت قائمة التصدير ناقصة supplier_payments وغيرها — فالنسخة
+  // الاحتياطية لم تكن تشمل دفعات الموردين والسلف ومبيعات المنتجات إطلاقاً
+  const ALL_COLS=['patients','appointments','inventory','invoices','invoice_items','services','leads','doctors','staff','expenses','branches','rooms','equipment','suppliers','supplier_payments','purchases','purchase_items','sessions','packages','waitlist','campaigns','transfers','cashlog','installments','photos','audit_log','inventory_transactions','advances','product_sales','session_completions'];
   const d={};
   ALL_COLS.forEach(k=>{d[k]=DB.get(k);});
   d.settings=DB.obj('settings');
@@ -592,13 +598,19 @@ function exportAll(){
 //    العملية لحظية: كل مجموعة تُحذف doc-by-doc عبر DB.del
 //    مما يطلق fbDel → Firestore فوراً
 // ══════════════════════════════════════════════════════════════════
+// ✅ FIX (سبب ظهور أرقام مالية "وهمية" بعد حذف البيانات): كانت هذه القائمة
+// لا تشمل supplier_payments و advances و product_sales و session_completions —
+// فعند استخدام "حذف كل البيانات" أو حذف تجميعة بعينها (مثل الموردين أو
+// المشتريات)، تظل سجلات دفعات الموردين/السلف/مبيعات المنتجات قديمة في
+// Firestore دون حذف، فتستمر مجاميعها (مثل "إجمالي المدفوعات") بالظهور
+// بأرقام من بيانات يظن المستخدم أنه حذفها فعلاً.
 const _ALL_COLLECTIONS = [
   'patients','appointments','invoices','invoice_items',
   'cashlog','installments','packages','sessions','photos',
   'inventory','inventory_transactions','purchases','purchase_items',
-  'expenses','suppliers','leads','services','doctors','staff',
+  'expenses','suppliers','supplier_payments','leads','services','doctors','staff',
   'branches','rooms','equipment','campaigns','waitlist',
-  'visits','audit_log','transfers'
+  'visits','audit_log','transfers','advances','product_sales','session_completions'
 ];
 
 async function clearAll(){
@@ -656,6 +668,27 @@ async function clearAll(){
   setTimeout(() => { location.reload(); }, 2000);
 }
 
+
+// ══════════════════════════════════════════════════════════════════
+// 🧹 تنظيف دفعات الموردين اليتيمة (Orphaned supplier_payments)
+// ✅ FIX: كانت قوائم الحذف (clearAll / clearCollection القديمة) لا تشمل
+// supplier_payments، فإذا حذف المستخدم موردين أو طلبات شراء سابقاً، ظلت
+// دفعاتهم القديمة محفوظة في Firestore دون أن تشير لأي مورد موجود فعلياً،
+// فتستمر "إجمالي المدفوعات" في شاشة الموردين بجمعها ضمن الإجمالي العام
+// رغم أن المورد نفسه لم يعد موجوداً. هذه الأداة تحذف فقط الدفعات اليتيمة
+// (المرتبطة بمورد محذوف) وتترك دفعات الموردين الحاليين سليمة تماماً.
+// ══════════════════════════════════════════════════════════════════
+async function cleanOrphanedSupplierPayments(){
+  const validSupplierIds = new Set((DB.get('suppliers')||[]).map(s => s.id));
+  const all = DB.get('supplier_payments')||[];
+  const orphaned = all.filter(sp => !validSupplierIds.has(sp.supplierId));
+  if(!orphaned.length){ showToast('info','✅ لا توجد دفعات يتيمة — كل البيانات سليمة'); return; }
+  const totalOrphaned = orphaned.reduce((s,sp)=>s+(sp.amount||0),0);
+  if(!confirm(`تم العثور على ${orphaned.length} دفعة مورد مرتبطة بموردين محذوفين، بإجمالي ${totalOrphaned.toLocaleString()} ج.\n\nهذا هو سبب ظهور رقم "إجمالي المدفوعات" أكبر من الصحيح. هل تريد حذف هذه الدفعات اليتيمة فقط (دفعات الموردين الحاليين لن تتأثر)؟`)) return;
+  orphaned.forEach(sp => DB.del('supplier_payments', sp.id));
+  showToast('success', `🧹 تم حذف ${orphaned.length} دفعة يتيمة بإجمالي ${totalOrphaned.toLocaleString()} ج`);
+  if(typeof renderSuppliers === 'function') renderSuppliers();
+}
 
 async function clearCollection(col){
   if(!col || !_ALL_COLLECTIONS.includes(col)) return;
