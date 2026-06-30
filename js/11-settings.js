@@ -681,13 +681,13 @@ async function clearCollection(col){
 // 🏢 BRANCHES — REAL DATA FROM DB
 // ══════════════════════════════════════════
 function renderBranches(){
-  // Seed default branches if none exist
-  if(!DB.get('branches')||!DB.get('branches').length){
-    DB.set('branches',[
-      {id:'br1',name:'مدينة نصر',address:'شارع عباس العقاد، مدينة نصر',phone:'01011112222',manager:'د. سارة محمد',status:'نشط'},
-      {id:'br2',name:'المهندسين',address:'شارع البطل أحمد عبد العزيز، المهندسين',phone:'01033334444',manager:'د. منى سامي',status:'نشط'}
-    ]);
-  }
+  // ✅ FIX حرج: كان هنا "تلقيم" تلقائي لفرعين وهميين (مدينة نصر/المهندسين
+  // بـ id ثابت br1/br2) في كل مرة تكون فيها قائمة الفروع فاضية. بما إن
+  // delBranch() بينادي renderBranches() فورًا بعد كل حذف، فكانت النتيجة إن
+  // أي حذف لآخر فرع (أو كل الفروع) بيرجّع نفس الفرعين الوهميين تاني فورًا —
+  // وأحيانًا بييترفعوا فعليًا لـ Firestore لو حد ضغط "رفع البيانات" والـ
+  // cache فيها وقتها البيانات الوهمية دي. الحل: منعرض شاشة فاضية حقيقية لو
+  // مفيش فروع، من غير ما نخترع بيانات.
   const branches = DB.get('branches')||[];
   const patients = DB.get('patients');
   const invoices = DB.get('invoices');
