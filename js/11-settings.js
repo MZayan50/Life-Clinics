@@ -165,6 +165,20 @@ async function initFirebase(cfg){
     ];
     COLLECTIONS.forEach(col => attachFirestoreSync(col));
 
+    // ✅ FIX حرج: الاتصال التلقائي بـ Firebase عند تحميل الصفحة بيحصل بعد
+    // تأخير setTimeout (1.5 ثانية). أي بيانات تتسجّل في النافذة دي قبل
+    // اكتمال الاتصال (_fbReady لسه false) كانت بتتسجّل محلياً (Optimistic UI)
+    // ثم تترمى في طابور انتظار (OQ) بدل ما تتبعت لـ Firestore فوراً. الطابور
+    // ده ماكنش بيتفرّغ تلقائياً أبداً — بس عند ضغطة "مزامنة" يدوية أو حدث
+    // 'online' الفعلي (إعادة اتصال بعد انقطاع نت). فلو حد سجّل بيانات في
+    // هالـ 1.5 ثانية، كانت بتفضل عالقة محلياً للأبد وتختفي من الواجهة بمجرد
+    // ما أول onSnapshot يجيب بيانات السيرفر الحقيقية (اللي مفيهاش التسجيل
+    // الجديد لإنه لسه متأخر في الطابور). الحل: نفرّغ الطابور فوراً هنا بمجرد
+    // ما الاتصال يكتمل فعلياً، مش ننتظر مزامنة يدوية أو حدث online.
+    if(typeof flushOfflineQueue === 'function' && OQ.size() > 0){
+      await flushOfflineQueue();
+    }
+
     // Load shared settings (API key, clinic name, etc.) from Firestore
     await loadSettingsFromFirestore();
 
@@ -460,11 +474,17 @@ async function migrateToFirestore(){
 // لا حاجة لأي patch إضافي هنا — تم حذفه لتجنب double-write لـ Firestore
 
 // Flush any pending queue after Firebase connects
+// ✅ FIX حرج: كانت هنا setTimeout(flushOfflineQueue, 1000) بدون await — أي
+// تأخير إضافي بعد اتصال Firebase بينفتح فيه نفس نافذة الخطر اللي بسببها
+// بيانات بتتسجّل وتفضل عالقة في الطابور (OQ) من غير ما تتبعت فعلياً، ولو
+// المستخدم عمل F5 سريع قبل ما الـ timeout يشتغل، العملية المعلَّقة بتتقطع
+// (الصفحة بتعاد تحميلها وتاخد طابور جديد) بدل ما تتزامن. الحل: await فوري
+// بمجرد ما _fbReady = true، بدون أي تأخير صناعي إضافي.
 const _origInitFirebase = initFirebase;
 initFirebase = async function(cfg){
   await _origInitFirebase(cfg);
   if(window._fbReady && OQ.size() > 0){
-    setTimeout(flushOfflineQueue, 1000);
+    await flushOfflineQueue();
   }
   updateQueueBadge();
 };
