@@ -23,62 +23,80 @@ service cloud.firestore {
       return data.keys().size() <= 50;
     }
 
+    // ── Helper: الـ collections المسموح بها فقط (مرجعي فقط — للتوثيق) ──
+    function isAllowedCollection(col) {
+      return col in [
+        'patients', 'appointments', 'inventory', 'invoices', 'invoice_items',
+        'services', 'leads', 'doctors', 'staff', 'expenses', 'branches',
+        'campaigns', 'packages', 'sessions', 'waitlist', 'rooms', 'equipment',
+        'suppliers', 'purchases', 'purchase_items', 'visits',
+        'inventory_transactions', 'audit_log', 'transfers', 'supplier_payments',
+        'product_sales', 'session_completions',
+        'photos', 'installments', 'cashlog', 'settings', 'config', 'users', 'advances'
+      ];
+    }
+
     // ══════════════════════════════════════════════════════════════
-    // 📋 Collections الرئيسية — مع validation على الحقول الإلزامية
+    // 📋 Collections الرئيسية
+    // ── القراءة والكتابة مسموحة من أي request
+    //    (حماية الـ app نفسها عبر session في localStorage)
+    //    الحماية الأساسية: منع الكتابة الفارغة أو البيانات الضخمة
     // ══════════════════════════════════════════════════════════════
 
     match /patients/{docId} {
-      allow read, delete: if true;
+      allow read: if true;
       allow create: if request.resource.data.keys().hasAll(['name', 'phone'])
                     && isReasonableSize(request.resource.data);
       allow update: if request.resource.data.keys().size() > 0
                     && isReasonableSize(request.resource.data);
+      allow delete: if true;
     }
 
     match /appointments/{docId} {
-      allow read, delete: if true;
+      allow read: if true;
       allow create: if request.resource.data.keys().hasAll(['patId', 'date', 'time'])
                     && isReasonableSize(request.resource.data);
       allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
     }
 
     match /invoices/{docId} {
-      allow read, delete: if true;
+      allow read: if true;
       allow create: if request.resource.data.keys().hasAll(['patId', 'total', 'date'])
                     && request.resource.data.total is number
                     && request.resource.data.total >= 0
                     && isReasonableSize(request.resource.data);
       allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
     }
 
     match /inventory/{docId} {
-      allow read, delete: if true;
+      allow read: if true;
       allow create: if request.resource.data.keys().hasAll(['name', 'qty'])
                     && request.resource.data.qty is number
                     && isReasonableSize(request.resource.data);
       allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
     }
 
     match /expenses/{docId} {
-      allow read, delete: if true;
+      allow read: if true;
       allow create: if request.resource.data.keys().hasAll(['name', 'amount', 'date'])
                     && request.resource.data.amount is number
                     && request.resource.data.amount >= 0
                     && isReasonableSize(request.resource.data);
       allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
     }
 
     match /installments/{docId} {
-      allow read, delete: if true;
+      allow read: if true;
       allow create: if request.resource.data.keys().hasAll(['patientId', 'total'])
                     && request.resource.data.total is number
                     && isReasonableSize(request.resource.data);
       allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
     }
-
-    // ══════════════════════════════════════════════════════════════
-    // 🔒 Append-Only Collections — لا تعديل ولا حذف أبداً
-    // ══════════════════════════════════════════════════════════════
 
     match /cashlog/{docId} {
       allow read: if true;
@@ -100,113 +118,149 @@ service cloud.firestore {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // 📦 باقي الـ collections — قراءة وكتابة بشرط الحجم المعقول
-    //    مع فصل delete عن write لتجنب خطأ request.resource.data
+    // باقي الـ collections — قراءة وكتابة بشرط الحجم المعقول
     // ══════════════════════════════════════════════════════════════
-
     match /services/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /doctors/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /staff/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /leads/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /branches/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /campaigns/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /packages/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /sessions/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /waitlist/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /rooms/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /equipment/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /suppliers/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /purchases/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /purchase_items/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /visits/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /inventory_transactions/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /invoice_items/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
-
     match /photos/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
 
-    // ── Settings ──
-    match /settings/{docId} {
-      allow read: if true;
+    // ✅ FIX (مراجعة شاملة): هذه الأربعة كانت تُكتب من التطبيق (DB._fb في 00-core.js)
+    // لكن لم يكن لها أي match block هنا، فكانت تُرفَض بالكامل بواسطة قاعدة
+    // "أي collection تانية ممنوع تماماً" في آخر هذا الملف (permission-denied صامت
+    // من جهة العميل، يظهر فقط في console كخطأ Firestore غير ظاهر للمستخدم).
+    // الأثر العملي: مديونية الموردين/سلف الموظفين/مبيعات المنتجات/أرباح الجلسات
+    // كانت تُحسب محلياً بشكل صحيح في نفس الجلسة فقط، ثم تختفي تماماً عند أي
+    // إعادة تحميل للصفحة لأنها لم تُحفَظ فعلياً في قاعدة البيانات من الأساس.
+    match /transfers/{docId} {
+      allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
-      allow delete: if false;  // الإعدادات لا تُحذف
+    }
+    match /supplier_payments/{docId} {
+      allow read, delete: if true;
+      allow create, update: if isReasonableSize(request.resource.data);
+    }
+    match /product_sales/{docId} {
+      allow read, delete: if true;
+      allow create, update: if isReasonableSize(request.resource.data);
+    }
+    match /session_completions/{docId} {
+      allow read, delete: if true;
+      allow create, update: if isReasonableSize(request.resource.data);
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // 🚫 أي collection غير معروفة — ممنوع تماماً
-    // ══════════════════════════════════════════════════════════════
+    // ── السلف (Advances) — صرف سلفة لموظف تُخصم لاحقاً من الراتب ──
+    match /advances/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['staffId', 'amount', 'date'])
+                    && request.resource.data.amount is number
+                    && request.resource.data.amount >= 0
+                    && isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    // ── Settings — قراءة فقط من الـ app ──
+    match /settings/{docId} {
+      allow read, delete: if true;
+      allow create, update: if isReasonableSize(request.resource.data);
+    }
+
+    // ✅ FIX حرج (مراجعة شاملة 2): إعدادات العيادة (اسم العيادة/الهاتف/اسم
+    // المدير) تُحفظ فعلياً في التطبيق على المسار collection('config').doc('settings')
+    // — راجع saveSettings()/loadSettingsFromFirestore() في 11-settings.js —
+    // وليس على collection('settings') كما كان يُفترض. بما إنه لم يكن هناك أي
+    // match block لـ /config/{docId} هنا، فكل عملية حفظ للإعدادات كانت تُرفض
+    // بصمت بواسطة قاعدة "أي collection تانية ممنوع تماماً"، فتبقى الإعدادات
+    // في الـ localStorage/queue المحلي فقط ولا تتزامن أبداً بين الأجهزة.
+    match /config/{docId} {
+      allow read, delete: if true;
+      allow create, update: if isReasonableSize(request.resource.data);
+    }
+
+    // ✅ FIX حرج (مراجعة شاملة 2): حسابات المستخدمين (تسجيل الدخول/الأدوار)
+    // تُكتب وتُقرأ من collection('users') — في 11-settings.js (إنشاء/تعديل/حذف
+    // مستخدم) وفي login.html (التحقق من الحساب عند الدخول من جهاز آخر) — لكن
+    // لم يكن لها أي match block هنا. النتيجة: كل عملية تسجيل مستخدم جديد أو
+    // تعديل صلاحياته كانت تُرفض بصمت بواسطة قاعدة "ممنوع تماماً" في آخر هذا
+    // الملف، فيبقى الحساب موجوداً على نفس الجهاز فقط (localStorage) ولا يقدر
+    // يسجّل دخول من أي جهاز تاني أبداً.
+    match /users/{username} {
+      allow read, delete: if true;
+      allow create, update: if isReasonableSize(request.resource.data);
+    }
+
+    // ── أي collection تانية — ممنوع تماماً ──
     match /{document=**} {
       allow read, write: if false;
     }
-
   }
 }
