@@ -1000,11 +1000,18 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <!-- SERVICES -->
 <div class="screen" id="screen-services">
   <div class="filter-bar">
-    <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث عن خدمة..."></div>
-    <select class="selbox"><option>كل الأقسام</option><option>البشرة</option><option>الشعر</option><option>الليزر</option><option>حقن</option></select>
+    <div class="sbox"><span>🔍</span><input type="text" id="svc-search" placeholder="بحث عن خدمة..." oninput="renderSvcs()"></div>
+    <select class="selbox" id="svc-cat-filter" onchange="renderSvcs()"><option value="">كل الأقسام</option><option>البشرة</option><option>الشعر</option><option>الليزر</option><option>حقن</option></select>
+    <select class="selbox" id="svc-status-filter" onchange="renderSvcs()"><option value="">كل الحالات</option><option value="نشطة">نشطة</option><option value="متوقفة">متوقفة</option></select>
     <button class="btn btn-primary" onclick="openSvcModal()">+ خدمة جديدة</button>
   </div>
-  <div class="card"><div class="table-wrap"><table><thead><tr><th>الخدمة</th><th>القسم</th><th>السعر</th><th>المدة</th><th>التكلفة</th><th>الربح</th><th>الطبيب</th><th>مواد مستهلكة</th><th></th></tr></thead><tbody id="svc-tbody"></tbody></table></div></div>
+  <div class="kpi-grid" style="margin-bottom:14px;">
+    <div class="kpi-card kc-teal"><div class="kpi-icon">💅</div><div class="kpi-value" id="svc-kpi-total">0</div><div class="kpi-label">إجمالي الخدمات</div></div>
+    <div class="kpi-card kc-gold"><div class="kpi-icon">💰</div><div class="kpi-value" id="svc-kpi-avg-price">0</div><div class="kpi-label">متوسط السعر (ج)</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">📈</div><div class="kpi-value" id="svc-kpi-avg-profit">0</div><div class="kpi-label">متوسط الربح (ج)</div></div>
+    <div class="kpi-card kc-purple"><div class="kpi-icon">🧪</div><div class="kpi-value" id="svc-kpi-with-bom">0</div><div class="kpi-label">خدمات بمكونات</div></div>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>الخدمة</th><th>القسم</th><th>سعر البيع</th><th>المدة</th><th>تكلفة المواد</th><th>الربح المتوقع</th><th>هامش الربح</th><th>المكونات</th><th>الحالة</th><th></th></tr></thead><tbody id="svc-tbody"></tbody></table></div></div>
 </div>
 
 <!-- INVENTORY -->
@@ -1619,17 +1626,29 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   <div class="bgrid" id="sess-grid"></div>
 </div>
 <div class="modal-overlay" id="session-modal">
-  <div class="modal" style="max-width:520px"><div class="mhdr"><div class="mtitle" id="sess-modal-title">✨ خطة جلسات جديدة</div><button class="mclose" onclick="closeModal('session-modal')">✕</button></div>
+  <div class="modal" style="max-width:540px"><div class="mhdr"><div class="mtitle" id="sess-modal-title">✨ خطة جلسات جديدة</div><button class="mclose" onclick="closeModal('session-modal')">✕</button></div>
   <div class="mbody"><div class="fg">
     <input type="hidden" id="sess-id">
     <div class="fgrp full"><label class="flbl">العميل *</label><select class="fctl" id="sess-pat"><option value="">-- اختر عميل --</option></select></div>
-    <div class="fgrp"><label class="flbl">نوع العلاج</label><select class="fctl" id="sess-type"><option>ليزر إزالة شعر</option><option>تجديد بشرة</option><option>شعر</option><option>بوتكس دوري</option><option>هيدرافيشل</option></select></div>
+    <div class="fgrp full"><label class="flbl">الخدمة العلاجية</label>
+      <select class="fctl" id="sess-service-id" onchange="onSessServiceChange()">
+        <option value="">-- اختر خدمة --</option>
+      </select>
+    </div>
+    <div class="fgrp"><label class="flbl">نوع العلاج</label><input class="fctl" id="sess-type" placeholder="ليزر إزالة شعر"></div>
     <div class="fgrp"><label class="flbl">الطبيب المعالج</label><select class="fctl" id="sess-doc"></select></div>
-    <div class="fgrp"><label class="flbl">عدد الجلسات الكلي</label><input class="fctl" type="number" id="sess-total-count" placeholder="6" min="1"></div>
+    <div class="fgrp"><label class="flbl">عدد الجلسات الكلي</label><input class="fctl" type="number" id="sess-total-count" placeholder="6" min="1" oninput="calcSessFinancials()"></div>
     <div class="fgrp"><label class="flbl">الجلسات المنجزة</label><input class="fctl" type="number" id="sess-done-count" placeholder="0" min="0"></div>
+    <div class="fgrp"><label class="flbl">سعر الجلسة (ج)</label><input class="fctl" type="number" id="sess-price" placeholder="0" oninput="calcSessFinancials()"></div>
     <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="sess-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
     <div class="fgrp"><label class="flbl">تاريخ البداية</label><input class="fctl" type="date" id="sess-start"></div>
     <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="sess-status"><option>جارية</option><option>مكتملة</option><option>متوقفة</option></select></div>
+    <!-- ملخص مالي -->
+    <div class="fgrp full" style="grid-column:1/-1;background:var(--glass);border-radius:10px;padding:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;" id="sess-financial-preview">
+      <div><div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;">تكلفة مواد/جلسة</div><div style="font-size:13px;font-weight:800;color:var(--rose);" id="sess-prev-cost">0 ج</div></div>
+      <div><div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;">إجمالي الإيراد</div><div style="font-size:13px;font-weight:800;color:var(--gold-light);" id="sess-prev-revenue">0 ج</div></div>
+      <div><div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;">الربح المتوقع</div><div style="font-size:13px;font-weight:800;color:var(--emerald);" id="sess-prev-profit">0 ج</div></div>
+    </div>
     <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="sess-notes" placeholder="تفاصيل الخطة العلاجية..."></textarea></div>
   </div></div>
   <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('session-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveSession()">💾 حفظ</button></div></div>
@@ -1651,18 +1670,29 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   <div class="bgrid" id="pkg-grid"></div>
 </div>
 <div class="modal-overlay" id="package-modal">
-  <div class="modal" style="max-width:520px"><div class="mhdr"><div class="mtitle" id="pkg-modal-title">🎁 باقة علاجية جديدة</div><button class="mclose" onclick="closeModal('package-modal')">✕</button></div>
+  <div class="modal" style="max-width:560px"><div class="mhdr"><div class="mtitle" id="pkg-modal-title">🎁 باقة علاجية جديدة</div><button class="mclose" onclick="closeModal('package-modal')">✕</button></div>
   <div class="mbody"><div class="fg">
     <input type="hidden" id="pkg-id">
     <div class="fgrp full"><label class="flbl">العميل *</label><select class="fctl" id="pkg-pat"><option value="">-- اختر عميل --</option></select></div>
     <div class="fgrp full"><label class="flbl">اسم الباقة *</label><input class="fctl" id="pkg-name" placeholder="مثال: باقة ليزر 6 جلسات"></div>
-    <div class="fgrp"><label class="flbl">الخدمات المضمنة</label><input class="fctl" id="pkg-services" placeholder="ليزر، هيدرافيشل..."></div>
-    <div class="fgrp"><label class="flbl">عدد الجلسات</label><input class="fctl" type="number" id="pkg-sessions-count" placeholder="6"></div>
-    <div class="fgrp"><label class="flbl">السعر الإجمالي (ج)</label><input class="fctl" type="number" id="pkg-price" placeholder="0"></div>
+    <div class="fgrp full"><label class="flbl">الخدمات المضمنة</label>
+      <div id="pkg-services-checkboxes" style="border:1px solid var(--border);border-radius:8px;padding:8px;max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;background:var(--glass);"></div>
+      <input type="hidden" id="pkg-services">
+    </div>
+    <div class="fgrp"><label class="flbl">عدد الجلسات</label><input class="fctl" type="number" id="pkg-sessions-count" placeholder="6" oninput="calcPkgProfitPreview()"></div>
+    <div class="fgrp"><label class="flbl">سعر الباقة (ج)</label><input class="fctl" type="number" id="pkg-price" placeholder="0" oninput="calcPkgProfitPreview()"></div>
+    <div class="fgrp"><label class="flbl">خصم الباقة (ج)</label><input class="fctl" type="number" id="pkg-discount" placeholder="0" oninput="calcPkgProfitPreview()"></div>
     <div class="fgrp"><label class="flbl">المدفوع (ج)</label><input class="fctl" type="number" id="pkg-paid" placeholder="0"></div>
     <div class="fgrp"><label class="flbl">تاريخ البداية</label><input class="fctl" type="date" id="pkg-start"></div>
     <div class="fgrp"><label class="flbl">تاريخ الانتهاء</label><input class="fctl" type="date" id="pkg-end"></div>
     <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="pkg-status"><option>نشطة</option><option>معلقة</option><option>منتهية</option></select></div>
+    <!-- ملخص مالي للباقة -->
+    <div class="fgrp full" style="grid-column:1/-1;background:var(--glass);border-radius:10px;padding:12px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;text-align:center;">
+      <div><div style="font-size:10px;color:var(--text-muted);margin-bottom:3px;">تكلفة المواد</div><div style="font-size:14px;font-weight:800;color:var(--rose);" id="pkg-preview-cost">0 ج</div></div>
+      <div><div style="font-size:10px;color:var(--text-muted);margin-bottom:3px;">سعر الباقة</div><div style="font-size:14px;font-weight:800;color:var(--gold-light);" id="pkg-preview-price">0 ج</div></div>
+      <div><div style="font-size:10px;color:var(--text-muted);margin-bottom:3px;">الربح المتوقع</div><div style="font-size:14px;font-weight:800;color:var(--emerald);" id="pkg-preview-profit">0 ج</div></div>
+      <div><div style="font-size:10px;color:var(--text-muted);margin-bottom:3px;">هامش الربح</div><div style="font-size:14px;font-weight:800;color:var(--teal);" id="pkg-preview-margin">0%</div></div>
+    </div>
     <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="pkg-notes" placeholder="تفاصيل الباقة..."></textarea></div>
   </div></div>
   <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('package-modal')">إلغاء</button><button class="btn btn-primary" onclick="savePackage()">💾 حفظ الباقة</button></div></div>
@@ -1934,8 +1964,10 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   </div>
   <div class="kpi-grid" style="margin-bottom:14px;">
     <div class="kpi-card kc-teal"><div class="kpi-icon">🚚</div><div class="kpi-value" id="sup-kpi-total">0</div><div class="kpi-label">إجمالي الموردين</div></div>
-    <div class="kpi-card kc-gold"><div class="kpi-icon">💰</div><div class="kpi-value" id="sup-kpi-owed">0</div><div class="kpi-label">مستحقات لهم (ج)</div></div>
-    <div class="kpi-card kc-emerald"><div class="kpi-icon">📦</div><div class="kpi-value" id="sup-kpi-orders">0</div><div class="kpi-label">طلبات هذا الشهر</div></div>
+    <div class="kpi-card kc-gold"><div class="kpi-icon">🧾</div><div class="kpi-value" id="sup-kpi-purchases">0 ج</div><div class="kpi-label">إجمالي المشتريات</div></div>
+    <div class="kpi-card kc-emerald"><div class="kpi-icon">💳</div><div class="kpi-value" id="sup-kpi-payments">0 ج</div><div class="kpi-label">إجمالي المدفوعات</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">⚖️</div><div class="kpi-value" id="sup-kpi-owed">0 ج</div><div class="kpi-label">الرصيد المستحق</div></div>
+    <div class="kpi-card kc-amber"><div class="kpi-icon">📦</div><div class="kpi-value" id="sup-kpi-orders">0</div><div class="kpi-label">مستلم هذا الشهر</div></div>
   </div>
   <div class="card">
     <div class="card-hdr"><div class="card-title">قائمة الموردين</div><span class="card-sub" id="sup-count-lbl">0 مورد</span></div>
@@ -1966,6 +1998,89 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('supplier-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveSupplier()">💾 حفظ</button></div>
   </div>
 </div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 📋 SUPPLIER DETAIL MODAL                   -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="modal-overlay" id="supplier-detail-modal">
+  <div class="modal" style="max-width:720px;width:95%">
+    <div class="mhdr">
+      <div class="mtitle">📋 حساب المورد — <span id="sd-name">—</span></div>
+      <button class="mclose" onclick="closeModal('supplier-detail-modal')">✕</button>
+    </div>
+    <div class="mbody">
+      <input type="hidden" id="sd-id">
+      <!-- KPI Row -->
+      <div class="kpi-grid" style="margin-bottom:16px">
+        <div class="kpi-card kc-teal" style="padding:12px 10px">
+          <div class="kpi-icon" style="font-size:18px">📞</div>
+          <div class="kpi-value" style="font-size:16px" id="sd-phone">—</div>
+          <div class="kpi-label">الهاتف</div>
+        </div>
+        <div class="kpi-card kc-gold" style="padding:12px 10px">
+          <div class="kpi-icon" style="font-size:18px">🧾</div>
+          <div class="kpi-value" style="font-size:16px" id="sd-total-purchases">0 ج</div>
+          <div class="kpi-label">إجمالي المشتريات</div>
+        </div>
+        <div class="kpi-card kc-emerald" style="padding:12px 10px">
+          <div class="kpi-icon" style="font-size:18px">💳</div>
+          <div class="kpi-value" style="font-size:16px" id="sd-total-paid">0 ج</div>
+          <div class="kpi-label">إجمالي المدفوعات</div>
+        </div>
+        <div class="kpi-card kc-rose" style="padding:12px 10px">
+          <div class="kpi-icon" style="font-size:18px">⚖️</div>
+          <div class="kpi-value" style="font-size:16px" id="sd-owed">0 ج</div>
+          <div class="kpi-label">الرصيد المستحق</div>
+        </div>
+      </div>
+
+      <!-- Purchases Table -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-hdr"><div class="card-title">🛒 سجل المشتريات</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>التاريخ</th><th>المنتج</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th><th>الحالة</th></tr></thead>
+            <tbody id="sd-pur-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Payments Table -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-hdr"><div class="card-title">💳 سجل المدفوعات</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>التاريخ</th><th>المبلغ</th><th>طريقة الدفع</th><th>ملاحظات</th></tr></thead>
+            <tbody id="sd-pay-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- New Payment Form -->
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">➕ تسجيل دفعة جديدة</div></div>
+        <div class="mbody" style="padding:12px 0 0 0">
+          <div class="fg">
+            <div class="fgrp"><label class="flbl">المبلغ (ج) *</label><input class="fctl" type="number" id="sd-pay-amount" placeholder="0.00" min="0"></div>
+            <div class="fgrp"><label class="flbl">طريقة الدفع</label>
+              <select class="fctl" id="sd-pay-method">
+                <option value="كاش">كاش</option>
+                <option value="بنك">تحويل بنكي</option>
+                <option value="شيك">شيك</option>
+              </select>
+            </div>
+            <div class="fgrp full"><label class="flbl">ملاحظات</label><input class="fctl" id="sd-pay-notes" placeholder="ملاحظات اختيارية"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeModal('supplier-detail-modal')">إغلاق</button>
+      <button class="btn btn-primary" onclick="paySupplier()">💳 تسجيل الدفعة</button>
+    </div>
+  </div>
+</div>
+
 <div class="screen" id="screen-purchases">
   <div class="filter-bar">
     <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث بالمنتج أو المورد..." oninput="renderPurchases(this.value)"></div>
@@ -2332,11 +2447,11 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="fgrp full"><label class="flbl">اسم الخدمة *</label><input class="fctl" id="sv-name" placeholder="اسم الخدمة"></div>
     <div class="fgrp"><label class="flbl">القسم</label><select class="fctl" id="sv-cat"><option>البشرة</option><option>الشعر</option><option>الليزر</option><option>حقن</option></select></div>
     <div class="fgrp"><label class="flbl">الطبيب</label><select class="fctl" id="sv-doc"><option>د. منى سامي</option><option>د. أحمد رضا</option></select></div>
-    <div class="fgrp"><label class="flbl">السعر (ج)</label><input class="fctl" type="number" id="sv-price" placeholder="0"></div>
-    <div class="fgrp"><label class="flbl">التكلفة (ج)</label><input class="fctl" type="number" id="sv-cost" placeholder="0"></div>
+    <div class="fgrp"><label class="flbl">سعر البيع (ج) *</label><input class="fctl" type="number" id="sv-price" placeholder="0" oninput="updateSvcProfitPreview()"></div>
     <div class="fgrp"><label class="flbl">المدة (دقيقة)</label><input class="fctl" type="number" id="sv-dur" placeholder="60"></div>
     <div class="fgrp"><label class="flbl">الغرفة المطلوبة</label><select class="fctl" id="sv-room"><option value="">— بدون تحديد —</option></select></div>
     <div class="fgrp"><label class="flbl">الجهاز المطلوب</label><select class="fctl" id="sv-equip"><option value="">— بدون تحديد —</option></select></div>
+    <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="sv-status"><option value="نشطة">نشطة</option><option value="متوقفة">متوقفة</option></select></div>
     <!-- ══ وصفة المكونات (BOM) ══ -->
     <div class="fgrp full" style="grid-column:1/-1">
       <label class="flbl" style="margin-bottom:8px;">🧪 المكونات المستهلكة في الجلسة</label>
@@ -2352,6 +2467,12 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       <div style="margin-top:6px;font-size:12px;color:var(--text-muted);">
         تكلفة المواد المحسوبة: <span id="svc-recipe-cost-calc" style="color:var(--gold-light);font-weight:700;">0 ج</span>
       </div>
+    </div>
+    <!-- ملخص الربح المتوقع -->
+    <div class="fgrp full" id="svc-profit-preview-wrap" style="grid-column:1/-1;background:var(--glass);border-radius:10px;padding:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center;">
+      <div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;">سعر البيع</div><div style="font-size:15px;font-weight:800;color:var(--gold-light);" id="sv-preview-price">0 ج</div></div>
+      <div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;">تكلفة المواد</div><div style="font-size:15px;font-weight:800;color:var(--rose);" id="sv-preview-cost">0 ج</div></div>
+      <div><div style="font-size:11px;color:var(--text-muted);margin-bottom:3px;">الربح المتوقع</div><div style="font-size:15px;font-weight:800;color:var(--emerald);" id="sv-preview-profit">0 ج</div></div>
     </div>
   </div></div>
   <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('service-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveSvc()">💾 حفظ</button></div></div>
