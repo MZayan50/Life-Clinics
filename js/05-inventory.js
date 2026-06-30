@@ -23,23 +23,77 @@ EventBus.on('transfers:deleted',  () => { if(window.renderTransfers) renderTrans
 
 // ══════════════════════════════════════════
 // 📦 INVENTORY AUTO-DEDUCT FROM SESSIONS
-// يقرأ linkedProductId وconsumeQty من جدول services مباشرةً
+// يدعم نظام الوصفة (BOM) — قائمة مكونات متعددة لكل خدمة
+// الأولوية: recipe[] → ثم linkedProductId (legacy) للتوافق مع البيانات القديمة
 // ══════════════════════════════════════════
-function deductInventory(serviceId, qty){
+function deductInventory(serviceId, sessionQty){
   if(!serviceId) return;
   const svc = DB.get('services').find(s => s.id === serviceId);
-  if(!svc || !svc.linkedProductId) return;
-  const consumeQty = (svc.consumeQty || 1) * (qty || 1);
-  const inv  = DB.get('inventory');
+  if(!svc) return;
+  const inv = DB.get('inventory');
+  sessionQty = sessionQty || 1;
+
+  // ── نظام الوصفة الجديد (BOM) ──
+  const recipe = svc.recipe;
+  if(recipe && Array.isArray(recipe) && recipe.length > 0){
+    recipe.forEach(ingredient => {
+      if(!ingredient.productId || !ingredient.qty) return;
+      const item = inv.find(i => i.id === ingredient.productId);
+      if(!item) return;
+      const deductQty = parseFloat(ingredient.qty) * sessionQty;
+      const newQty    = Math.max(0, item.qty - deductQty);
+      const newStatus = newQty === 0 ? 'نفذ' : newQty <= (item.reorder||0) ? 'منخفض' : 'متوفر';
+      DB.upd('inventory', item.id, { qty: newQty, status: newStatus });
+      if(newQty <= (item.reorder||0)){
+        showToast('warning', `⚠️ مخزون منخفض: ${item.name}`, `متبقي ${newQty} ${ingredient.unit||'وحدة'}`);
+      }
+    });
+    return;
+  }
+
+  // ── نظام المنتج الواحد القديم (legacy fallback) ──
+  if(!svc.linkedProductId) return;
+  const consumeQty = (svc.consumeQty || 1) * sessionQty;
   const item = inv.find(i => i.id === svc.linkedProductId);
   if(!item) return;
   const newQty    = Math.max(0, item.qty - consumeQty);
-  const newStatus = newQty === 0 ? 'نفذ' : newQty <= item.reorder ? 'منخفض' : 'متوفر';
-  // DB.upd يُطلق inventory:updated → EventBus → renderInv تلقائياً
+  const newStatus = newQty === 0 ? 'نفذ' : newQty <= (item.reorder||0) ? 'منخفض' : 'متوفر';
   DB.upd('inventory', item.id, { qty: newQty, status: newStatus });
-  if(newQty <= item.reorder){
+  if(newQty <= (item.reorder||0)){
     showToast('warning', `⚠️ مخزون منخفض: ${item.name}`, `متبقي ${newQty} وحدة`);
   }
+}
+
+// ══════════════════════════════════════════
+// 💰 حساب تكلفة المواد لخدمة معينة
+// يُستخدم في التقارير وحساب ربح الجلسة
+// ══════════════════════════════════════════
+function calcServiceMaterialCost(serviceId){
+  if(!serviceId) return 0;
+  const svc = DB.get('services').find(s => s.id === serviceId);
+  if(!svc) return 0;
+  const inv = DB.get('inventory');
+
+  // من الوصفة (BOM)
+  if(svc.recipe && Array.isArray(svc.recipe) && svc.recipe.length > 0){
+    return svc.recipe.reduce((total, ingredient) => {
+      if(!ingredient.productId || !ingredient.qty) return total;
+      const item = inv.find(i => i.id === ingredient.productId);
+      if(!item) return total;
+      const unitCost = item.cost || item.lastPurchasePrice || 0;
+      return total + (parseFloat(ingredient.qty) * unitCost);
+    }, 0);
+  }
+
+  // من المنتج الواحد (legacy)
+  if(svc.linkedProductId){
+    const item = inv.find(i => i.id === svc.linkedProductId);
+    if(item){
+      const unitCost = item.cost || item.lastPurchasePrice || 0;
+      return (svc.consumeQty || 1) * unitCost;
+    }
+  }
+  return svc.cost || 0;
 }
 
 // ══════════════════════════════════════════
@@ -422,3 +476,283 @@ function delTransfer(id){
 }
 
 // ══════════════════════════════════════════
+
+
+// ══════════════════════════════════════════
+// 📊 تسوية المخزون (Inventory Adjustment)
+// ══════════════════════════════════════════
+function openAdjustModal(productId){
+  const items = DB.get('inventory');
+  const adjSel = document.getElementById('adj-product');
+  if(adjSel){
+    adjSel.innerHTML = '<option value="">-- اختر منتج --</option>' +
+      items.map(i => `<option value="${i.id}" data-qty="${i.qty}" data-name="${i.name}">${i.name} — مخزون: ${i.qty}</option>`).join('');
+    if(productId) adjSel.value = productId;
+    updateAdjPreview();
+  }
+  const adjQtyEl = document.getElementById('adj-qty');
+  const adjTypeEl = document.getElementById('adj-type');
+  const adjReasonEl = document.getElementById('adj-reason');
+  if(adjQtyEl) adjQtyEl.value = '';
+  if(adjTypeEl) adjTypeEl.value = 'إضافة';
+  if(adjReasonEl) adjReasonEl.value = '';
+  openModal('adjustment-modal');
+}
+
+function updateAdjPreview(){
+  const sel    = document.getElementById('adj-product');
+  const opt    = sel?.options[sel?.selectedIndex];
+  const curQty = parseInt(opt?.dataset?.qty) || 0;
+  const adjQty = parseInt(document.getElementById('adj-qty')?.value) || 0;
+  const type   = document.getElementById('adj-type')?.value || 'إضافة';
+  const newQty = type === 'إضافة' ? curQty + adjQty : Math.max(0, curQty - adjQty);
+  const el = document.getElementById('adj-preview');
+  if(el) el.textContent = `الكمية الحالية: ${curQty} → بعد التسوية: ${newQty}`;
+}
+
+function saveAdjustment(){
+  const sel       = document.getElementById('adj-product');
+  const productId = sel?.value;
+  const prodName  = sel?.options[sel?.selectedIndex]?.dataset?.name || '';
+  if(!productId){ showToast('warning','⚠️ اختر منتجاً'); return; }
+  const adjQty = parseInt(document.getElementById('adj-qty')?.value) || 0;
+  if(adjQty <= 0){ showToast('warning','⚠️ أدخل كمية صحيحة'); return; }
+  const type   = document.getElementById('adj-type')?.value || 'إضافة';
+  const reason = document.getElementById('adj-reason')?.value || 'تسوية يدوية';
+  const prod   = DB.get('inventory').find(i => i.id === productId);
+  if(!prod){ showToast('error','❌ المنتج غير موجود'); return; }
+  const newQty    = type === 'إضافة' ? (prod.qty||0) + adjQty : Math.max(0, (prod.qty||0) - adjQty);
+  const newStatus = newQty === 0 ? 'نفذ' : newQty <= (prod.reorder||5) ? 'منخفض' : 'متوفر';
+  DB.upd('inventory', productId, { qty: newQty, status: newStatus });
+  DB.push('inventory_transactions', {
+    type: type === 'إضافة' ? 'تسوية+' : 'تسوية-',
+    productId, product: prodName,
+    qty: adjQty, refType: 'adjustment',
+    date: new Date().toISOString().split('T')[0],
+    notes: reason
+  });
+  closeModal('adjustment-modal');
+  showToast('success', `✅ تم تسوية مخزون ${prodName}: ${type === 'إضافة' ? '+' : '-'}${adjQty} → المجموع: ${newQty}`);
+}
+
+// ══════════════════════════════════════════
+// 🛒 بيع منتج مباشر (Product Direct Sale)
+// ══════════════════════════════════════════
+function openProductSaleModal(productId){
+  const items = DB.get('inventory').filter(i => i.qty > 0);
+  const sel = document.getElementById('psale-product');
+  if(sel){
+    sel.innerHTML = '<option value="">-- اختر منتج للبيع --</option>' +
+      items.map(i => `<option value="${i.id}" data-name="${i.name}" data-price="${i.price||0}" data-cost="${i.costPrice||i.lastPurchasePrice||0}" data-qty="${i.qty}">${i.name} — سعر: ${i.price||0} ج — متاح: ${i.qty}</option>`).join('');
+    if(productId) sel.value = productId;
+    updateSalePreview();
+  }
+  const psaleQtyEl = document.getElementById('psale-qty');
+  const psalePatEl = document.getElementById('psale-patient');
+  const psaleMethodEl = document.getElementById('psale-method');
+  const psaleNotesEl = document.getElementById('psale-notes');
+  if(psaleQtyEl) psaleQtyEl.value = 1;
+  if(psalePatEl) psalePatEl.value = '';
+  if(psaleMethodEl) psaleMethodEl.value = 'كاش';
+  if(psaleNotesEl) psaleNotesEl.value = '';
+  openModal('product-sale-modal');
+}
+
+function updateSalePreview(){
+  const sel   = document.getElementById('psale-product');
+  const opt   = sel?.options[sel?.selectedIndex];
+  const price = parseFloat(opt?.dataset?.price) || 0;
+  const cost  = parseFloat(opt?.dataset?.cost)  || 0;
+  const qty   = parseInt(document.getElementById('psale-qty')?.value) || 1;
+  const total  = price * qty;
+  const profit = (price - cost) * qty;
+  const el = document.getElementById('psale-preview');
+  if(el){
+    const profitColor = profit >= 0 ? 'var(--emerald)' : 'var(--rose)';
+    el.innerHTML = `الإجمالي: <strong style="color:var(--gold-light)">${total.toLocaleString()} ج</strong> &nbsp;|&nbsp; الربح: <strong style="color:${profitColor}">${profit.toLocaleString()} ج</strong>`;
+  }
+}
+
+function saveProductSale(){
+  const sel       = document.getElementById('psale-product');
+  const productId = sel?.value;
+  const opt       = sel?.options[sel?.selectedIndex];
+  if(!productId){ showToast('warning','⚠️ اختر منتجاً'); return; }
+  const prodName  = opt?.dataset?.name || '';
+  const price     = parseFloat(opt?.dataset?.price) || 0;
+  const cost      = parseFloat(opt?.dataset?.cost)  || 0;
+  const available = parseInt(opt?.dataset?.qty)     || 0;
+  const qty       = parseInt(document.getElementById('psale-qty')?.value) || 1;
+  if(qty <= 0){ showToast('warning','⚠️ الكمية يجب أن تكون أكبر من صفر'); return; }
+  if(qty > available){ showToast('error',`❌ الكمية المطلوبة (${qty}) أكبر من المتاح (${available})`); return; }
+  const method  = document.getElementById('psale-method')?.value || 'كاش';
+  const patName = document.getElementById('psale-patient')?.value || '';
+  const notes   = document.getElementById('psale-notes')?.value  || '';
+  const total   = price * qty;
+  const profit  = (price - cost) * qty;
+  const today   = new Date().toISOString().split('T')[0];
+  const prod    = DB.get('inventory').find(i => i.id === productId);
+  const newQty  = Math.max(0, (prod?.qty||0) - qty);
+  DB.upd('inventory', productId, {
+    qty: newQty,
+    status: newQty === 0 ? 'نفذ' : newQty <= (prod?.reorder||5) ? 'منخفض' : 'متوفر'
+  });
+  DB.push('inventory_transactions', {
+    type: 'صادر', productId, product: prodName,
+    qty, unitPrice: price, refType: 'sale',
+    date: today, notes: `بيع مباشر${patName ? ' — ' + patName : ''}`
+  });
+  DB.push('cashlog', {
+    type: 'وارد',
+    source: `بيع منتج — ${prodName}`,
+    amount: total, method,
+    date: today,
+    notes: `${qty} × ${prodName}${patName ? ' | ' + patName : ''}`,
+    refType: 'product_sale'
+  });
+  DB.push('product_sales', {
+    productId, productName: prodName,
+    qty, unitPrice: price, unitCost: cost,
+    total, profit, method,
+    patientName: patName, date: today, notes
+  });
+  closeModal('product-sale-modal');
+  showToast('success', `✅ تم بيع ${qty} × ${prodName} بقيمة ${total.toLocaleString()} ج | ربح: ${profit.toLocaleString()} ج`);
+}
+
+// ══════════════════════════════════════════
+// 🛒 فاتورة شراء متعددة الأصناف
+// ══════════════════════════════════════════
+let _purItems = [];
+
+function openMultiPurchaseModal(){
+  _purItems = [];
+  const sel = document.getElementById('mpur-supplier');
+  if(sel){
+    const sups = DB.get('suppliers') || [];
+    sel.innerHTML = '<option value="">-- اختر مورد --</option>' + sups.map(s => `<option value="${s.id}" data-name="${s.name}">${s.name}</option>`).join('');
+  }
+  fillMpurProducts();
+  const today = new Date().toISOString().split('T')[0];
+  const mpurIdEl = document.getElementById('mpur-id');
+  const mpurDateEl = document.getElementById('mpur-order-date');
+  const mpurDeliveryEl = document.getElementById('mpur-delivery-date');
+  const mpurStatusEl = document.getElementById('mpur-status');
+  const mpurNotesEl = document.getElementById('mpur-notes');
+  if(mpurIdEl) mpurIdEl.value = '';
+  if(mpurDateEl) mpurDateEl.value = today;
+  if(mpurDeliveryEl) mpurDeliveryEl.value = '';
+  if(mpurStatusEl) mpurStatusEl.value = 'معلق';
+  if(mpurNotesEl) mpurNotesEl.value = '';
+  renderPurItems();
+  openModal('multi-purchase-modal');
+}
+
+function fillMpurProducts(){
+  const sel = document.getElementById('mpur-item-product'); if(!sel) return;
+  sel.innerHTML = '<option value="">-- اختر منتج --</option>' +
+    (DB.get('inventory')||[]).map(i => `<option value="${i.id}">${i.name} — مخزون: ${i.qty}</option>`).join('');
+}
+
+function addPurItem(){
+  const sel = document.getElementById('mpur-item-product');
+  const productId   = sel?.value;
+  const productName = sel?.options[sel?.selectedIndex]?.text?.split(' — ')[0] || '';
+  const qty         = parseInt(document.getElementById('mpur-item-qty')?.value)   || 0;
+  const unitPrice   = parseFloat(document.getElementById('mpur-item-price')?.value) || 0;
+  if(!productId){ showToast('warning','⚠️ اختر منتجاً'); return; }
+  if(qty <= 0){ showToast('warning','⚠️ الكمية مطلوبة'); return; }
+  const existing = _purItems.find(i => i.productId === productId);
+  if(existing){ existing.qty += qty; existing.unitPrice = unitPrice; }
+  else { _purItems.push({ productId, productName, qty, unitPrice }); }
+  const mpurQtyEl = document.getElementById('mpur-item-qty');
+  const mpurPriceEl = document.getElementById('mpur-item-price');
+  if(mpurQtyEl) mpurQtyEl.value = '';
+  if(mpurPriceEl) mpurPriceEl.value = '';
+  renderPurItems();
+}
+
+function removePurItem(idx){
+  _purItems.splice(idx, 1);
+  renderPurItems();
+}
+
+function renderPurItems(){
+  const tb = document.getElementById('mpur-items-tbody'); if(!tb) return;
+  if(!_purItems.length){
+    tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:12px">لم تُضَف أصناف بعد</td></tr>';
+    txt('mpur-grand-total','0 ج');
+    return;
+  }
+  tb.innerHTML = _purItems.map((item, i) => `<tr>
+    <td style="font-weight:600">${item.productName}</td>
+    <td style="text-align:center">${item.qty}</td>
+    <td>${(item.unitPrice).toLocaleString()} ج</td>
+    <td style="font-weight:700;color:var(--gold-light)">${(item.qty*item.unitPrice).toLocaleString()} ج</td>
+    <td><button class="btn btn-danger btn-xs" onclick="removePurItem(${i})">🗑</button></td>
+  </tr>`).join('');
+  const grand = _purItems.reduce((s,i)=>s+i.qty*i.unitPrice,0);
+  txt('mpur-grand-total', grand.toLocaleString()+' ج');
+}
+
+function saveMultiPurchase(){
+  if(!_purItems.length){ showToast('warning','⚠️ أضف صنفاً واحداً على الأقل'); return; }
+  const supSel       = document.getElementById('mpur-supplier');
+  const supplierId   = supSel?.value || '';
+  const supplierName = supSel?.options[supSel?.selectedIndex]?.dataset?.name || '';
+  const grandTotal   = _purItems.reduce((s,i)=>s+i.qty*i.unitPrice,0);
+  const status       = document.getElementById('mpur-status')?.value || 'معلق';
+  const orderDate    = document.getElementById('mpur-order-date')?.value   || new Date().toISOString().split('T')[0];
+  const deliveryDate = document.getElementById('mpur-delivery-date')?.value || '';
+  const notes        = document.getElementById('mpur-notes')?.value || '';
+  const data = {
+    supplierId, supplier: supplierName,
+    product: _purItems.map(i=>i.productName).join('، '),
+    qty: _purItems.reduce((s,i)=>s+i.qty,0),
+    unitPrice: 0, total: grandTotal,
+    orderDate, deliveryDate, status, notes,
+    itemsCount: _purItems.length
+  };
+  const newPur = DB.push('purchases', data);
+  const purchaseId = newPur?.id;
+  _purItems.forEach(item => {
+    DB.push('purchase_items', { purchaseId, ...item });
+  });
+  // إذا تم الإنشاء كـ "مستلم"، شغّل hook الاستلام
+  if(status === 'مستلم'){
+    DB.upd('purchases', purchaseId, {
+      status: 'مستلم',
+      deliveryDate: deliveryDate || orderDate
+    });
+  }
+  closeModal('multi-purchase-modal');
+  showToast('success', `✅ فاتورة شراء — ${_purItems.length} صنف — ${grandTotal.toLocaleString()} ج`);
+  _purItems = [];
+}
+
+// ══════════════════════════════════════════
+// 📊 تقرير حركة المخزون
+// ══════════════════════════════════════════
+function renderInventoryTransactions(productId){
+  const txs = (DB.get('inventory_transactions')||[])
+    .filter(t => !productId || t.productId === productId)
+    .sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  const tb = document.getElementById('inv-tx-tbody'); if(!tb) return;
+  tb.innerHTML = txs.map(t => `<tr>
+    <td style="font-size:12px">${t.date||'—'}</td>
+    <td style="font-weight:600">${t.product||'—'}</td>
+    <td><span class="tag ${t.type.includes('وارد')||t.type.includes('+') ? 'tg-teal' : 'tg-rose'}">${t.type}</span></td>
+    <td style="font-weight:700;color:${t.type.includes('وارد')||t.type.includes('+') ? 'var(--emerald)' : 'var(--rose)'}">${t.qty||0}</td>
+    <td style="font-size:11px;color:var(--text-muted)">${t.refType||'—'}</td>
+    <td style="font-size:11px;color:var(--text-muted)">${t.notes||'—'}</td>
+  </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">لا توجد حركات</td></tr>';
+}
+
+// حساب ربح المنتج
+function calcProductProfit(productId){
+  const prod = DB.get('inventory').find(i => i.id === productId);
+  if(!prod) return 0;
+  const cost  = prod.lastPurchasePrice || prod.costPrice || 0;
+  const price = prod.price || 0;
+  return price - cost;
+}

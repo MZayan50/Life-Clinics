@@ -507,20 +507,32 @@ function renderSvcs(){
   const invMap = {};
   DB.get('inventory').forEach(p => { invMap[p.id] = p.name; });
   tb.innerHTML = DB.get('services').map(s => {
-    const pr = s.price - s.cost;
+    const materialCost = typeof calcServiceMaterialCost === 'function' ? calcServiceMaterialCost(s.id) : (s.cost||0);
+    const effectiveCost = materialCost || s.cost || 0;
+    const pr = s.price - effectiveCost;
     const pt = s.price ? Math.round(pr / s.price * 100) : 0;
-    const prodLabel = s.linkedProductId && invMap[s.linkedProductId]
-      ? `${invMap[s.linkedProductId]} × ${s.consumeQty || 1}`
-      : '<span style="color:var(--text-muted)">—</span>';
+    // عرض مكونات الوصفة
+    let prodLabel;
+    if(s.recipe && Array.isArray(s.recipe) && s.recipe.length > 0){
+      prodLabel = s.recipe.map(ing => {
+        const name = invMap[ing.productId] || '؟';
+        return `${name} × ${ing.qty}${ing.unit ? ' '+ing.unit : ''}`;
+      }).join(' | ');
+      prodLabel = `<span style="font-size:11px;color:var(--teal)">${prodLabel}</span>`;
+    } else if(s.linkedProductId && invMap[s.linkedProductId]){
+      prodLabel = `<span style="font-size:11px;color:var(--text-muted)">${invMap[s.linkedProductId]} × ${s.consumeQty||1}</span>`;
+    } else {
+      prodLabel = '<span style="color:var(--text-muted)">—</span>';
+    }
     return `<tr>
       <td style="font-weight:600">${s.name}</td>
       <td><span class="tag tg-teal">${s.cat}</span></td>
       <td style="color:var(--gold-light);font-weight:700">${s.price} ج</td>
       <td>${s.duration} د</td>
-      <td>${s.cost} ج</td>
-      <td style="color:var(--emerald)">${pr} ج (${pt}%)</td>
+      <td>${effectiveCost.toFixed(1)} ج</td>
+      <td style="color:var(--emerald)">${pr.toFixed(1)} ج (${pt}%)</td>
       <td style="font-size:12px">${s.doctor}</td>
-      <td style="font-size:12px">${prodLabel}</td>
+      <td style="font-size:11px">${prodLabel}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs"  onclick="openSvcModal('${s.id}')">✏️</button>
         <button class="btn btn-danger btn-xs" onclick="delSvc('${s.id}')">🗑</button>
@@ -560,15 +572,10 @@ function openSvcModal(id){
       + DB.get('equipment').map(e => `<option>${e.name}</option>`).join('');
     equipSel.value = s ? s.equipment || '' : '';
   }
-  // ── المنتج المرتبط والكمية المستهلكة ──
-  const prodSel = document.getElementById('sv-prod');
-  if(prodSel){
-    prodSel.innerHTML = '<option value="">— لا يوجد —</option>'
-      + DB.get('inventory').map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-    prodSel.value = s ? s.linkedProductId || '' : '';
-  }
-  const qtySel = document.getElementById('sv-qty');
-  if(qtySel) qtySel.value = s ? s.consumeQty ?? 1 : 1;
+  // ── وصفة المكونات (BOM) ──
+  // تحميل الصفوف الموجودة أو وصفة فارغة للخدمة الجديدة
+  window._svcRecipe = (s && s.recipe && Array.isArray(s.recipe)) ? JSON.parse(JSON.stringify(s.recipe)) : [];
+  renderSvcRecipeRows();
   openModal('service-modal');
 }
 
@@ -576,20 +583,93 @@ function saveSvc(){
   const name = gv('sv-name').trim();
   if(!name){ showToast('warning', '⚠️ اسم الخدمة مطلوب'); return; }
   const id   = gv('sv-id');
+  // جمع الوصفة من الصفوف المؤقتة (window._svcRecipe)
+  const recipe = (window._svcRecipe || []).filter(r => r.productId && parseFloat(r.qty) > 0);
   const data = {
     name,
-    cat:             gv('sv-cat'),
-    doctor:          gv('sv-doc'),
-    price:           parseFloat(gv('sv-price'))  || 0,
-    cost:            parseFloat(gv('sv-cost'))   || 0,
-    duration:        parseInt(gv('sv-dur'))       || 60,
-    room:            gv('sv-room'),
-    equipment:       gv('sv-equip'),
-    linkedProductId: gv('sv-prod') || null,
-    consumeQty:      parseFloat(gv('sv-qty'))    || 1,
+    cat:      gv('sv-cat'),
+    doctor:   gv('sv-doc'),
+    price:    parseFloat(gv('sv-price')) || 0,
+    cost:     parseFloat(gv('sv-cost'))  || 0,
+    duration: parseInt(gv('sv-dur'))     || 60,
+    room:     gv('sv-room'),
+    equipment:gv('sv-equip'),
+    recipe,
+    // legacy fields — محفوظة للتوافق مع البيانات القديمة
+    linkedProductId: recipe.length > 0 ? recipe[0].productId : null,
+    consumeQty:      recipe.length > 0 ? parseFloat(recipe[0].qty) : 1,
   };
   if(id){ DB.upd('services', id, data); showToast('success', `✅ تم تحديث "${name}"`); }
   else  { DB.push('services', data);    showToast('success', `✅ تم إضافة "${name}"`); }
   closeModal('service-modal');
   // renderSvcs() + fillSvcDropdowns() يُستدعيان تلقائياً عبر services:created / services:updated
+}
+
+// ══════════════════════════════════════════
+// 🧪 SERVICE BOM (RECIPE) — وصفة مكونات الخدمة
+// ══════════════════════════════════════════
+// window._svcRecipe = [ { productId, qty, unit }, ... ]
+// يُخزَّن مؤقتاً أثناء فتح المودال ويُحفظ عند saveSvc()
+
+function renderSvcRecipeRows(){
+  const container = document.getElementById('svc-recipe-rows');
+  if(!container) return;
+  const products = DB.get('inventory') || [];
+  const recipe   = window._svcRecipe || [];
+
+  if(recipe.length === 0){
+    container.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:8px;">لا توجد مكونات — اضغط "إضافة مكوّن"</div>';
+  } else {
+    container.innerHTML = recipe.map((ing, idx) => `
+      <div style="display:grid;grid-template-columns:1fr 70px 50px 32px;gap:4px;align-items:center;">
+        <select class="fctl" style="font-size:12px;padding:4px 6px;" onchange="setSvcRecipeField(${idx},'productId',this.value)">
+          <option value="">— اختر منتج —</option>
+          ${products.map(p => `<option value="${p.id}" ${p.id===ing.productId?'selected':''}>${p.name}</option>`).join('')}
+        </select>
+        <input class="fctl" type="number" min="0.01" step="0.01" style="font-size:12px;padding:4px 6px;text-align:center;"
+               value="${ing.qty||''}" placeholder="الكمية"
+               onchange="setSvcRecipeField(${idx},'qty',this.value)">
+        <input class="fctl" type="text" style="font-size:12px;padding:4px 6px;text-align:center;"
+               value="${ing.unit||''}" placeholder="مل/جم"
+               onchange="setSvcRecipeField(${idx},'unit',this.value)">
+        <button type="button" class="btn btn-danger btn-xs" onclick="removeSvcRecipeRow(${idx})" style="padding:4px 6px;">✕</button>
+      </div>
+    `).join('');
+  }
+
+  // تحديث تكلفة المواد المحسوبة
+  updateSvcRecipeCostCalc();
+}
+
+function addSvcRecipeRow(){
+  if(!window._svcRecipe) window._svcRecipe = [];
+  window._svcRecipe.push({ productId: '', qty: '', unit: '' });
+  renderSvcRecipeRows();
+}
+
+function removeSvcRecipeRow(idx){
+  if(!window._svcRecipe) return;
+  window._svcRecipe.splice(idx, 1);
+  renderSvcRecipeRows();
+}
+
+function setSvcRecipeField(idx, field, value){
+  if(!window._svcRecipe || !window._svcRecipe[idx]) return;
+  window._svcRecipe[idx][field] = value;
+  if(field === 'qty' || field === 'productId') updateSvcRecipeCostCalc();
+}
+
+function updateSvcRecipeCostCalc(){
+  const el = document.getElementById('svc-recipe-cost-calc');
+  if(!el) return;
+  const recipe   = window._svcRecipe || [];
+  const products = DB.get('inventory') || [];
+  const total = recipe.reduce((sum, ing) => {
+    if(!ing.productId || !ing.qty) return sum;
+    const prod = products.find(p => p.id === ing.productId);
+    if(!prod) return sum;
+    const unitCost = prod.cost || prod.lastPurchasePrice || 0;
+    return sum + (parseFloat(ing.qty)||0) * unitCost;
+  }, 0);
+  el.textContent = total.toFixed(2) + ' ج';
 }

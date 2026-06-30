@@ -54,14 +54,24 @@ function renderReports(){
   const monthExp  = cashlog.filter(c=>c.type==='صادر'&&(c.date||'').startsWith(thisMonth)).reduce((s,c)=>s+(c.amount||0),0);
   const purchases = DB.get('purchases') || [];
   const monthPur  = purchases.filter(p=>(p.orderDate||'').startsWith(thisMonth) && p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
-  const netProfit = monthRev - monthExp - monthPur;
+  // تكلفة المنتجات المباعة هذا الشهر (COGS) من costPrice
+  const inventory = DB.get('inventory') || [];
+  const invTrans  = DB.get('inventory_transactions') || [];
+  const monthCOGS = invTrans
+    .filter(t => t.type==='صرف' && t.refType==='invoice' && (t.date||'').startsWith(thisMonth))
+    .reduce((s,t) => {
+      const prod = inventory.find(i => i.id === t.productId);
+      return s + (prod?.costPrice||0) * (t.qty||0);
+    }, 0);
+  const netProfit = monthRev - monthExp - monthPur - monthCOGS;
 
   el.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
       <div class="kpi-card kc-emerald"><div class="kpi-icon">💰</div><div class="kpi-value">${monthRev.toLocaleString()} ج</div><div class="kpi-label">إيرادات الشهر</div></div>
       <div class="kpi-card kc-rose"><div class="kpi-icon">💸</div><div class="kpi-value">${monthExp.toLocaleString()} ج</div><div class="kpi-label">مصروفات الشهر</div></div>
       <div class="kpi-card kc-amber"><div class="kpi-icon">🛒</div><div class="kpi-value">${monthPur.toLocaleString()} ج</div><div class="kpi-label">مشتريات مستلمة</div></div>
-      <div class="kpi-card ${netProfit>=0?'kc-teal':'kc-amber'}"><div class="kpi-icon">📈</div><div class="kpi-value">${(netProfit>=0?'+':'')+netProfit.toLocaleString()} ج</div><div class="kpi-label">صافي الربح (بعد المصروفات والمشتريات)</div></div>
+      <div class="kpi-card kc-rose"><div class="kpi-icon">📦</div><div class="kpi-value">${monthCOGS.toLocaleString()} ج</div><div class="kpi-label">تكلفة المبيعات (COGS)</div></div>
+      <div class="kpi-card ${netProfit>=0?'kc-teal':'kc-amber'}"><div class="kpi-icon">📈</div><div class="kpi-value">${(netProfit>=0?'+':'')+netProfit.toLocaleString()} ج</div><div class="kpi-label">صافي الربح</div></div>
       <div class="kpi-card kc-gold"><div class="kpi-icon">⏳</div><div class="kpi-value">${totalPend.toLocaleString()} ج</div><div class="kpi-label">مستحقات معلقة</div></div>
       <div class="kpi-card kc-purple" style="--kc-color:#8B5CF6"><div class="kpi-icon">👥</div><div class="kpi-value">${newPats}</div><div class="kpi-label">عملاء جدد الشهر</div></div>
       <div class="kpi-card kc-teal"><div class="kpi-icon">📅</div><div class="kpi-value">${todayAppt}</div><div class="kpi-label">مواعيد اليوم</div></div>

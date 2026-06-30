@@ -95,7 +95,7 @@ const DB = {
     'campaigns', 'packages', 'sessions', 'waitlist', 'rooms', 'equipment',
     'suppliers', 'purchases', 'purchase_items', 'supplier_payments', 'visits',
     'inventory_transactions', 'audit_log', 'transfers',
-    'photos', 'installments', 'cashlog', 'advances'
+    'photos', 'installments', 'cashlog', 'advances', 'product_sales'
   ],
 
   // ── In-memory cache: Firestore data lives here ──
@@ -307,25 +307,35 @@ EventBus.on('invoices:updated', function(inv){
   }
 });
 
-// ── 3. استلام مشتريات → تحديث المخزون + سجل الحركات ──
+// ── 3. استلام مشتريات → تحديث المخزون + سعر آخر شراء + مديونية المورد + حركة مالية ──
 EventBus.on('purchases:updated', function(purchase){
   if(purchase.status !== 'مستلم') return;
-  // ── أ. تحديث المخزون من purchase_items ──
+  const today = purchase.deliveryDate || new Date().toISOString().split('T')[0];
+
+  // ── أ. تحديث المخزون + سعر آخر شراء من purchase_items ──
   const items = DB.get('purchase_items').filter(pi => pi.purchaseId === purchase.id);
   items.forEach(item => {
     const prod = DB.get('inventory').find(p => p.id === item.productId);
     if(!prod) return;
-    const newQty = (prod.qty || 0) + (item.qty || 0);
+    const newQty    = (prod.qty || 0) + (item.qty || 0);
     const newStatus = newQty === 0 ? 'نفذ' : newQty <= (prod.reorder || 5) ? 'منخفض' : 'متوفر';
-    DB.upd('inventory', prod.id, { qty: newQty, status: newStatus });
+    // تحديث الكمية + سعر آخر شراء + التكلفة
+    DB.upd('inventory', prod.id, {
+      qty: newQty,
+      status: newStatus,
+      lastPurchasePrice: item.unitPrice || prod.lastPurchasePrice || 0,
+      costPrice: item.unitPrice || prod.costPrice || 0
+    });
     DB.push('inventory_transactions', {
       type: 'وارد', productId: prod.id, product: prod.name,
-      qty: item.qty, refType: 'purchase', refId: purchase.id,
-      date: purchase.date || new Date().toISOString().split('T')[0],
-      notes: 'استلام مشتريات'
+      qty: item.qty, unitPrice: item.unitPrice || 0,
+      refType: 'purchase', refId: purchase.id,
+      date: today,
+      notes: `استلام مشتريات — ${purchase.supplier || ''}`
     });
   });
-  // ── ب. إعادة حساب مديونية المورد من الصفر (كل مشترياته المستلمة) ──
+
+  // ── ب. إعادة حساب مديونية المورد ──
   if(purchase.supplierId){
     const sup = DB.get('suppliers').find(s => s.id === purchase.supplierId);
     if(sup){
@@ -337,6 +347,21 @@ EventBus.on('purchases:updated', function(purchase){
         .reduce((s, sp) => s + (sp.amount||0), 0);
       DB.upd('suppliers', sup.id, { owed: Math.max(0, totalOwed - totalPaid) });
     }
+  }
+
+  // ── ج. تسجيل حركة مالية (مصروف على المشتريات) ──
+  const total = purchase.total || items.reduce((s,i)=>s+(i.qty||0)*(i.unitPrice||0),0);
+  if(total > 0){
+    DB.push('cashlog', {
+      type: 'صادر',
+      source: `فاتورة شراء — ${purchase.supplier || 'مورد'}`,
+      amount: total,
+      method: 'آجل',
+      date: today,
+      refType: 'purchase',
+      refId: purchase.id,
+      notes: `استلام طلبية رقم ${purchase.id}`
+    });
   }
 });
 
@@ -652,7 +677,7 @@ if(!localStorage.getItem('ha_seeded_v2')){
     'inventory','suppliers','purchases','purchase_items',
     'leads','staff','expenses','visits','inventory_transactions',
     'sessions','packages','waitlist','campaigns','audit_log',
-    'photos','installments','cashlog','transfers'
+    'photos','installments','cashlog','transfers','product_sales','supplier_payments'
   ];
   EMPTY_COLLECTIONS.forEach(col => {
     if(!DB._cache[col]) DB._cache[col] = [];

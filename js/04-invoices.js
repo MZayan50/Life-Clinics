@@ -5,11 +5,28 @@ function filterInvSt(s){_is=s;renderInv();}
 function renderInv(){
   const items=DB.get('inventory').filter(i=>(!_if||i.name.includes(_if))&&(!_is||i.status===_is));
   const tb=document.getElementById('inv-tbody');if(!tb)return;
-  tb.innerHTML=items.map(i=>`<tr><td style="font-weight:600">${i.name}</td><td style="font-weight:700;color:${i.qty===0?'var(--rose)':i.qty<=i.reorder?'var(--amber)':'var(--emerald)'}">${i.qty}</td><td>${i.reorder}</td><td style="font-size:12px;color:${i.expiry&&new Date(i.expiry)<new Date()?'var(--rose)':'var(--text-muted)'}">${i.expiry||'—'}</td><td>${i.price} ج</td><td><span class="stk ${i.status==='متوفر'?'stk-ok':i.status==='منخفض'?'stk-low':'stk-out'}">${i.status}</span></td><td><button class="btn btn-teal btn-xs" onclick="openQuickSell('${i.id}')">🛒</button> <button class="btn btn-ghost btn-xs" onclick="openProductModal('${i.id}')">✏️</button> <button class="btn btn-danger btn-xs" onclick="delInv('${i.id}')">🗑</button></td></tr>`).join('');
+  tb.innerHTML=items.map(i=>{
+    const margin = i.costPrice>0 ? Math.round(((i.price-i.costPrice)/i.price)*100) : null;
+    const marginHtml = margin!==null
+      ? `<span style="font-size:10px;color:${margin>=30?'var(--emerald)':margin>=10?'var(--amber)':'var(--rose)'};font-weight:700"> (${margin}%)</span>`
+      : '';
+    return `<tr>
+      <td style="font-weight:600">${i.name}</td>
+      <td style="font-size:11px;color:var(--text-muted)">${i.supplierName||'—'}</td>
+      <td style="font-weight:700;color:${i.qty===0?'var(--rose)':i.qty<=i.reorder?'var(--amber)':'var(--emerald)'}">${i.qty}</td>
+      <td>${i.reorder}</td>
+      <td style="font-size:12px;color:${i.expiry&&new Date(i.expiry)<new Date()?'var(--rose)':'var(--text-muted)'}">${i.expiry||'—'}</td>
+      <td style="color:var(--rose);font-weight:700">${i.costPrice>0?i.costPrice+' ج':'—'}</td>
+      <td>${i.price} ج${marginHtml}</td>
+      <td><span class="stk ${i.status==='متوفر'?'stk-ok':i.status==='منخفض'?'stk-low':'stk-out'}">${i.status}</span></td>
+      <td><button class="btn btn-teal btn-xs" onclick="openProductSaleModal('${i.id}')">🛒 بيع</button> <button class="btn btn-ghost btn-xs" onclick="openProductModal('${i.id}')">✏️</button> <button class="btn btn-ghost btn-xs" style="font-size:10px" onclick="openAdjustModal('${i.id}')">📊</button> <button class="btn btn-danger btn-xs" onclick="delInv('${i.id}')">🗑</button></td>
+    </tr>`;
+  }).join('');
   const all=DB.get('inventory');
   const low=all.filter(i=>i.status==='منخفض').length,out=all.filter(i=>i.status==='نفذ').length;
   txt('inv-total',all.length);txt('inv-low',low);txt('inv-out',out);
-  txt('inv-val',all.reduce((s,i)=>s+(i.qty*i.price),0).toLocaleString()+' ج');
+  // قيمة المخزون بسعر الشراء (التكلفة الفعلية)
+  txt('inv-val',all.reduce((s,i)=>s+(i.qty*(i.costPrice||i.price||0)),0).toLocaleString()+' ج');
   txt('badge-stock',low+out);txt('kpi-stk',low+out);
 }
 function delInv(id){if(confirm('حذف المنتج؟')){DB.del('inventory',id);renderInv();showToast('info','🗑️ تم حذف المنتج');}}
@@ -20,9 +37,17 @@ function openProductModal(id){
   document.getElementById('prod-name').value=p?p.name:'';
   document.getElementById('prod-qty').value=p?p.qty:'';
   document.getElementById('prod-reord').value=p?p.reorder:5;
+  document.getElementById('prod-cost').value=p?p.costPrice||'':'';
   document.getElementById('prod-price').value=p?p.price:'';
   document.getElementById('prod-exp').value=p?p.expiry||'':'';
   const catEl=document.getElementById('prod-cat');if(catEl&&p)catEl.value=p.cat||catEl.options[0].value;
+  // ملء قائمة الموردين
+  const supEl=document.getElementById('prod-supplier');
+  if(supEl){
+    const sups=DB.get('suppliers')||[];
+    supEl.innerHTML='<option value="">-- بدون مورد --</option>'+sups.map(s=>`<option value="${s.id}" data-name="${s.name}">${s.name}</option>`).join('');
+    if(p&&p.supplierId) supEl.value=p.supplierId;
+  }
   // ملء قائمة الفروع من قاعدة البيانات أولاً ثم تحديد القيمة
   const brEl=document.getElementById('prod-branch');
   if(brEl){
@@ -39,10 +64,35 @@ function saveProd(){
   const qty=parseInt(gv('prod-qty'))||0,reorder=parseInt(gv('prod-reord'))||5;
   const id=gv('prod-id');
   const branch=gv('prod-branch')||(DB.get('branches')||[{name:'مدينة نصر'}])[0].name;
-  const data={name,cat:gv('prod-cat'),qty,reorder,price:parseFloat(gv('prod-price'))||0,expiry:gv('prod-exp'),branch,status:qty===0?'نفذ':qty<=reorder?'منخفض':'متوفر'};
+  const supEl=document.getElementById('prod-supplier');
+  const supplierId=supEl?.value||'';
+  const supplierName=supEl?.options[supEl?.selectedIndex]?.dataset?.name||'';
+  const costPrice=parseFloat(gv('prod-cost'))||0;
+  const sellPrice=parseFloat(gv('prod-price'))||0;
+  const data={name,cat:gv('prod-cat'),qty,reorder,
+    costPrice, price:sellPrice,
+    supplierId, supplierName,
+    expiry:gv('prod-exp'),branch,
+    status:qty===0?'نفذ':qty<=reorder?'منخفض':'متوفر'};
   if(id){DB.upd('inventory',id,data);showToast('success',`✅ تم تحديث ${name}`);}
   else{DB.push('inventory',data);showToast('success',`✅ تم إضافة ${name}`);}
   closeModal('product-modal');renderInv();
+}
+function calcProdMargin(){
+  const cost  = parseFloat(document.getElementById('prod-cost')?.value)||0;
+  const sell  = parseFloat(document.getElementById('prod-price')?.value)||0;
+  const row   = document.getElementById('prod-margin-row');
+  const val   = document.getElementById('prod-margin-val');
+  if(!row||!val) return;
+  if(cost>0 && sell>0){
+    const profit  = sell - cost;
+    const pct     = Math.round((profit/sell)*100);
+    row.style.display = '';
+    val.textContent   = `${profit.toLocaleString()} ج (${pct}%)`;
+    val.style.color   = pct>=30?'var(--emerald)':pct>=10?'var(--amber)':'var(--rose)';
+  } else {
+    row.style.display = 'none';
+  }
 }
 
 // INVOICES
