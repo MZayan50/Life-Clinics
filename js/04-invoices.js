@@ -723,6 +723,13 @@ function processSmartPayment(){
   // (كان هنا كود يدوي بيطرح amount من pat.balance مرة ثانية فوق التحديث التلقائي — باج احتساب مضاعف، تم حذفه)
   const pat=(DB.get('patients')||[]).find(p=>String(p.id)===String(inv.patId)||p.name===inv.patient);
 
+  // 3.b ✅ FIX: عمولة الطبيب على هذه الدفعة — لم تكن تُحتسب هنا إطلاقًا لأن هذه الدالة
+  // (شاشة "تحصيل دفعة" الفعلية) لا تضبط paidDelta، فكانت كل التحصيلات اللاحقة على
+  // الفاتورة تمر بدون عمولة طبيب رغم أنها أكثر مسارات الدفع استخدامًا عمليًا.
+  if(typeof recordDoctorCommission === 'function'){
+    recordDoctorCommission(invId, amount);
+  }
+
   // 4. Auto-create installment plan if selected
   if(makeInst&&newRem>0){
     const each=Math.ceil(newRem/instCount);

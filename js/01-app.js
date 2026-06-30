@@ -1297,19 +1297,14 @@ function checkNotifications(){
 }
 
 // تسجيل عمولة الطبيب تلقائياً على كل فاتورة لم تُسجَّل عمولتها بعد
+// ✅ FIX (مشكلة #5): كان هذا مسار ثالث منفصل بمنطق حساب وشرط مطابقة طبيب مختلفين
+// عن recordDoctorCommission في 00-core.js — تم توحيدهما لمنع تضارب/ازدواج محتمل
+// في حساب العمولة من نفس الدفعة عبر مسارين مختلفين.
 function _autoRecordCommissions(){
   const today = new Date().toISOString().split('T')[0];
   const invoices = DB.get('invoices').filter(i=>i.date===today && i.doctor && !i.commissionRecorded);
   invoices.forEach(inv=>{
-    const doc = DB.get('doctors').find(d=>d.name===inv.doctor||d.id===inv.doctorId);
-    if(!doc || !doc.commission) return;
-    const commAmt = Math.round((inv.paid||0) * (doc.commission/100));
-    if(commAmt <= 0) return;
-    DB.upd('invoices', inv.id, {
-      commissionRecorded: true,
-      commissionAmount: commAmt,
-      commissionPct: doc.commission
-    });
+    if(typeof recordDoctorCommission === 'function') recordDoctorCommission(inv.id, inv.paid || 0);
   });
 }
 

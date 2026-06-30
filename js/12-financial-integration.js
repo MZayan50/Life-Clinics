@@ -113,8 +113,16 @@ function _recordSessionCompletion({ sessionPlanId, pkgId, patId, patName,
   }
 
   // ── §7: تحديث السجل المالي اليومي/الشهري ──
+  // ✅ ملاحظة (مشكلة #5): هذا مسار منفصل عن مسار الفاتورة العادية (invoices:created)
+  // وهذا مقصود — إيراد "خطة جلسات" (sessionPlanId) مختلف عن إيراد فاتورة كشف عادية،
+  // ولا يوجد تداخل بينهما لأن هذا الشرط يعمل فقط لو !pkgId (الباقات لا تُسجَّل إيراد هنا أصلاً).
+  // أما تسجيل إتمام الجلسة عبر finalizeConsultation (في _patchFinalizeConsultation أسفل
+  // هذا الملف) فلا يكتب لـ cashlog بنفسه إطلاقاً — يعتمد على أن الفاتورة الأصلية
+  // أنشأت قيد الخزينة تلقائياً عبر invoices:created، فلا يوجد ازدواج هناك.
   if (!pkgId && (revenue || 0) > 0) {
-    // سجّل في cashlog فقط إذا لم تكن مغطاة بباقة
+    // refId موحَّد مع اتفاقية الحارس المركزي في DB.push (00-core.js) لمنع التكرار
+    // تلقائياً من أي مصدر، بدل الاعتماد فقط على الفحص اليدوي هنا
+    const sessionRefId = `sesscomp:${sessionPlanId || patId}:${sessionNo}`;
     const existing = (DB.get('cashlog') || []).find(c =>
       c.refType === 'session_completion' &&
       c.sessionPlanId === sessionPlanId &&
@@ -129,6 +137,7 @@ function _recordSessionCompletion({ sessionPlanId, pkgId, patId, patName,
         date: completionRecord.date,
         notes: `جلسة ${sessionNo}/${sessionTotal || '?'}: ${serviceName || '—'}`,
         refType: 'session_completion',
+        refId: sessionRefId,
         sessionPlanId,
         sessionNo,
         patId

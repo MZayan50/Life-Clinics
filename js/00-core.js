@@ -132,6 +132,26 @@ const DB = {
   push(k, o){
     if (!o.id) o.id = genUUID();
     if (!o.createdAt) Object.assign(o, _audit());
+
+    // ✅ FIX (مشكلة #3): حارس مركزي ضد تكرار قيود الخزينة — بغض النظر عن المسار
+    // الذي أنشأ القيد (فاتورة، تحصيل، باقة، جلسة...). كانت هناك عدة مسارات منفصلة
+    // تكتب لـ cashlog بشروط منع تكرار مختلفة عن بعضها، فيحدث أحيانًا قيد مزدوج
+    // (وهو سبب الحاجة لزر "تنظيف التكرار" اليدوي في شاشة الخزينة).
+    // القاعدة: لو القيد له refId، ونفس refId + source + amount + date مسجّل
+    // بالفعل في cashlog، نتجاهل الإضافة الجديدة ونرجّع القيد الموجود.
+    if(k === 'cashlog' && o.refId){
+      const existing = DB.get('cashlog').find(c =>
+        String(c.refId) === String(o.refId) &&
+        c.source === o.source &&
+        (c.amount || 0) === (o.amount || 0) &&
+        c.date === o.date
+      );
+      if(existing){
+        console.warn('[DB.push] تم تجاهل قيد خزينة مكرر:', o);
+        return existing;
+      }
+    }
+
     // Update local cache immediately (optimistic UI)
     const a = DB.get(k);
     a.push(o);
@@ -207,6 +227,31 @@ function _recalcPatFinancials(patId){
   });
 }
 
+// ── ✅ FIX: دالة موحدة لتسجيل/تحديث عمولة الطبيب على أي دفعة (أولى أو لاحقة) ──
+// تُستخدم من: invoices:created (الدفعة الأولى)، invoices:updated (تعديل يدوي بـ paidDelta)،
+// وأيضاً تُستدعى مباشرة من processSmartPayment (شاشة "تحصيل دفعة" — وهي الأكثر استخداماً فعلياً)
+// لأن تلك الشاشة لا تضبط paidDelta فكانت العمولة تُفقد على كل تحصيل يمر منها.
+function recordDoctorCommission(invId, paymentAmount){
+  if(!paymentAmount || paymentAmount <= 0) return;
+  const inv = DB.get('invoices').find(i => String(i.id) === String(invId));
+  if(!inv || !inv.doctor) return;
+  // ✅ FIX (مشكلة #4): الأولوية لمطابقة doctorId (ثابت ودقيق)، والاسم fallback فقط
+  // للسجلات القديمة التي لم تكن تخزّن doctorId. كانت المطابقة بالاسم هي الافتراضية
+  // فتنكسر صامتة لو الطبيب غيّر اسمه لاحقاً في شاشة الموظفين.
+  const doctors = DB.get('doctors');
+  const doc = (inv.doctorId && doctors.find(d => String(d.id) === String(inv.doctorId)))
+           || doctors.find(d => d.name === inv.doctor);
+  if(!doc || !(doc.commission > 0)) return;
+  const commDelta = Math.round(paymentAmount * (doc.commission / 100));
+  if(commDelta <= 0) return;
+  const prevComm = inv.commissionAmount || 0;
+  DB.upd('invoices', invId, {
+    commissionRecorded: true,
+    commissionAmount: prevComm + commDelta,
+    commissionPct: doc.commission
+  });
+}
+
 // ── 1. فاتورة جديدة → تحديث إنفاق العميل + تسجيل الخزينة ──
 EventBus.on('invoices:created', function(inv){
   _recalcPatFinancials(inv.patId);
@@ -258,19 +303,9 @@ EventBus.on('invoices:created', function(inv){
       });
     });
   }
-  // ── عمولة الطبيب: تسجيل تلقائي على الفاتورة ──
+  // ── عمولة الطبيب: تسجيل تلقائي على الفاتورة (دفعة أولى) ──
   if(inv.doctor && !inv.commissionRecorded){
-    const doc = DB.get('doctors').find(d => d.name === inv.doctor || d.id === inv.doctorId);
-    if(doc && doc.commission > 0){
-      const commAmt = Math.round((inv.paid||0) * (doc.commission / 100));
-      if(commAmt > 0){
-        DB.upd('invoices', inv.id, {
-          commissionRecorded: true,
-          commissionAmount: commAmt,
-          commissionPct: doc.commission
-        });
-      }
-    }
+    recordDoctorCommission(inv.id, inv.paid || 0);
   }
 });
 
@@ -290,20 +325,7 @@ EventBus.on('invoices:updated', function(inv){
       notes: 'دفعة جزئية على فاتورة'
     });
     // ── عمولة الطبيب على الدفعة الجديدة ──
-    if(inv.doctor){
-      const doc = DB.get('doctors').find(d => d.name === inv.doctor || d.id === inv.doctorId);
-      if(doc && doc.commission > 0){
-        const commDelta = Math.round(inv.paidDelta * (doc.commission / 100));
-        if(commDelta > 0){
-          const prevComm = inv.commissionAmount || 0;
-          DB.upd('invoices', inv.id, {
-            commissionRecorded: true,
-            commissionAmount: prevComm + commDelta,
-            commissionPct: doc.commission
-          });
-        }
-      }
-    }
+    recordDoctorCommission(inv.id, inv.paidDelta);
   }
 });
 
@@ -366,20 +388,13 @@ EventBus.on('purchases:updated', function(purchase){
     }
   }
 
-  // ── ج. تسجيل حركة مالية (مصروف على المشتريات) ──
-  const total = purchase.total || items.reduce((s,i)=>s+(i.qty||0)*(i.unitPrice||0),0);
-  if(total > 0){
-    DB.push('cashlog', {
-      type: 'صادر',
-      source: `فاتورة شراء — ${purchase.supplier || 'مورد'}`,
-      amount: total,
-      method: 'آجل',
-      date: today,
-      refType: 'purchase',
-      refId: purchase.id,
-      notes: `استلام طلبية رقم ${purchase.id}`
-    });
-  }
+  // ── ج. ✅ FIX: لا نسجّل حركة خزينة هنا — استلام بضاعة "آجل" ليس خروج كاش فعلي.
+  // مديونية المورد تُحدَّث فعلاً في الفقرة (ب) أعلاه عبر suppliers.owed،
+  // والحركة النقدية الحقيقية تُسجَّل فقط عند السداد الفعلي للمورد
+  // (دالة سداد المورد في 05-inventory.js تسجّل cashlog من نوع "صادر" حينها).
+  // (كان هذا القيد يُسجَّل تلقائياً بمجرد الاستلام بغض النظر عن طريقة الدفع،
+  //  فيُنقص رصيد الخزينة المعروض بمبلغ لم يخرج فعلياً من الكاش، ثم يتكرر
+  //  الخصم مرة أخرى عند السداد الفعلي لاحقاً — ازدواج في صافي حركة الخزينة).
 
   // ── د. تسجيل أن المخزون تم تحديثه لهذه الطلبية (لمنع التكرار) ──
   // نستخدم setTimeout لتجنب تشغيل الـ hook مرة أخرى من نفس الحدث
