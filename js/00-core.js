@@ -563,7 +563,11 @@ function _flushUIRefresh(){
         _pendingRefresh.has('invoices') ||
         _pendingRefresh.has('installments') ||
         _pendingRefresh.has('sessions') ||
-        _pendingRefresh.has('cashlog')
+        _pendingRefresh.has('cashlog') ||
+        // ✅ FIX (مزامنة لحظية — مرحلة 4): كانت ناقصة — لوحة العميل بتعرض
+        // أرصدة الباقات وتكلفة/ربح الجلسات كمان، فلازم تتحدث لو اتغيّروا
+        _pendingRefresh.has('packages') ||
+        _pendingRefresh.has('session_completions')
       );
       if(_needPatPanelRefresh) viewPat(window._curPat);
     }
@@ -598,6 +602,24 @@ function _flushUIRefresh(){
     if(_pendingRefresh.has('equipment')    && active==='resources')    renderEquipment();
     if(_pendingRefresh.has('campaigns')    && active==='campaigns')    renderCampaigns();
     if(_pendingRefresh.has('waitlist')     && active==='waitlist')     renderWaitlist();
+    // ✅ FIX (مزامنة لحظية — مرحلة 4): الـ listener الحقيقي بتاع Firestore
+    // (attachFirestoreSync في 11-settings.js) بينادي _scheduleUIRefresh(col)
+    // بنفس اسم الـ collection الحرفي زي ما هو في قاعدة البيانات — مش بالاسم
+    // المستعار اللي كانت بتستخدمه بعض أحداث EventBus المحلية (مثلاً 'packages'
+    // كانت بتتسجل محليًا تحت اسم 'sessions'). فكان فيه فرق: تعديل محلي على
+    // الباقات بيحدّث الشاشة لأنه بيمر بـ hint='sessions' (متغطّى أعلاه)، لكن
+    // **تعديل بعيد من جهاز تاني** كان بيمر بـ hint='packages' الحرفي ومفيش
+    // أي شرط بيتحقق منه — فشاشة الباقات/الجلسات ما كانتش بتتحدث لحظيًا إلا
+    // بالخروج والرجوع. نفس المشكلة كانت ناقصة بالكامل لباقي الـ collections
+    // دي (مفيش أي EventBus hook محلي ولا أي حالة في _flushUIRefresh خالص).
+    if(_pendingRefresh.has('packages')             && active==='packages')   renderPackages();
+    if(_pendingRefresh.has('packages')             && active==='sessions')   renderSessions();
+    if(_pendingRefresh.has('purchase_items')       && active==='purchases')  renderPurchases();
+    if(_pendingRefresh.has('supplier_payments')    && active==='suppliers') renderSuppliers();
+    if(_pendingRefresh.has('advances')             && active==='staff')     renderStaff();
+    if(_pendingRefresh.has('inventory_transactions') && active==='inventory') renderInv();
+    if(_pendingRefresh.has('session_completions')  && active==='sessions')   renderSessions();
+    if(_pendingRefresh.has('session_completions')  && active==='packages')   renderPackages();
     if(_pendingRefresh.has('waitlist')     && active==='reception')    renderReception();
   } catch(e){ console.warn('[UI Refresh]', e); }
   _pendingRefresh.clear();
@@ -695,6 +717,18 @@ EventBus.on('campaigns:deleted',    () => _scheduleUIRefresh('campaigns'));
 EventBus.on('waitlist:created',     () => _scheduleUIRefresh('waitlist'));
 EventBus.on('waitlist:updated',     () => _scheduleUIRefresh('waitlist'));
 EventBus.on('waitlist:deleted',     () => _scheduleUIRefresh('waitlist'));
+// ✅ FIX (مزامنة لحظية — مرحلة 4)
+EventBus.on('purchase_items:created',       () => _scheduleUIRefresh('purchase_items'));
+EventBus.on('purchase_items:updated',       () => _scheduleUIRefresh('purchase_items'));
+EventBus.on('purchase_items:deleted',       () => _scheduleUIRefresh('purchase_items'));
+EventBus.on('supplier_payments:created',    () => _scheduleUIRefresh('supplier_payments'));
+EventBus.on('supplier_payments:updated',    () => _scheduleUIRefresh('supplier_payments'));
+EventBus.on('supplier_payments:deleted',    () => _scheduleUIRefresh('supplier_payments'));
+EventBus.on('advances:created',             () => _scheduleUIRefresh('advances'));
+EventBus.on('advances:updated',             () => _scheduleUIRefresh('advances'));
+EventBus.on('advances:deleted',             () => _scheduleUIRefresh('advances'));
+EventBus.on('inventory_transactions:created', () => _scheduleUIRefresh('inventory_transactions'));
+EventBus.on('session_completions:created',  () => _scheduleUIRefresh('session_completions'));
 
 // ══════════════════════════════════════════
 // 🔗 LOOKUP HELPERS
