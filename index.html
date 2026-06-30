@@ -491,8 +491,6 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--teal);"><div class="ai-dot"></div> <span id="dash-sync-lbl">مزامنة تلقائية</span></div>
       <select class="selbox" id="dash-branch-sel" onchange="buildDashboard()">
         <option value="">كل الفروع</option>
-        <option>مدينة نصر</option>
-        <option>المهندسين</option>
       </select>
       <button class="btn btn-primary btn-sm" onclick="openApptModal()">📅 موعد جديد</button>
     </div>
@@ -763,7 +761,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <div class="screen" id="screen-patients">
   <div class="filter-bar">
     <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث بالاسم أو الهاتف..." oninput="filterPat(this.value)"></div>
-    <select class="selbox"><option>كل الفروع</option><option>مدينة نصر</option><option>المهندسين</option></select>
+    <select class="selbox"><option>كل الفروع</option></select>
     <select class="selbox" onchange="filterPatSt(this.value)"><option value="">كل العملاء</option><option value="نشط">نشط</option><option value="قسط">قسط</option><option value="غير نشط">غير نشط</option></select>
     <button class="btn btn-primary" onclick="openPatModal()">+ عميل جديد</button>
     <button class="btn btn-ghost btn-sm" onclick="exportPat()">📊 تصدير</button>
@@ -1649,7 +1647,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="fgrp"><label class="flbl">عدد الجلسات الكلي</label><input class="fctl" type="number" id="sess-total-count" placeholder="6" min="1" oninput="calcSessFinancials()"></div>
     <div class="fgrp"><label class="flbl">الجلسات المنجزة</label><input class="fctl" type="number" id="sess-done-count" placeholder="0" min="0"></div>
     <div class="fgrp"><label class="flbl">سعر الجلسة (ج)</label><input class="fctl" type="number" id="sess-price" placeholder="0" oninput="calcSessFinancials()"></div>
-    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="sess-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="sess-branch"><option value="" disabled selected>-- أضف فرعًا أولاً --</select></div>
     <div class="fgrp"><label class="flbl">تاريخ البداية</label><input class="fctl" type="date" id="sess-start"></div>
     <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="sess-status"><option>جارية</option><option>مكتملة</option><option>متوقفة</option></select></div>
     <!-- ملخص مالي -->
@@ -1709,7 +1707,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <div class="screen" id="screen-doctors">
   <div class="filter-bar">
     <div class="sbox"><span>🔍</span><input type="text" id="doc-search" placeholder="بحث عن طبيب..." oninput="renderDocs()"></div>
-    <select class="selbox" id="doc-branch-filter" onchange="renderDocs()"><option value="">كل الفروع</option><option value="مدينة نصر">مدينة نصر</option><option value="المهندسين">المهندسين</option></select>
+    <select class="selbox" id="doc-branch-filter" onchange="renderDocs()"><option value="">كل الفروع</option></select>
     <button class="btn btn-primary" onclick="openDocModal()">+ طبيب جديد</button>
   </div>
   <div class="kpi-grid">
@@ -1727,7 +1725,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <input type="hidden" id="doc-id">
     <div class="fgrp full"><label class="flbl">الاسم *</label><input class="fctl" id="doc-name" placeholder="د. الاسم الكامل"></div>
     <div class="fgrp"><label class="flbl">التخصص</label><input class="fctl" id="doc-specialty" placeholder="مثال: بشرة وجلدية"></div>
-    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="doc-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="doc-branch"><option value="" disabled selected>-- أضف فرعًا أولاً --</select></div>
     <div class="fgrp"><label class="flbl">الهاتف</label><input class="fctl" id="doc-phone" placeholder="01X-XXX-XXXX"></div>
     <div class="fgrp"><label class="flbl">البريد الإلكتروني</label><input class="fctl" id="doc-email" placeholder="email@example.com"></div>
     <div class="fgrp"><label class="flbl">نسبة العمولة (%)</label><input class="fctl" type="number" id="doc-commission" placeholder="15"></div>
@@ -1761,7 +1759,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div id="st-empcode-display" style="font-size:12px;color:var(--teal);font-weight:600;margin-bottom:10px;padding:6px 10px;background:var(--glass);border-radius:8px;text-align:center;">🪪 سيُولَّد الكود تلقائياً عند الحفظ</div>
     <div class="fgrp full"><label class="flbl">الاسم *</label><input class="fctl" id="st-name" placeholder="الاسم الكامل"></div>
     <div class="fgrp"><label class="flbl">الدور الوظيفي</label><select class="fctl" id="st-role"><option>استقبال</option><option>محاسب</option><option>مدير فرع</option><option>أخرى</option></select></div>
-    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="st-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="st-branch"><option value="" disabled selected>-- أضف فرعًا أولاً --</select></div>
     <div class="fgrp"><label class="flbl">الهاتف</label><input class="fctl" id="st-phone" placeholder="01X-XXX-XXXX"></div>
     <div class="fgrp"><label class="flbl">البريد الإلكتروني</label><input class="fctl" id="st-email" placeholder="email@example.com"></div>
     <div class="fgrp"><label class="flbl">الراتب الشهري (ج)</label><input class="fctl" type="number" id="st-salary" placeholder="5000"></div>
@@ -1885,7 +1883,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="fgrp full"><label class="flbl">البيان *</label><input class="fctl" id="exp-name" placeholder="مثال: إيجار الفرع"></div>
     <div class="fgrp"><label class="flbl">النوع</label><select class="fctl" id="exp-type"><option>إيجار</option><option>مرافق</option><option>رواتب</option><option>سلفة</option><option>مخزون</option><option>تسويق</option><option>أخرى</option></select></div>
     <div class="fgrp"><label class="flbl">المبلغ (ج) *</label><input class="fctl" type="number" id="exp-amount" placeholder="0"></div>
-    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="exp-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="exp-branch"><option value="" disabled selected>-- أضف فرعًا أولاً --</select></div>
     <div class="fgrp"><label class="flbl">التاريخ</label><input class="fctl" type="date" id="exp-date"></div>
     <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="exp-notes" placeholder="أي تفاصيل إضافية..."></textarea></div>
   </div></div>
@@ -2134,7 +2132,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       </div>
       <div class="fgrp"><label class="flbl">تاريخ الطلب</label><input class="fctl" type="date" id="pur-order-date"></div>
       <div class="fgrp"><label class="flbl">تاريخ التسليم المتوقع</label><input class="fctl" type="date" id="pur-delivery-date"></div>
-      <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="pur-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+      <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="pur-branch"><option value="" disabled selected>-- أضف فرعًا أولاً --</select></div>
       <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="pur-status"><option>معلق</option><option>موافق عليه</option><option>مستلم</option><option>ملغي</option></select></div>
       <div class="fgrp full"><label class="flbl">ملاحظات</label><input class="fctl" id="pur-notes" placeholder="ملاحظات اختيارية..."></div>
     </div>
@@ -2169,8 +2167,8 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="mbody"><div class="fg">
       <input type="hidden" id="tr-id">
       <div class="fgrp full"><label class="flbl">المنتج *</label><select class="fctl" id="tr-product"><option value="">-- اختر منتج --</option></select></div>
-      <div class="fgrp"><label class="flbl">من فرع</label><select class="fctl" id="tr-from"><option>مدينة نصر</option><option>المهندسين</option></select></div>
-      <div class="fgrp"><label class="flbl">إلى فرع</label><select class="fctl" id="tr-to"><option>المهندسين</option><option>مدينة نصر</option></select></div>
+      <div class="fgrp"><label class="flbl">من فرع</label><select class="fctl" id="tr-from"><option value="" disabled selected>-- أضف فرعًا أولاً --</option></select></div>
+      <div class="fgrp"><label class="flbl">إلى فرع</label><select class="fctl" id="tr-to"><option value="" disabled selected>-- أضف فرعًا أولاً --</option></select></div>
       <div class="fgrp"><label class="flbl">الكمية *</label><input class="fctl" type="number" id="tr-qty" placeholder="0"></div>
       <div class="fgrp"><label class="flbl">التاريخ</label><input class="fctl" type="date" id="tr-date"></div>
       <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="tr-notes" placeholder="سبب التحويل..."></textarea></div>
@@ -2276,7 +2274,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="fgrp"><label class="flbl">الوقت *</label><input class="fctl" type="time" id="am-time"></div>
     <div class="fgrp"><label class="flbl">الخدمة</label><select class="fctl" id="am-svc" onchange="onApptSvcChange()"></select></div>
     <div class="fgrp"><label class="flbl">الغرفة</label><select class="fctl" id="am-room"><option value="">— تلقائي حسب الخدمة —</option></select></div>
-    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="am-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="am-branch"><option value="" disabled selected>-- أضف فرعًا أولاً --</select></div>
     <div class="fgrp full" id="am-conflict-box" style="display:none;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--rose);"></div>
     <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="am-notes" placeholder="أي ملاحظات..."></textarea></div>
     <div class="fgrp full"><label class="flbl">تذكير بـ</label><div style="display:flex;gap:14px;"><label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" checked> واتساب</label><label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox"> SMS</label><label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox"> إيميل</label></div></div>
@@ -2297,7 +2295,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="fgrp"><label class="flbl">الجنس</label><select class="fctl" id="pm-gender"><option>أنثى</option><option>ذكر</option></select></div>
     <div class="fgrp"><label class="flbl">المهنة</label><input class="fctl" id="pm-job" placeholder="المهنة"></div>
     <div class="fgrp"><label class="flbl">مصدر العميل</label><select class="fctl" id="pm-src"><option>فيسبوك</option><option>إنستجرام</option><option>صديق</option><option>إعلان</option><option>أخرى</option></select></div>
-    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="pm-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="pm-branch"><option value="" disabled selected>-- أضف فرعًا أولاً --</select></div>
     <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="pm-status"><option value="نشط">نشط</option><option value="غير نشط">غير نشط</option></select></div>
     <hr class="fdivider">
     <div class="fsec">الملف الطبي</div>
@@ -2440,7 +2438,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="fgrp full"><label class="flbl">اسم المنتج *</label><input class="fctl" id="prod-name" placeholder="اسم المنتج"></div>
     <div class="fgrp"><label class="flbl">الفئة</label><select class="fctl" id="prod-cat"><option>بشرة</option><option>شعر</option><option>أدوية</option><option>مستلزمات</option></select></div>
     <div class="fgrp full"><label class="flbl">المورد</label><select class="fctl" id="prod-supplier"><option value="">-- بدون مورد --</option></select></div>
-    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="prod-branch"><option value="مدينة نصر">مدينة نصر</option><option value="المهندسين">المهندسين</option></select></div>
+    <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="prod-branch"><option value="">-- أضف فرعًا أولاً --</option></select></div>
     <!-- ══ وحدات الشراء والاستهلاك ══ -->
     <div class="fgrp"><label class="flbl">وحدة الشراء</label>
       <select class="fctl" id="prod-purchase-unit" onchange="calcProdCostPerUnit()">
