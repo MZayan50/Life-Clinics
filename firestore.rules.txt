@@ -106,7 +106,14 @@ service cloud.firestore {
                     && request.resource.data.type in ['وارد', 'صادر']
                     && isReasonableSize(request.resource.data);
       allow update: if false;  // الـ cashlog لا يُعدَّل — append only
-      allow delete: if false;  // الـ cashlog لا يُحذف
+      // ✅ FIX (بطلب المستخدم — النظام حاليًا نسخة تجريبية لاكتشاف الأخطاء):
+      // كان الحذف ممنوعًا تمامًا (if false) عشان الخزينة مصممة كسجل محاسبي
+      // append-only، وده اللي كان بيمنع زر "مسح الخزينة" في شاشة الخزينة من
+      // العمل (clearCashlog() في 06-finance.js بيعمل batch.delete على نفس
+      // الـ collection). اتفتح الحذف هنا مؤقتًا. ⚠️ لما النظام يدخل مرحلة
+      // الإنتاج الفعلي، يُفضَّل ترجيعها لـ "if false" مرة تانية عشان محدش
+      // يقدر يمسح سجلات مالية فعلية بالغلط أو عمدًا.
+      allow delete: if true;
     }
 
     match /audit_log/{docId} {
