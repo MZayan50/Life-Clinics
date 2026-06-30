@@ -9,9 +9,9 @@
 (function _crmListeners(){
 
   // Leads: أي تغيير على الـ leads → تحديث الكانبان تلقائياً
-  EventBus.on('leads:created', () => renderLeads());
-  EventBus.on('leads:updated', () => renderLeads());
-  EventBus.on('leads:deleted', () => renderLeads());
+  EventBus.on('leads:created', () => { renderLeads(); renderCampaigns(); });
+  EventBus.on('leads:updated', () => { renderLeads(); renderCampaigns(); });
+  EventBus.on('leads:deleted', () => { renderLeads(); renderCampaigns(); });
 
   // Patients: تغيير بيانات المرضى → تحديث قائمة واتساب
   EventBus.on('patients:created', () => { if(_waSelectedPat===null) renderWAContacts(''); });
@@ -38,8 +38,21 @@
 })();
 
 // ══════════════════════════════════════════
-// 🎯 LEADS KANBAN
+// 🔗 ربط حقيقي Leads ↔ Campaigns
+// leadsCount/converted بتاع كل حملة بيُحسبوا دايماً من جدول leads
+// الفعلي عبر campaignId — مش من إدخال يدوي. كده مفيش تضارب بين
+// رقم تكتبه بإيدك ورقم حقيقي.
 // ══════════════════════════════════════════
+function campLeadStats(campaignId){
+  if(!campaignId) return { leadsCount: 0, converted: 0 };
+  const camLeads = DB.get('leads').filter(l => String(l.campaignId) === String(campaignId));
+  return {
+    leadsCount: camLeads.length,
+    converted:  camLeads.filter(l => l.status === 'تم التحويل').length,
+  };
+}
+
+
 const LCOLS = [
   { k: 'جديد',       b: 'nb-teal'  },
   { k: 'تم التواصل', b: 'nb-teal'  },
@@ -48,12 +61,27 @@ const LCOLS = [
   { k: 'تم التحويل', b: 'nb-green' },
 ];
 
-function renderLeads(){
+let _leadsSearch = '';
+
+function renderLeads(q){
+  if(q !== undefined) _leadsSearch = q;
   const kb = document.getElementById('leads-kanban'); if(!kb) return;
-  const leads = DB.get('leads');
+  let leads = DB.get('leads');
   txt('badge-leads', leads.filter(l => l.status === 'جديد').length);
   const lbl = document.getElementById('leads-lbl');
   if(lbl) lbl.textContent = `${leads.length} lead`;
+  const searchEl = document.getElementById('leads-search');
+  if(searchEl && searchEl.value !== _leadsSearch) searchEl.value = _leadsSearch;
+  const term = (_leadsSearch || '').trim();
+  if(term){
+    leads = leads.filter(l =>
+      (l.name && l.name.includes(term)) ||
+      (l.source && l.source.includes(term)) ||
+      (l.service && l.service.includes(term)) ||
+      (l.phone && l.phone.includes(term))
+    );
+  }
+  const camps = DB.get('campaigns');
   kb.innerHTML = LCOLS.map(col => {
     const items = leads.filter(l => l.status === col.k);
     return `<div class="kcol">
@@ -61,46 +89,99 @@ function renderLeads(){
         <span>${col.k}</span>
         <span class="nb ${col.b}" style="font-size:10px;padding:2px 7px;">${items.length}</span>
       </div>
-      ${items.map(l => `
+      ${items.map(l => {
+        const camp = l.campaignId ? camps.find(c => c.id === l.campaignId) : null;
+        return `
         <div class="lcard">
           <div class="lname">${l.name}</div>
           <div class="lsvc">${l.service}</div>
           <div class="ltime">📞 ${l.source}${l.notes ? ' · ' + l.notes : ''}</div>
+          ${camp ? `<div style="font-size:10px;color:var(--teal);margin-top:3px;">📣 ${camp.name}</div>` : ''}
           <div style="display:flex;gap:5px;margin-top:8px;">
             ${l.status !== 'تم التحويل' ? `<button class="btn btn-ghost btn-xs" style="flex:1" onclick="moveLead('${l.id}')">→ تقدّم</button>` : ''}
             ${['مهتم','تم التواصل'].includes(l.status) ? `<button class="btn btn-teal btn-xs" style="flex:1" onclick="convertToAppt('${l.id}')">📅 حوّل لموعد</button>` : ''}
+            ${l.status !== 'تم التحويل' ? `<button class="btn btn-ghost btn-xs" onclick="openLeadModal('${l.id}')">✏️</button>` : ''}
+            <button class="btn btn-danger btn-xs" onclick="delLead('${l.id}')">🗑</button>
           </div>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     </div>`;
   }).join('');
 }
 
 function moveLead(id){
   const lead = DB.get('leads').find(l => l.id == id); if(!lead) return;
-  const idx  = LCOLS.findIndex(c => c.k === lead.status);
-  const next = LCOLS[(idx + 1) % LCOLS.length];
+  const idx = LCOLS.findIndex(c => c.k === lead.status);
+  // ✅ FIX (باگ منطقي): "تقدّم" ما ينقلش لـ "تم التحويل" أبداً — الحالة دي
+  // لازم تحصل فقط من خلال confirmConvertToAppt الفعلية (عميل + موعد حقيقيين)،
+  // عشان "تم التحويل" يفضل معناها دايماً تحويل حقيقي، مش مجرد كليكات.
+  const lastNonConvertedIdx = LCOLS.length - 2; // 'غير مهتم'
+  if(idx >= lastNonConvertedIdx){
+    showToast('warning', '⚠️ استخدم "حوّل لموعد" لإكمال التحويل الفعلي', 'لا يمكن الوصول لحالة "تم التحويل" بدون عميل وموعد حقيقيين');
+    return;
+  }
+  const next = LCOLS[idx + 1];
   DB.upd('leads', id, { status: next.k });
   showToast('info', `🎯 ${lead.name} → ${next.k}`);
   // renderLeads() يُستدعى تلقائياً عبر leads:updated
 }
 
+function delLead(id){
+  const lead = DB.get('leads').find(l => l.id == id); if(!lead) return;
+  if(confirm(`حذف Lead "${lead.name}"؟`)){
+    DB.del('leads', id);
+    showToast('info', '🗑 تم حذف الـ Lead');
+    // renderLeads() يُستدعى تلقائياً عبر leads:deleted
+  }
+}
+
+// ── فتح modal لإضافة Lead جديد أو تعديل لو تم تمرير id ──
+function openLeadModal(id){
+  const lead = id ? DB.get('leads').find(l => l.id == id) : null;
+  const campSel = document.getElementById('ld-campaign');
+  if(campSel){
+    const camps = DB.get('campaigns');
+    campSel.innerHTML = '<option value="">— بدون حملة —</option>' +
+      camps.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  }
+  const set = (id, v) => { const e = document.getElementById(id); if(e) e.value = v || ''; };
+  document.getElementById('lead-modal-id') && (document.getElementById('lead-modal-id').value = id || '');
+  if(lead){
+    set('ld-name', lead.name); set('ld-phone', lead.phone); set('ld-svc', lead.service);
+    set('ld-src', lead.source); set('ld-campaign', lead.campaignId); set('ld-notes', lead.notes);
+  } else {
+    ['ld-name','ld-phone','ld-notes'].forEach(i => set(i, ''));
+    set('ld-campaign', '');
+  }
+  const titleEl = document.querySelector('#lead-modal .mtitle');
+  if(titleEl) titleEl.textContent = lead ? '✏️ تعديل Lead' : '🎯 Lead جديد';
+  openModal('lead-modal');
+}
+
 function saveLead(){
   const name = gv('ld-name').trim();
   if(!name){ showToast('warning', '⚠️ الاسم مطلوب'); return; }
-  DB.push('leads', {
+  const editId = document.getElementById('lead-modal-id')?.value;
+  const data = {
     name,
-    phone:   gv('ld-phone'),
-    service: gv('ld-svc'),
-    source:  gv('ld-src'),
-    notes:   gv('ld-notes'),
-    status:  'جديد',
-  });
+    phone:      gv('ld-phone'),
+    service:    gv('ld-svc'),
+    source:     gv('ld-src'),
+    campaignId: gv('ld-campaign') || null,
+    notes:      gv('ld-notes'),
+  };
+  if(editId){
+    DB.upd('leads', editId, data);
+    showToast('success', `✅ تم تحديث ${name}`);
+  } else {
+    DB.push('leads', { ...data, status: 'جديد' });
+    showToast('success', `🎯 تم إضافة ${name} كـ Lead`);
+  }
   closeModal('lead-modal');
-  showToast('success', `🎯 تم إضافة ${name} كـ Lead`);
   ['ld-name','ld-phone','ld-notes'].forEach(i => {
     const e = document.getElementById(i); if(e) e.value = '';
   });
-  // renderLeads() يُستدعى تلقائياً عبر leads:created
+  // renderLeads() يُستدعى تلقائياً عبر leads:created / leads:updated
 }
 
 // ── فتح modal لاختيار تاريخ الموعد قبل التحويل ──
@@ -117,6 +198,20 @@ function convertToAppt(leadId){
   if(dateEl) dateEl.value = tomorrow.toISOString().split('T')[0];
   const notesEl = document.getElementById('cvt-appt-notes');
   if(notesEl) notesEl.value = '';
+
+  // ✅ FIX (مشكلة الخدمة/الطبيب الخطأ): بدل ما نقع على أول خدمة في القايمة
+  // بالصدفة لو الاسم متطابقش، نعرض كل الخدمات الحقيقية في select ونحاول
+  // نطابق تلقائياً، ونحذّر المستخدم لو مفيش تطابق دقيق عشان يتأكد بنفسه.
+  const services = DB.get('services');
+  const svcSel  = document.getElementById('cvt-service');
+  const warnEl  = document.getElementById('cvt-svc-warn');
+  const exactMatch = services.find(s => s.name === lead.service);
+  if(svcSel){
+    svcSel.innerHTML = services.map(s =>
+      `<option value="${s.id}" ${exactMatch && s.id === exactMatch.id ? 'selected' : ''}>${s.name}${s.doctor ? ' — ' + s.doctor : ''}</option>`
+    ).join('') || '<option value="">لا توجد خدمات مسجّلة</option>';
+  }
+  if(warnEl) warnEl.style.display = (!exactMatch && lead.service) ? 'block' : 'none';
   openModal('lead-convert-modal');
 }
 
@@ -126,6 +221,7 @@ function confirmConvertToAppt(){
   const apptDate = document.getElementById('cvt-appt-date')?.value;
   const apptTime = document.getElementById('cvt-appt-time')?.value || '10:00';
   const extraNotes = document.getElementById('cvt-appt-notes')?.value || '';
+  const svcId = document.getElementById('cvt-service')?.value;
 
   if(!apptDate){ showToast('warning', '⚠️ اختر تاريخ الموعد'); return; }
 
@@ -145,12 +241,13 @@ function confirmConvertToAppt(){
     showToast('info', `👤 تم إنشاء ملف عميل جديد لـ ${lead.name}`);
   }
 
-  // 2. إنشاء موعد بالتاريخ المختار
-  const svc = DB.get('services').find(s => s.name === lead.service) || DB.get('services')[0];
+  // 2. إنشاء موعد بالخدمة المختارة فعلياً من المستخدم (مفيش fallback عشوائي)
+  const svc = DB.get('services').find(s => s.id === svcId);
+  if(!svc){ showToast('warning', '⚠️ اختر خدمة صحيحة للموعد'); return; }
   DB.push('appointments', {
     patId: pat.id, patient: pat.name,
-    serviceId: svc?.id || '', service: lead.service || svc?.name || 'استشارة',
-    type: 'كشف', doctor: svc?.doctor || '', doctorId: svc?.doctorId || '',
+    serviceId: svc.id, service: svc.name,
+    type: 'كشف', doctor: svc.doctor || '', doctorId: svc.doctorId || '',
     date: apptDate, time: apptTime, status: 'مؤكد',
     branch: pat.branch || '',
     notes: `محوّل من Lead${extraNotes ? ' — ' + extraNotes : (lead.notes ? ' — ' + lead.notes : '')}`,
@@ -344,24 +441,37 @@ function sendBulkWAReminders(){
 const CAMP_COLORS = { 'نشطة': 'kc-teal', 'منتهية': 'kc-rose', 'مجدولة': 'kc-amber' };
 const CHAN_ICONS  = { 'إنستجرام': '📸', 'فيسبوك': '👥', 'واتساب': '💬', 'SMS': '📱', 'إيميل': '📧', 'جوجل': '🔍' };
 
+let _campSearch = '';
+
 function renderCampaigns(q){
-  q = q || '';
+  // ✅ FIX (فقدان فلتر البحث): لو الشاشة بتتحدث تلقائياً من EventBus بدون
+  // تمرير q (مثلاً بعد إضافة/تعديل حملة)، كنا بنصفّر الفلتر فعلياً بينما
+  // صندوق البحث في الشاشة لسه عارض النص القديم. دلوقتي نحتفظ بآخر نص بحث
+  // في متغير ونعيد مزامنة الـ input معه عند كل render.
+  if(q !== undefined) _campSearch = q;
+  const searchInput = document.querySelector('#screen-campaigns input[type="text"]');
+  if(searchInput && searchInput.value !== _campSearch) searchInput.value = _campSearch;
+
   const stFilter = document.getElementById('camp-status-filter')?.value || '';
   let camps = DB.get('campaigns');
-  if(q)        camps = camps.filter(c => c.name.includes(q));
-  if(stFilter) camps = camps.filter(c => c.status === stFilter);
+  if(_campSearch) camps = camps.filter(c => c.name.includes(_campSearch));
+  if(stFilter)    camps = camps.filter(c => c.status === stFilter);
 
+  // ✅ FIX (ربط حقيقي): leadsCount/converted بيُحسبوا من جدول leads
+  // الفعلي (campLeadStats) بدل القيم اليدوية المخزّنة على الحملة.
   const all = DB.get('campaigns');
+  const allStats = all.map(c => campLeadStats(c.id));
   txt('camp-kpi-active',     all.filter(c => c.status === 'نشطة').length);
   txt('camp-kpi-budget',     all.reduce((s, c) => s + (c.budget || 0), 0).toLocaleString() + ' ج');
-  txt('camp-kpi-leads',      all.reduce((s, c) => s + (c.leadsCount || 0), 0));
-  const totalLeads = all.reduce((s, c) => s + (c.leadsCount || 0), 0);
-  const totalConv  = all.reduce((s, c) => s + (c.converted || 0), 0);
+  const totalLeads = allStats.reduce((s, st) => s + st.leadsCount, 0);
+  const totalConv  = allStats.reduce((s, st) => s + st.converted, 0);
+  txt('camp-kpi-leads',      totalLeads);
   txt('camp-kpi-conversion', totalLeads ? Math.round(totalConv / totalLeads * 100) + '%' : '0%');
 
   const grid = document.getElementById('camp-grid'); if(!grid) return;
   grid.innerHTML = camps.map(c => {
-    const conv = c.leadsCount ? Math.round((c.converted || 0) / c.leadsCount * 100) : 0;
+    const st = campLeadStats(c.id);
+    const conv = st.leadsCount ? Math.round(st.converted / st.leadsCount * 100) : 0;
     return `<div class="kpi-card ${CAMP_COLORS[c.status] || 'kc-purple'}" style="padding:18px;cursor:pointer;">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
         <span style="font-size:18px">${CHAN_ICONS[c.channel] || '📣'}</span>
@@ -371,7 +481,7 @@ function renderCampaigns(q){
       <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:12px;">${c.startDate} ← ${c.endDate}</div>
       <div class="g2c" style="gap:8px;margin-bottom:12px;">
         <div style="text-align:center;background:var(--glass);border-radius:8px;padding:8px;">
-          <div style="font-size:17px;font-weight:800;color:var(--teal)">${c.leadsCount || 0}</div>
+          <div style="font-size:17px;font-weight:800;color:var(--teal)">${st.leadsCount}</div>
           <div style="font-size:10px;color:var(--text-muted)">Leads</div>
         </div>
         <div style="text-align:center;background:var(--glass);border-radius:8px;padding:8px;">
@@ -384,7 +494,6 @@ function renderCampaigns(q){
         <span style="font-weight:700;color:var(--gold-light)">${(c.budget || 0).toLocaleString()} ج</span>
       </div>
       <div style="display:flex;gap:7px;">
-        <button class="btn btn-teal btn-sm"    style="flex:1;font-size:11px" onclick="convertCampLead('${c.id}')">+1 تحويل</button>
         <button class="btn btn-ghost btn-sm"   style="flex:1;font-size:11px" onclick="openCampaignModal('${c.id}')">✏️ تعديل</button>
         <button class="btn btn-danger btn-sm"  style="font-size:11px"        onclick="delCampaign('${c.id}')">🗑</button>
       </div>
@@ -417,22 +526,20 @@ function openCampaignModal(id){
   const leadsEl  = document.getElementById('camp-leads-count');
   if(startEl) startEl.value = c ? c.startDate || '' : new Date().toISOString().split('T')[0];
   if(endEl)   endEl.value   = c ? c.endDate   || '' : '';
-  if(leadsEl) leadsEl.value = c ? c.leadsCount || 0 : 0;
+  // ✅ الحقل دلوقتي للعرض فقط — رقم حقيقي محسوب من leads المرتبطة، مش إدخال يدوي
+  if(leadsEl) leadsEl.value = c ? campLeadStats(c.id).leadsCount : 0;
   openModal('campaign-modal');
 }
 
 function saveCampaign(){
   const name = gv('camp-name').trim();
   if(!name){ showToast('warning', '⚠️ اسم الحملة مطلوب'); return; }
-  const id       = gv('camp-id');
-  const existing = id ? (DB.get('campaigns') || []).find(x => x.id === id) : null;
+  const id = gv('camp-id');
   const data = {
     name,
     channel:    gv('camp-channel'),
     goal:       gv('camp-goal'),
     budget:     parseFloat(gv('camp-budget'))     || 0,
-    leadsCount: parseInt(gv('camp-leads-count'))  || 0,
-    converted:  existing?.converted               || 0,
     startDate:  gv('camp-start'),
     endDate:    gv('camp-end'),
     status:     gv('camp-status'),
@@ -456,11 +563,4 @@ function delCampaign(id){
     showToast('info', '🗑 تم الحذف');
     // renderCampaigns() يُستدعى تلقائياً عبر campaigns:deleted
   }
-}
-
-function convertCampLead(id){
-  const c = (DB.get('campaigns') || []).find(x => x.id === id); if(!c) return;
-  DB.upd('campaigns', id, { converted: (c.converted || 0) + 1 });
-  showToast('success', `✅ تم تسجيل تحويل في "${c.name}"`, `إجمالي التحويلات: ${(c.converted || 0) + 1}`);
-  // renderCampaigns() يُستدعى تلقائياً عبر campaigns:updated
 }

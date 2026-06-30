@@ -463,11 +463,23 @@ function generateBranchesReport(){
 function generateCampaignsReport(){
   const camps = DB.get('campaigns')||[];
   const leads = DB.get('leads')||[];
+  // ✅ FIX: leadsCount/converted كانوا بيُقروا من حقول يدوية على الحملة
+  // (وكان متغير leads ده معرّف بس مش مستخدم — كود ميت). دلوقتي بيُحسبوا
+  // فعلياً من جدول leads عبر campaignId.
+  const statsFor = (campId) => {
+    const camLeads = leads.filter(l => String(l.campaignId) === String(campId));
+    return { leads: camLeads.length, converted: camLeads.filter(l => l.status === 'تم التحويل').length };
+  };
   const totalBudget = camps.reduce((s,c)=>s+(c.budget||0),0);
-  const totalLeads = camps.reduce((s,c)=>s+(c.leadsCount||0),0);
-  const totalConv = camps.reduce((s,c)=>s+(c.converted||0),0);
+  let totalLeads = 0, totalConv = 0;
   const byChannel = {};
-  camps.forEach(c=>{ const ch=c.channel||'غير محدد'; if(!byChannel[ch])byChannel[ch]={budget:0,leads:0,converted:0}; byChannel[ch].budget+=c.budget||0; byChannel[ch].leads+=c.leadsCount||0; byChannel[ch].converted+=c.converted||0; });
+  camps.forEach(c=>{
+    const st = statsFor(c.id);
+    totalLeads += st.leads; totalConv += st.converted;
+    const ch=c.channel||'غير محدد';
+    if(!byChannel[ch]) byChannel[ch]={budget:0,leads:0,converted:0};
+    byChannel[ch].budget+=c.budget||0; byChannel[ch].leads+=st.leads; byChannel[ch].converted+=st.converted;
+  });
   return {
     title:'تقرير الحملات التسويقية',
     summary:[
