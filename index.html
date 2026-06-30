@@ -1012,6 +1012,8 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   <div class="filter-bar">
     <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث عن منتج..." oninput="filterInv(this.value)"></div>
     <select class="selbox" onchange="filterInvSt(this.value)"><option value="">الكل</option><option value="متوفر">متوفر</option><option value="منخفض">منخفض</option><option value="نفذ">نفذ</option></select>
+    <button class="btn btn-ghost" onclick="openAdjustModal()">📊 تسوية مخزون</button>
+    <button class="btn btn-teal" onclick="openProductSaleModal()">🛒 بيع مباشر</button>
     <button class="btn btn-primary" onclick="openProductModal()">+ منتج جديد</button>
     <button class="btn btn-teal" onclick="openQuickSell()">🛒 بيع سريع</button>
   </div>
@@ -1021,7 +1023,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="kpi-card kc-rose"><div class="kpi-icon">🚫</div><div class="kpi-value" id="inv-out">0</div><div class="kpi-label">نفذ من المخزون</div></div>
     <div class="kpi-card kc-emerald"><div class="kpi-icon">💰</div><div class="kpi-value" id="inv-val">0</div><div class="kpi-label">قيمة المخزون (ج)</div></div>
   </div>
-  <div class="card"><div class="table-wrap"><table><thead><tr><th>المنتج</th><th>الكمية</th><th>حد إعادة الطلب</th><th>الصلاحية</th><th>سعر البيع</th><th>الحالة</th><th></th></tr></thead><tbody id="inv-tbody"></tbody></table></div></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>المنتج</th><th>المورد</th><th>الكمية</th><th>حد الطلب</th><th>الصلاحية</th><th>سعر الشراء</th><th>سعر البيع</th><th>الحالة</th><th></th></tr></thead><tbody id="inv-tbody"></tbody></table></div></div>
 </div>
 
 <!-- INVOICES — الشاشة الكاملة موجودة في الأسفل (id="screen-invoices") -->
@@ -1964,63 +1966,12 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('supplier-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveSupplier()">💾 حفظ</button></div>
   </div>
 </div>
-
-<!-- ══ حساب المورد التفصيلي ══ -->
-<div class="modal-overlay" id="supplier-detail-modal">
-  <div class="modal" style="max-width:680px;max-height:90vh;overflow-y:auto">
-    <div class="mhdr">
-      <div>
-        <div class="mtitle">📋 حساب المورد</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:2px"><span id="sd-name"></span> · <span id="sd-phone"></span></div>
-      </div>
-      <button class="mclose" onclick="closeModal('supplier-detail-modal')">✕</button>
-    </div>
-    <input type="hidden" id="sd-id">
-    <div class="mbody">
-
-      <!-- ملخص -->
-      <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
-        <div style="font-size:13px;color:var(--text-muted)">إجمالي المستحقات</div>
-        <div id="sd-owed" style="font-size:22px;font-weight:800;color:var(--rose)">0 ج</div>
-      </div>
-
-      <!-- مشتريات المورد -->
-      <div style="font-weight:700;margin-bottom:8px;font-size:13px;">📦 سجل المشتريات</div>
-      <div class="table-wrap" style="margin-bottom:16px">
-        <table>
-          <thead><tr><th>التاريخ</th><th>المنتج</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th><th>الحالة</th></tr></thead>
-          <tbody id="sd-pur-tbody"></tbody>
-        </table>
-      </div>
-
-      <!-- دفعات المورد -->
-      <div style="font-weight:700;margin-bottom:8px;font-size:13px;">💵 سجل الدفعات</div>
-      <div class="table-wrap" style="margin-bottom:16px">
-        <table>
-          <thead><tr><th>التاريخ</th><th>المبلغ</th><th>الطريقة</th><th>ملاحظات</th></tr></thead>
-          <tbody id="sd-pay-tbody"></tbody>
-        </table>
-      </div>
-
-      <!-- تسجيل دفعة جديدة -->
-      <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:14px;">
-        <div style="font-weight:700;margin-bottom:10px;font-size:13px;">➕ تسجيل دفعة جديدة</div>
-        <div class="fg">
-          <div class="fgrp"><label class="flbl">المبلغ (ج) *</label><input class="fctl" type="number" id="sd-pay-amount" placeholder="0"></div>
-          <div class="fgrp"><label class="flbl">طريقة الدفع</label><select class="fctl" id="sd-pay-method"><option>كاش</option><option>تحويل بنكي</option><option>شيك</option></select></div>
-          <div class="fgrp full"><label class="flbl">ملاحظات</label><input class="fctl" id="sd-pay-notes" placeholder="اختياري"></div>
-        </div>
-        <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="paySupplier()">💰 تأكيد الدفع</button>
-      </div>
-
-    </div>
-  </div>
-</div>
 <div class="screen" id="screen-purchases">
   <div class="filter-bar">
     <div class="sbox"><span>🔍</span><input type="text" placeholder="بحث بالمنتج أو المورد..." oninput="renderPurchases(this.value)"></div>
     <select class="selbox" id="pur-status-filter" onchange="renderPurchases()"><option value="">كل الحالات</option><option value="معلق">معلق</option><option value="موافق عليه">موافق عليه</option><option value="مستلم">مستلم</option><option value="ملغي">ملغي</option></select>
     <input type="date" class="selbox" id="pur-date-filter" onchange="renderPurchases()" style="font-size:12px;">
+    <button class="btn btn-teal" onclick="openMultiPurchaseModal()">📋 فاتورة متعددة</button>
     <button class="btn btn-primary" onclick="openPurchaseModal()">+ طلب شراء</button>
   </div>
   <div class="kpi-grid" style="margin-bottom:14px;">
@@ -2357,10 +2308,18 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <input type="hidden" id="prod-id">
     <div class="fgrp full"><label class="flbl">اسم المنتج *</label><input class="fctl" id="prod-name" placeholder="اسم المنتج"></div>
     <div class="fgrp"><label class="flbl">الفئة</label><select class="fctl" id="prod-cat"><option>بشرة</option><option>شعر</option><option>أدوية</option><option>مستلزمات</option></select></div>
+    <div class="fgrp full"><label class="flbl">المورد</label><select class="fctl" id="prod-supplier"><option value="">-- بدون مورد --</option></select></div>
     <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="prod-branch"><option value="مدينة نصر">مدينة نصر</option><option value="المهندسين">المهندسين</option></select></div>
     <div class="fgrp"><label class="flbl">الكمية</label><input class="fctl" type="number" id="prod-qty" placeholder="0"></div>
     <div class="fgrp"><label class="flbl">حد إعادة الطلب</label><input class="fctl" type="number" id="prod-reord" placeholder="5"></div>
-    <div class="fgrp"><label class="flbl">سعر البيع (ج)</label><input class="fctl" type="number" id="prod-price" placeholder="0"></div>
+    <div class="fgrp"><label class="flbl">سعر الشراء (ج) *</label><input class="fctl" type="number" id="prod-cost" placeholder="0" oninput="calcProdMargin()"></div>
+    <div class="fgrp"><label class="flbl">سعر البيع (ج) *</label><input class="fctl" type="number" id="prod-price" placeholder="0" oninput="calcProdMargin()"></div>
+    <div class="fgrp full" id="prod-margin-row" style="display:none">
+      <div style="background:var(--glass);border-radius:8px;padding:10px;font-size:13px;display:flex;justify-content:space-between;">
+        <span style="color:var(--text-muted)">هامش الربح</span>
+        <span id="prod-margin-val" style="font-weight:800"></span>
+      </div>
+    </div>
     <div class="fgrp"><label class="flbl">تاريخ الانتهاء</label><input class="fctl" type="date" id="prod-exp"></div>
   </div></div>
   <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('product-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveProd()">💾 حفظ</button></div></div>
@@ -2378,8 +2337,22 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="fgrp"><label class="flbl">المدة (دقيقة)</label><input class="fctl" type="number" id="sv-dur" placeholder="60"></div>
     <div class="fgrp"><label class="flbl">الغرفة المطلوبة</label><select class="fctl" id="sv-room"><option value="">— بدون تحديد —</option></select></div>
     <div class="fgrp"><label class="flbl">الجهاز المطلوب</label><select class="fctl" id="sv-equip"><option value="">— بدون تحديد —</option></select></div>
-    <div class="fgrp"><label class="flbl">منتج يُستهلك تلقائياً</label><select class="fctl" id="sv-prod"><option value="">— لا يوجد —</option></select></div>
-    <div class="fgrp"><label class="flbl">الكمية المستهلكة لكل جلسة</label><input class="fctl" type="number" id="sv-qty" placeholder="1" min="0" step="0.5"></div>
+    <!-- ══ وصفة المكونات (BOM) ══ -->
+    <div class="fgrp full" style="grid-column:1/-1">
+      <label class="flbl" style="margin-bottom:8px;">🧪 المكونات المستهلكة في الجلسة</label>
+      <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+        <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;background:var(--surface-2);padding:6px 10px;font-size:12px;color:var(--text-muted);font-weight:600;">
+          <span>المنتج</span><span style="text-align:center;min-width:70px;">الكمية</span><span style="text-align:center;min-width:50px;">الوحدة</span><span style="min-width:32px;"></span>
+        </div>
+        <div id="svc-recipe-rows" style="padding:8px;display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;"></div>
+        <div style="padding:8px;border-top:1px solid var(--border);">
+          <button type="button" class="btn btn-ghost btn-xs" onclick="addSvcRecipeRow()" style="width:100%;">➕ إضافة مكوّن</button>
+        </div>
+      </div>
+      <div style="margin-top:6px;font-size:12px;color:var(--text-muted);">
+        تكلفة المواد المحسوبة: <span id="svc-recipe-cost-calc" style="color:var(--gold-light);font-weight:700;">0 ج</span>
+      </div>
+    </div>
   </div></div>
   <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('service-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveSvc()">💾 حفظ</button></div></div>
 </div>
@@ -2673,5 +2646,121 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   })();
 })();
 </script>
+<!-- ══════════════════════════════════════════ -->
+<!-- 📊 modal: تسوية المخزون -->
+<!-- ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="adjustment-modal">
+  <div class="modal" style="max-width:460px">
+    <div class="mhdr"><div class="mtitle">📊 تسوية مخزون</div><button class="mclose" onclick="closeModal('adjustment-modal')">✕</button></div>
+    <div class="mbody"><div class="fg">
+      <div class="fgrp full"><label class="flbl">المنتج *</label>
+        <select class="fctl" id="adj-product" onchange="updateAdjPreview()"><option value="">-- اختر منتج --</option></select></div>
+      <div class="fgrp"><label class="flbl">نوع التسوية</label>
+        <select class="fctl" id="adj-type" onchange="updateAdjPreview()">
+          <option value="إضافة">➕ إضافة (زيادة)</option>
+          <option value="خصم">➖ خصم (نقص)</option>
+        </select></div>
+      <div class="fgrp"><label class="flbl">الكمية *</label>
+        <input class="fctl" type="number" id="adj-qty" placeholder="0" min="1" oninput="updateAdjPreview()"></div>
+      <div class="fgrp full"><label class="flbl">السبب</label>
+        <input class="fctl" id="adj-reason" placeholder="سبب التسوية (تلف، فرق جرد، ...)"></div>
+      <div id="adj-preview" style="background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:10px;font-size:13px;color:var(--text-muted);text-align:center;margin-top:8px">اختر منتجاً وكمية أولاً</div>
+    </div></div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeModal('adjustment-modal')">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveAdjustment()">✅ تطبيق التسوية</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- 🛒 modal: بيع منتج مباشر -->
+<!-- ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="product-sale-modal">
+  <div class="modal" style="max-width:480px">
+    <div class="mhdr"><div class="mtitle">🛒 بيع منتج مباشر</div><button class="mclose" onclick="closeModal('product-sale-modal')">✕</button></div>
+    <div class="mbody"><div class="fg">
+      <div class="fgrp full"><label class="flbl">المنتج *</label>
+        <select class="fctl" id="psale-product" onchange="updateSalePreview()"><option value="">-- اختر منتج --</option></select></div>
+      <div class="fgrp"><label class="flbl">الكمية *</label>
+        <input class="fctl" type="number" id="psale-qty" placeholder="1" min="1" value="1" oninput="updateSalePreview()"></div>
+      <div class="fgrp"><label class="flbl">طريقة الدفع</label>
+        <select class="fctl" id="psale-method">
+          <option value="كاش">كاش</option>
+          <option value="فيزا">فيزا</option>
+          <option value="تحويل">تحويل بنكي</option>
+          <option value="آجل">آجل</option>
+        </select></div>
+      <div class="fgrp full"><label class="flbl">اسم العميل (اختياري)</label>
+        <input class="fctl" id="psale-patient" placeholder="اسم العميل أو المريض..."></div>
+      <div class="fgrp full"><label class="flbl">ملاحظات</label>
+        <input class="fctl" id="psale-notes" placeholder="ملاحظات اختيارية..."></div>
+      <div id="psale-preview" style="background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:11px;font-size:13px;text-align:center;margin-top:8px">اختر منتجاً أولاً</div>
+    </div></div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeModal('product-sale-modal')">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveProductSale()">💰 تأكيد البيع</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!-- 🛒 modal: فاتورة شراء متعددة الأصناف -->
+<!-- ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="multi-purchase-modal">
+  <div class="modal" style="max-width:680px">
+    <div class="mhdr"><div class="mtitle">🛒 فاتورة شراء — متعددة الأصناف</div><button class="mclose" onclick="closeModal('multi-purchase-modal')">✕</button></div>
+    <div class="mbody">
+      <input type="hidden" id="mpur-id">
+      <div class="fg" style="margin-bottom:12px">
+        <div class="fgrp"><label class="flbl">المورد</label>
+          <select class="fctl" id="mpur-supplier"><option value="">-- اختر مورد --</option></select></div>
+        <div class="fgrp"><label class="flbl">تاريخ الطلب</label>
+          <input class="fctl" type="date" id="mpur-order-date"></div>
+        <div class="fgrp"><label class="flbl">تاريخ التسليم</label>
+          <input class="fctl" type="date" id="mpur-delivery-date"></div>
+        <div class="fgrp"><label class="flbl">الحالة</label>
+          <select class="fctl" id="mpur-status">
+            <option value="معلق">معلق</option>
+            <option value="موافق عليه">موافق عليه</option>
+            <option value="مستلم">مستلم</option>
+            <option value="ملغي">ملغي</option>
+          </select></div>
+        <div class="fgrp full"><label class="flbl">ملاحظات</label>
+          <input class="fctl" id="mpur-notes" placeholder="ملاحظات..."></div>
+      </div>
+      <!-- إضافة صنف -->
+      <div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:12px;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:var(--gold-light);margin-bottom:8px">➕ إضافة صنف</div>
+        <div class="fg">
+          <div class="fgrp full"><label class="flbl">المنتج</label>
+            <select class="fctl" id="mpur-item-product"><option value="">-- اختر منتج --</option></select></div>
+          <div class="fgrp"><label class="flbl">الكمية</label>
+            <input class="fctl" type="number" id="mpur-item-qty" placeholder="0" min="1"></div>
+          <div class="fgrp"><label class="flbl">سعر الوحدة (ج)</label>
+            <input class="fctl" type="number" id="mpur-item-price" placeholder="0"></div>
+          <div class="fgrp" style="align-self:flex-end">
+            <button class="btn btn-teal" onclick="addPurItem()" style="width:100%">+ إضافة</button></div>
+        </div>
+      </div>
+      <!-- جدول الأصناف -->
+      <div class="table-wrap" style="max-height:220px">
+        <table>
+          <thead><tr><th>المنتج</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th><th></th></tr></thead>
+          <tbody id="mpur-items-tbody"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:12px">لم تُضَف أصناف بعد</td></tr></tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:11px;background:var(--glass);border-radius:var(--radius-sm);margin-top:10px">
+        <span style="color:var(--text-muted);font-size:13px">الإجمالي الكلي:</span>
+        <span id="mpur-grand-total" style="font-weight:800;font-size:16px;color:var(--gold-light)">0 ج</span>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-ghost" onclick="closeModal('multi-purchase-modal')">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveMultiPurchase()">💾 حفظ الفاتورة</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
