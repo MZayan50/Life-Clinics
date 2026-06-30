@@ -477,17 +477,27 @@ function _triggerFullSync() {
     const net      = Math.max(0, price - disc);
     const today    = new Date().toISOString().split('T')[0];
 
-    // استدعاء الدالة الأصلية (تتولى الفاتورة + خصم المخزون الأصلي)
+    // ✅ FIX: نحدد هل الجلسة مغطاة بباقة *قبل* استدعاء الدالة الأصلية
+    // لأن الدالة الأصلية بتخصم جلسة من الباقة (deductPackageSession) وقد تجعل
+    // حالتها "منتهية" فوراً لو كانت آخر جلسة — وهو ما كان يُفقد اكتشاف التغطية
+    // ويُسجّل آخر جلسة من كل باقة كإيراد إضافي وهمي بدل خصم من رصيد الباقة المدفوع مقدماً.
+    const activePkgBefore = typeof getPatientActivePackage === 'function'
+      ? getPatientActivePackage(a.patId) : null;
+    const coveredByPkg = activePkgBefore &&
+      (!activePkgBefore.services || !activePkgBefore.services.trim() ||
+       activePkgBefore.services.includes(svcName));
+    const coveredPkgId = coveredByPkg ? activePkgBefore.id : null;
+
+    // استدعاء الدالة الأصلية (تتولى الفاتورة + خصم المخزون + خصم جلسة الباقة)
     _orig.apply(this, arguments);
 
     // §1-2: سجّل إتمام الجلسة مع الحسابات المالية في session_completions
-    // (بدون خصم مخزون مجدداً — _recordSessionCompletion يتحقق من _isDeducted)
+    // (بدون خصم مخزون مجدداً — الأصلية خصمت المخزون بالفعل)
     const svcRecord = (DB.get('services') || []).find(s =>
       s.name === svcName || s.id === a.serviceId
     );
 
     const deductKey = `appt:${apptId}`;
-    // الـ finalizeConsultation الأصلية خصمت المخزون بالفعل — نسجّل ذلك
     _markDeducted(deductKey);
 
     // نسجّل في session_completions فقط إذا لم يكن هناك سجل مسبق
@@ -497,15 +507,11 @@ function _triggerFullSync() {
     if (!alreadyRecorded) {
       const actualMaterialCost = _calcActualSessionCost(svcRecord?.id || a.serviceId);
       const actualProfit       = net - actualMaterialCost;
-      const activePkg = typeof getPatientActivePackage === 'function'
-        ? getPatientActivePackage(a.patId) : null;
-      const coveredByPkg = activePkg &&
-        (!activePkg.services || activePkg.services.includes(svcName));
 
       DB.push('session_completions', {
         apptId,
         sessionPlanId: null,
-        pkgId: coveredByPkg ? activePkg.id : null,
+        pkgId: coveredPkgId,
         patId: a.patId,
         patName: a.patient || '',
         serviceId: svcRecord?.id || a.serviceId || null,
@@ -519,9 +525,9 @@ function _triggerFullSync() {
         _protected: true
       });
 
-      // §4: تحديث الباقة إذا كانت الجلسة مغطاة
-      if (coveredByPkg) {
-        _updatePackageFinancials(activePkg.id);
+      // §4: تحديث الباقة إذا كانت الجلسة مغطاة (حتى لو أصبحت الآن "منتهية")
+      if (coveredPkgId) {
+        _updatePackageFinancials(coveredPkgId);
       }
 
       // §8: تحديث الداشبورد والتقارير

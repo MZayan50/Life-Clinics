@@ -435,7 +435,8 @@ function payStaffSalary(id){
     deduction > 0
       ? `${net.toLocaleString()} ج صافي (بعد خصم سلفة ${deduction.toLocaleString()} ج) - تم تسجيله في المصروفات`
       : `${net.toLocaleString()} ج - تم تسجيله في المصروفات`);
-  // expenses:created → hook في 00-core.js يُسجّل في الخزينة تلقائياً
+  // ملاحظة: cashlog اتسجل بالفعل أعلاه يدوياً — hook الـ expenses:created في 00-core.js
+  // لا يضيف سجل خزينة آخر (فقط refresh للواجهة)، فلا يوجد تكرار.
 }
 
 // ══════════════════════════════════════════
