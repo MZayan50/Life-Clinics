@@ -1038,7 +1038,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="kpi-card kc-rose"><div class="kpi-icon">🚫</div><div class="kpi-value" id="inv-out">0</div><div class="kpi-label">نفذ من المخزون</div></div>
     <div class="kpi-card kc-emerald"><div class="kpi-icon">💰</div><div class="kpi-value" id="inv-val">0</div><div class="kpi-label">قيمة المخزون (ج)</div></div>
   </div>
-  <div class="card"><div class="table-wrap"><table><thead><tr><th>المنتج</th><th>المورد</th><th>الكمية</th><th>حد الطلب</th><th>الصلاحية</th><th>سعر الشراء</th><th>سعر البيع</th><th>الحالة</th><th></th></tr></thead><tbody id="inv-tbody"></tbody></table></div></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>المنتج</th><th>المورد</th><th>الكمية المتاحة</th><th>حد الطلب</th><th>الصلاحية</th><th>تكلفة/وحدة استهلاك</th><th>سعر البيع</th><th>الحالة</th><th></th></tr></thead><tbody id="inv-tbody"></tbody></table></div></div>
 </div>
 
 <!-- INVOICES — الشاشة الكاملة موجودة في الأسفل (id="screen-invoices") -->
@@ -2120,10 +2120,17 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="mbody"><div class="fg">
       <input type="hidden" id="pur-id">
       <input type="hidden" id="pur-product-id">
-      <div class="fgrp full"><label class="flbl">المنتج *</label><select class="fctl" id="pur-product"><option value="">-- اختر منتج من المخزون --</option></select></div>
+      <div class="fgrp full"><label class="flbl">المنتج *</label><select class="fctl" id="pur-product" onchange="onPurProductChange()"><option value="">-- اختر منتج من المخزون --</option></select></div>
       <div class="fgrp"><label class="flbl">المورد</label><select class="fctl" id="pur-supplier"><option value="">-- اختر مورد --</option></select></div>
-      <div class="fgrp"><label class="flbl">الكمية</label><input class="fctl" type="number" id="pur-qty" placeholder="0" oninput="calcPurTotal()"></div>
+      <div class="fgrp"><label class="flbl">وحدة الشراء</label><input class="fctl" id="pur-purchase-unit" placeholder="أمبول" readonly style="background:var(--surface-2)"></div>
+      <div class="fgrp"><label class="flbl">كمية/وحدة شراء</label><input class="fctl" id="pur-qty-per-unit" placeholder="5 مل" readonly style="background:var(--surface-2)"></div>
+      <div class="fgrp"><label class="flbl">عدد وحدات الشراء</label><input class="fctl" type="number" id="pur-qty" placeholder="0" oninput="calcPurTotal()"></div>
       <div class="fgrp"><label class="flbl">سعر الوحدة (ج)</label><input class="fctl" type="number" id="pur-unit-price" placeholder="0" oninput="calcPurTotal()"></div>
+      <div class="fgrp full" id="pur-conversion-row" style="background:var(--glass);border-radius:8px;padding:10px;font-size:13px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">
+        <div><div style="color:var(--text-muted);font-size:11px;margin-bottom:3px">إجمالي الكمية</div><div style="font-weight:800;color:var(--teal)" id="pur-total-qty-units">0 مل</div></div>
+        <div><div style="color:var(--text-muted);font-size:11px;margin-bottom:3px">تكلفة/وحدة استهلاك</div><div style="font-weight:800;color:var(--gold-light)" id="pur-cost-per-consume">0 ج</div></div>
+        <div><div style="color:var(--text-muted);font-size:11px;margin-bottom:3px">الإجمالي</div><div style="font-weight:800;color:var(--emerald)" id="pur-total-preview2">0 ج</div></div>
+      </div>
       <div class="fgrp"><label class="flbl">تاريخ الطلب</label><input class="fctl" type="date" id="pur-order-date"></div>
       <div class="fgrp"><label class="flbl">تاريخ التسليم المتوقع</label><input class="fctl" type="date" id="pur-delivery-date"></div>
       <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="pur-branch"><option>مدينة نصر</option><option>المهندسين</option></select></div>
@@ -2433,10 +2440,36 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="fgrp"><label class="flbl">الفئة</label><select class="fctl" id="prod-cat"><option>بشرة</option><option>شعر</option><option>أدوية</option><option>مستلزمات</option></select></div>
     <div class="fgrp full"><label class="flbl">المورد</label><select class="fctl" id="prod-supplier"><option value="">-- بدون مورد --</option></select></div>
     <div class="fgrp"><label class="flbl">الفرع</label><select class="fctl" id="prod-branch"><option value="مدينة نصر">مدينة نصر</option><option value="المهندسين">المهندسين</option></select></div>
-    <div class="fgrp"><label class="flbl">الكمية</label><input class="fctl" type="number" id="prod-qty" placeholder="0"></div>
+    <!-- ══ وحدات الشراء والاستهلاك ══ -->
+    <div class="fgrp"><label class="flbl">وحدة الشراء</label>
+      <select class="fctl" id="prod-purchase-unit" onchange="calcProdCostPerUnit()">
+        <option value="قطعة">قطعة</option>
+        <option value="أمبول">أمبول</option>
+        <option value="زجاجة">زجاجة</option>
+        <option value="برطمان">برطمان</option>
+        <option value="أنبوب">أنبوب</option>
+        <option value="علبة">علبة</option>
+      </select>
+    </div>
+    <div class="fgrp"><label class="flbl">وحدة الاستهلاك</label>
+      <select class="fctl" id="prod-consume-unit" onchange="calcProdCostPerUnit()">
+        <option value="مل">مل</option>
+        <option value="جم">جم</option>
+        <option value="قطعة">قطعة</option>
+      </select>
+    </div>
+    <div class="fgrp"><label class="flbl">كمية/وحدة شراء</label>
+      <input class="fctl" type="number" id="prod-qty-per-unit" placeholder="مثال: 5 مل/أمبول" min="0.01" step="0.01" oninput="calcProdCostPerUnit()">
+    </div>
+    <div class="fgrp"><label class="flbl">الكمية المتاحة (وحدة استهلاك)</label><input class="fctl" type="number" id="prod-qty" placeholder="0" step="0.01"></div>
     <div class="fgrp"><label class="flbl">حد إعادة الطلب</label><input class="fctl" type="number" id="prod-reord" placeholder="5"></div>
-    <div class="fgrp"><label class="flbl">سعر الشراء (ج) *</label><input class="fctl" type="number" id="prod-cost" placeholder="0" oninput="calcProdMargin()"></div>
+    <div class="fgrp"><label class="flbl">سعر الشراء/وحدة شراء (ج) *</label><input class="fctl" type="number" id="prod-cost" placeholder="0" oninput="calcProdMargin();calcProdCostPerUnit()"></div>
     <div class="fgrp"><label class="flbl">سعر البيع (ج) *</label><input class="fctl" type="number" id="prod-price" placeholder="0" oninput="calcProdMargin()"></div>
+    <!-- ملخص التكلفة المحسوبة تلقائياً -->
+    <div class="fgrp full" id="prod-cost-per-unit-row" style="background:var(--glass);border-radius:8px;padding:10px;font-size:13px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="color:var(--text-muted)">💡 التكلفة لكل وحدة استهلاك:</span>
+      <span id="prod-cost-per-unit-val" style="font-weight:800;color:var(--teal)">— ج</span>
+    </div>
     <div class="fgrp full" id="prod-margin-row" style="display:none">
       <div style="background:var(--glass);border-radius:8px;padding:10px;font-size:13px;display:flex;justify-content:space-between;">
         <span style="color:var(--text-muted)">هامش الربح</span>
@@ -2864,11 +2897,15 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
         <div style="font-size:13px;font-weight:700;color:var(--gold-light);margin-bottom:8px">➕ إضافة صنف</div>
         <div class="fg">
           <div class="fgrp full"><label class="flbl">المنتج</label>
-            <select class="fctl" id="mpur-item-product"><option value="">-- اختر منتج --</option></select></div>
-          <div class="fgrp"><label class="flbl">الكمية</label>
-            <input class="fctl" type="number" id="mpur-item-qty" placeholder="0" min="1"></div>
+            <select class="fctl" id="mpur-item-product" onchange="onMpurProductChange()"><option value="">-- اختر منتج --</option></select></div>
+          <div class="fgrp"><label class="flbl">وحدة الشراء</label>
+            <input class="fctl" id="mpur-item-purchase-unit" placeholder="—" readonly style="background:var(--surface-2)"></div>
+          <div class="fgrp"><label class="flbl">عدد وحدات الشراء</label>
+            <input class="fctl" type="number" id="mpur-item-qty" placeholder="0" min="0.01" step="0.01" oninput="calcMpurItemPreview()"></div>
           <div class="fgrp"><label class="flbl">سعر الوحدة (ج)</label>
-            <input class="fctl" type="number" id="mpur-item-price" placeholder="0"></div>
+            <input class="fctl" type="number" id="mpur-item-price" placeholder="0" oninput="calcMpurItemPreview()"></div>
+          <div class="fgrp"><label class="flbl">إجمالي كمية استهلاك</label>
+            <input class="fctl" id="mpur-item-consume-preview" placeholder="—" readonly style="background:var(--surface-2);color:var(--teal);font-weight:700"></div>
           <div class="fgrp" style="align-self:flex-end">
             <button class="btn btn-teal" onclick="addPurItem()" style="width:100%">+ إضافة</button></div>
         </div>
@@ -2876,7 +2913,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       <!-- جدول الأصناف -->
       <div class="table-wrap" style="max-height:220px">
         <table>
-          <thead><tr><th>المنتج</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th><th></th></tr></thead>
+          <thead><tr><th>المنتج</th><th>وحدات الشراء</th><th>كمية الاستهلاك</th><th>سعر الوحدة</th><th>الإجمالي</th><th></th></tr></thead>
           <tbody id="mpur-items-tbody"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:12px">لم تُضَف أصناف بعد</td></tr></tbody>
         </table>
       </div>
