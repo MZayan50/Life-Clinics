@@ -506,12 +506,37 @@ function renderSvcs(){
   const tb = document.getElementById('svc-tbody'); if(!tb) return;
   const invMap = {};
   DB.get('inventory').forEach(p => { invMap[p.id] = p.name; });
-  tb.innerHTML = DB.get('services').map(s => {
+
+  const q = (document.getElementById('svc-search')?.value || '').toLowerCase();
+  const catF = document.getElementById('svc-cat-filter')?.value || '';
+  const statusF = document.getElementById('svc-status-filter')?.value || '';
+
+  let svcs = DB.get('services');
+  if(q) svcs = svcs.filter(s => (s.name||'').toLowerCase().includes(q) || (s.cat||'').includes(q));
+  if(catF) svcs = svcs.filter(s => s.cat === catF);
+  if(statusF) svcs = svcs.filter(s => (s.status||'نشطة') === statusF);
+
+  // ── KPIs ──
+  const allSvcs = DB.get('services');
+  const avgPrice = allSvcs.length ? Math.round(allSvcs.reduce((s,x)=>s+(x.price||0),0)/allSvcs.length) : 0;
+  const avgProfit = allSvcs.length ? Math.round(allSvcs.reduce((sum,s)=>{
+    const mc = typeof calcServiceMaterialCost==='function' ? calcServiceMaterialCost(s.id) : (s.cost||0);
+    return sum + ((s.price||0) - mc);
+  },0)/allSvcs.length) : 0;
+  const withBom = allSvcs.filter(s=>s.recipe && Array.isArray(s.recipe) && s.recipe.length>0).length;
+  if(document.getElementById('svc-kpi-total')) txt('svc-kpi-total', allSvcs.length);
+  if(document.getElementById('svc-kpi-avg-price')) txt('svc-kpi-avg-price', avgPrice.toLocaleString());
+  if(document.getElementById('svc-kpi-avg-profit')) txt('svc-kpi-avg-profit', avgProfit.toLocaleString());
+  if(document.getElementById('svc-kpi-with-bom')) txt('svc-kpi-with-bom', withBom);
+
+  tb.innerHTML = svcs.map(s => {
     const materialCost = typeof calcServiceMaterialCost === 'function' ? calcServiceMaterialCost(s.id) : (s.cost||0);
-    const effectiveCost = materialCost || s.cost || 0;
-    const pr = s.price - effectiveCost;
+    const effectiveCost = materialCost;
+    const pr = (s.price||0) - effectiveCost;
     const pt = s.price ? Math.round(pr / s.price * 100) : 0;
-    // عرض مكونات الوصفة
+    const profitColor = pr >= 0 ? 'var(--emerald)' : 'var(--rose)';
+    const status = s.status || 'نشطة';
+    const statusCls = status === 'نشطة' ? 'sc' : 'sd';
     let prodLabel;
     if(s.recipe && Array.isArray(s.recipe) && s.recipe.length > 0){
       prodLabel = s.recipe.map(ing => {
@@ -522,23 +547,24 @@ function renderSvcs(){
     } else if(s.linkedProductId && invMap[s.linkedProductId]){
       prodLabel = `<span style="font-size:11px;color:var(--text-muted)">${invMap[s.linkedProductId]} × ${s.consumeQty||1}</span>`;
     } else {
-      prodLabel = '<span style="color:var(--text-muted)">—</span>';
+      prodLabel = '<span style="color:var(--text-muted);font-size:11px;">لا مكونات</span>';
     }
     return `<tr>
-      <td style="font-weight:600">${s.name}</td>
+      <td style="font-weight:700">${s.name}</td>
       <td><span class="tag tg-teal">${s.cat}</span></td>
-      <td style="color:var(--gold-light);font-weight:700">${s.price} ج</td>
-      <td>${s.duration} د</td>
-      <td>${effectiveCost.toFixed(1)} ج</td>
-      <td style="color:var(--emerald)">${pr.toFixed(1)} ج (${pt}%)</td>
-      <td style="font-size:12px">${s.doctor}</td>
-      <td style="font-size:11px">${prodLabel}</td>
+      <td style="color:var(--gold-light);font-weight:700">${(s.price||0).toLocaleString()} ج</td>
+      <td style="font-size:12px">${s.duration||60} د</td>
+      <td style="color:var(--rose);font-weight:600">${effectiveCost.toFixed(1)} ج</td>
+      <td style="color:${profitColor};font-weight:700">${pr.toFixed(1)} ج</td>
+      <td style="color:${profitColor};font-size:12px;font-weight:600">${pt}%</td>
+      <td style="font-size:11px;max-width:160px">${prodLabel}</td>
+      <td><span class="ast ${statusCls}">${status}</span></td>
       <td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs"  onclick="openSvcModal('${s.id}')">✏️</button>
         <button class="btn btn-danger btn-xs" onclick="delSvc('${s.id}')">🗑</button>
       </td>
     </tr>`;
-  }).join('');
+  }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:24px">لا توجد خدمات مطابقة</td></tr>';
 }
 
 function delSvc(id){
@@ -554,12 +580,13 @@ function openSvcModal(id){
   document.getElementById('sv-id').value    = s ? s.id    : '';
   document.getElementById('sv-name').value  = s ? s.name  : '';
   document.getElementById('sv-price').value = s ? s.price : '';
-  document.getElementById('sv-cost').value  = s ? s.cost  : '';
   document.getElementById('sv-dur').value   = s ? s.duration : 60;
   const catSel = document.getElementById('sv-cat');
   if(catSel && s) catSel.value = s.cat || catSel.options[0].value;
   const docSel = document.getElementById('sv-doc');
   if(docSel && s) docSel.value = s.doctor || docSel.options[0].value;
+  const statusSel = document.getElementById('sv-status');
+  if(statusSel) statusSel.value = s ? (s.status || 'نشطة') : 'نشطة';
   const roomSel = document.getElementById('sv-room');
   if(roomSel){
     roomSel.innerHTML = '<option value="">— بدون تحديد —</option>'
@@ -573,9 +600,9 @@ function openSvcModal(id){
     equipSel.value = s ? s.equipment || '' : '';
   }
   // ── وصفة المكونات (BOM) ──
-  // تحميل الصفوف الموجودة أو وصفة فارغة للخدمة الجديدة
   window._svcRecipe = (s && s.recipe && Array.isArray(s.recipe)) ? JSON.parse(JSON.stringify(s.recipe)) : [];
   renderSvcRecipeRows();
+  updateSvcProfitPreview();
   openModal('service-modal');
 }
 
@@ -585,15 +612,24 @@ function saveSvc(){
   const id   = gv('sv-id');
   // جمع الوصفة من الصفوف المؤقتة (window._svcRecipe)
   const recipe = (window._svcRecipe || []).filter(r => r.productId && parseFloat(r.qty) > 0);
+  // حساب تكلفة المواد تلقائياً من الوصفة
+  const products = DB.get('inventory') || [];
+  const autoCost = recipe.reduce((sum, ing) => {
+    const prod = products.find(p => p.id === ing.productId);
+    if(!prod) return sum;
+    const unitCost = prod.cost || prod.lastPurchasePrice || 0;
+    return sum + (parseFloat(ing.qty)||0) * unitCost;
+  }, 0);
   const data = {
     name,
     cat:      gv('sv-cat'),
     doctor:   gv('sv-doc'),
     price:    parseFloat(gv('sv-price')) || 0,
-    cost:     parseFloat(gv('sv-cost'))  || 0,
+    cost:     autoCost,     // تُحسب تلقائياً من الوصفة — لا إدخال يدوي
     duration: parseInt(gv('sv-dur'))     || 60,
     room:     gv('sv-room'),
     equipment:gv('sv-equip'),
+    status:   gv('sv-status') || 'نشطة',
     recipe,
     // legacy fields — محفوظة للتوافق مع البيانات القديمة
     linkedProductId: recipe.length > 0 ? recipe[0].productId : null,
@@ -672,4 +708,30 @@ function updateSvcRecipeCostCalc(){
     return sum + (parseFloat(ing.qty)||0) * unitCost;
   }, 0);
   el.textContent = total.toFixed(2) + ' ج';
+  // تحديث ملخص الربح في نفس الوقت
+  updateSvcProfitPreview();
+}
+
+// ── حساب وعرض ملخص الربح المتوقع في مودال الخدمة ──
+function updateSvcProfitPreview(){
+  const price = parseFloat(document.getElementById('sv-price')?.value) || 0;
+  const recipe = window._svcRecipe || [];
+  const products = DB.get('inventory') || [];
+  const cost = recipe.reduce((sum, ing) => {
+    if(!ing.productId || !ing.qty) return sum;
+    const prod = products.find(p => p.id === ing.productId);
+    if(!prod) return sum;
+    const unitCost = prod.cost || prod.lastPurchasePrice || 0;
+    return sum + (parseFloat(ing.qty)||0) * unitCost;
+  }, 0);
+  const profit = price - cost;
+  const priceEl = document.getElementById('sv-preview-price');
+  const costEl = document.getElementById('sv-preview-cost');
+  const profitEl = document.getElementById('sv-preview-profit');
+  if(priceEl) priceEl.textContent = price.toLocaleString() + ' ج';
+  if(costEl) costEl.textContent = cost.toFixed(2) + ' ج';
+  if(profitEl){
+    profitEl.textContent = profit.toFixed(2) + ' ج';
+    profitEl.style.color = profit >= 0 ? 'var(--emerald)' : 'var(--rose)';
+  }
 }

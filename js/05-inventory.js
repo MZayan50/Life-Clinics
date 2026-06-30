@@ -108,9 +108,17 @@ function renderSuppliers(q){
   if(stFilter) sups = sups.filter(s => s.status === stFilter);
 
   const all = DB.get('suppliers');
-  txt('sup-kpi-total', all.length);
-  txt('sup-kpi-owed', all.reduce((s,x) => s+(x.owed||0), 0).toLocaleString()+' ج');
-  txt('sup-kpi-orders', (DB.get('purchases')||[]).filter(p => p.status !== 'ملغي').length);
+  const _allPurchases = DB.get('purchases') || [];
+  const _allPayments  = DB.get('supplier_payments') || [];
+  const _thisMonthSup = new Date().toISOString().slice(0,7);
+  const _totalPurchases = _allPurchases.filter(p=>p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
+  const _totalPayments  = _allPayments.reduce((s,sp)=>s+(sp.amount||0),0);
+  const _totalOwed      = Math.max(0, _totalPurchases - _totalPayments);
+  txt('sup-kpi-total',    all.length);
+  txt('sup-kpi-purchases', _totalPurchases.toLocaleString()+' ج');
+  txt('sup-kpi-payments',  _totalPayments.toLocaleString()+' ج');
+  txt('sup-kpi-owed',      _totalOwed.toLocaleString()+' ج');
+  txt('sup-kpi-orders',    _allPurchases.filter(p => p.status==='مستلم' && (p.orderDate||p.deliveryDate||'').startsWith(_thisMonthSup)).length);
   txt('sup-count-lbl', sups.length+' مورد');
 
   const allPurchases = DB.get('purchases') || [];
@@ -142,8 +150,6 @@ function renderSuppliers(q){
     </tr>`;
   }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px">لا يوجد موردون</td></tr>';
 
-  // تحديث KPI المستحقات من الحساب الفعلي
-  txt('sup-kpi-owed', all.reduce((s,x)=>s+calcOwed(x.id),0).toLocaleString()+' ج');
 }
 
 function openSupplierModal(id){
@@ -171,7 +177,15 @@ function saveSupplier(){
 
 function delSupplier(id){
   const s = DB.get('suppliers').find(x => x.id === id);
-  if(confirm(`حذف ${s?.name}؟`)){ DB.del('suppliers', id); showToast('info','🗑 تم الحذف'); }
+  if(!s) return;
+  // ── منع حذف المورد إذا كان لديه معاملات شراء ──
+  const hasPurchases = (DB.get('purchases')||[]).some(p => p.supplierId === id);
+  const hasPayments  = (DB.get('supplier_payments')||[]).some(sp => sp.supplierId === id);
+  if(hasPurchases || hasPayments){
+    showToast('warning', `⚠️ لا يمكن حذف المورد "${s.name}" لأن لديه معاملات مرتبطة به`);
+    return;
+  }
+  if(confirm(`حذف ${s.name}؟`)){ DB.del('suppliers', id); showToast('info','🗑 تم الحذف'); }
 }
 // ══════════════════════════════════════════
 // 📋 حساب المورد التفصيلي
@@ -194,6 +208,11 @@ function openSupplierDetail(supId){
   document.getElementById('sd-phone').textContent = sup.phone||'—';
   document.getElementById('sd-owed').textContent  = owed.toLocaleString()+' ج';
   document.getElementById('sd-id').value          = supId;
+  // ── KPI: إجمالي المشتريات وإجمالي المدفوعات ──
+  const sdTotalPur = document.getElementById('sd-total-purchases');
+  const sdTotalPaid = document.getElementById('sd-total-paid');
+  if(sdTotalPur)  sdTotalPur.textContent  = totalBought.toLocaleString()+' ج';
+  if(sdTotalPaid) sdTotalPaid.textContent = totalPaid.toLocaleString()+' ج';
 
   // جدول المشتريات
   const purTb = document.getElementById('sd-pur-tbody');
@@ -383,7 +402,7 @@ function recvPurchase(id){
   DB.upd('purchases', id, {
     status: 'مستلم',
     deliveryDate: new Date().toISOString().split('T')[0],
-    _owedUpdated: false
+    _inventoryUpdated: false
   });
   const itemCount = (DB.get('purchase_items')||[]).filter(i => i.purchaseId === id).length;
   showToast('success', `✅ تم استلام الطلبية وتحديث ${itemCount} منتج في المخزون`);
@@ -718,11 +737,12 @@ function saveMultiPurchase(){
   _purItems.forEach(item => {
     DB.push('purchase_items', { purchaseId, ...item });
   });
-  // إذا تم الإنشاء كـ "مستلم"، شغّل hook الاستلام
+  // إذا تم الإنشاء كـ "مستلم"، شغّل hook الاستلام عبر upd (لا يحتوي _inventoryUpdated → سيعمل)
   if(status === 'مستلم'){
     DB.upd('purchases', purchaseId, {
       status: 'مستلم',
-      deliveryDate: deliveryDate || orderDate
+      deliveryDate: deliveryDate || orderDate,
+      _inventoryUpdated: false
     });
   }
   closeModal('multi-purchase-modal');

@@ -961,3 +961,439 @@ function finalizeConsultation(){
 
 // ✅ reception/doctor-view/waitlist في showScreen الموحدة بـ 00-core.js
 
+
+// ══════════════════════════════════════════════════════════════════
+// 🔧 ENHANCEMENTS v2.0 — Services, Packages, Sessions
+// ══════════════════════════════════════════════════════════════════
+
+// ── حساب تكلفة مواد الباقة (يجمع تكاليف الخدمات المضمنة × عدد الجلسات) ──
+function calcPackageMaterialCost(serviceIds, sessionsCount){
+  if(!serviceIds || !Array.isArray(serviceIds) || serviceIds.length === 0) return 0;
+  const costPerSession = serviceIds.reduce((sum, sid) => {
+    return sum + (typeof calcServiceMaterialCost==='function' ? calcServiceMaterialCost(sid) : 0);
+  }, 0);
+  return costPerSession * (parseInt(sessionsCount)||1);
+}
+
+// ── حساب وعرض ربح الباقة في المودال ──
+function calcPkgProfitPreview(){
+  const price = parseFloat(document.getElementById('pkg-price')?.value) || 0;
+  const discount = parseFloat(document.getElementById('pkg-discount')?.value) || 0;
+  const sessCount = parseInt(document.getElementById('pkg-sessions-count')?.value) || 1;
+  // جمع الخدمات المحددة
+  const checked = [...document.querySelectorAll('#pkg-services-checkboxes input[type=checkbox]:checked')];
+  const serviceIds = checked.map(cb => cb.value);
+  const matCost = calcPackageMaterialCost(serviceIds, sessCount);
+  const effectivePrice = price - discount;
+  const profit = effectivePrice - matCost;
+  const margin = effectivePrice > 0 ? Math.round(profit / effectivePrice * 100) : 0;
+
+  const el = id => document.getElementById(id);
+  if(el('pkg-preview-cost')) el('pkg-preview-cost').textContent = matCost.toFixed(1) + ' ج';
+  if(el('pkg-preview-price')) el('pkg-preview-price').textContent = effectivePrice.toLocaleString() + ' ج';
+  if(el('pkg-preview-profit')){
+    el('pkg-preview-profit').textContent = profit.toFixed(1) + ' ج';
+    el('pkg-preview-profit').style.color = profit >= 0 ? 'var(--emerald)' : 'var(--rose)';
+  }
+  if(el('pkg-preview-margin')){
+    el('pkg-preview-margin').textContent = margin + '%';
+    el('pkg-preview-margin').style.color = margin >= 0 ? 'var(--teal)' : 'var(--rose)';
+  }
+}
+
+// ── ملء checkboxes الخدمات في مودال الباقة ──
+function _fillPkgServicesCheckboxes(selectedIds){
+  const container = document.getElementById('pkg-services-checkboxes');
+  if(!container) return;
+  const svcs = DB.get('services') || [];
+  if(!svcs.length){
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:6px;">لا توجد خدمات — أضف خدمات أولاً</div>';
+    return;
+  }
+  container.innerHTML = svcs.map(s => {
+    const mc = typeof calcServiceMaterialCost==='function' ? calcServiceMaterialCost(s.id) : 0;
+    const checked = selectedIds && selectedIds.includes(s.id) ? 'checked' : '';
+    return `<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:3px 0;">
+      <input type="checkbox" value="${s.id}" ${checked} onchange="_updatePkgServicesHidden();calcPkgProfitPreview()">
+      <span style="font-weight:600">${s.name}</span>
+      <span style="color:var(--text-muted);font-size:11px;">${s.cat} · ${(s.price||0).toLocaleString()} ج</span>
+      ${mc > 0 ? `<span style="color:var(--rose);font-size:11px;">(تكلفة: ${mc.toFixed(1)} ج)</span>` : ''}
+    </label>`;
+  }).join('');
+}
+
+function _updatePkgServicesHidden(){
+  const checked = [...document.querySelectorAll('#pkg-services-checkboxes input[type=checkbox]:checked')];
+  const names = checked.map(cb => {
+    const svc = DB.get('services').find(s => s.id === cb.value);
+    return svc ? svc.name : '';
+  }).filter(Boolean);
+  const hiddenEl = document.getElementById('pkg-services');
+  if(hiddenEl) hiddenEl.value = names.join('، ');
+}
+
+// ── مودال الجلسات: عند تغيير الخدمة المختارة ──
+function onSessServiceChange(){
+  const sel = document.getElementById('sess-service-id');
+  const svcId = sel?.value;
+  if(!svcId) return;
+  const svc = DB.get('services').find(s => s.id === svcId);
+  if(!svc) return;
+  // تعبئة تلقائية لاسم نوع العلاج من اسم الخدمة
+  const typeEl = document.getElementById('sess-type');
+  if(typeEl && !typeEl.value) typeEl.value = svc.name;
+  // تعبئة السعر من الخدمة لو لم يُدخل
+  const priceEl = document.getElementById('sess-price');
+  if(priceEl && (!priceEl.value || priceEl.value == '0')) priceEl.value = svc.price || 0;
+  calcSessFinancials();
+}
+
+// ── حساب ملخص الجلسات المالي ──
+function calcSessFinancials(){
+  const svcId = document.getElementById('sess-service-id')?.value;
+  const sessCount = parseInt(document.getElementById('sess-total-count')?.value) || 1;
+  const price = parseFloat(document.getElementById('sess-price')?.value) || 0;
+  const matCostPerSess = svcId && typeof calcServiceMaterialCost==='function'
+    ? calcServiceMaterialCost(svcId) : 0;
+  const totalRevenue = price * sessCount;
+  const totalCost = matCostPerSess * sessCount;
+  const totalProfit = totalRevenue - totalCost;
+
+  const el = id => document.getElementById(id);
+  if(el('sess-prev-cost')) el('sess-prev-cost').textContent = matCostPerSess.toFixed(1) + ' ج';
+  if(el('sess-prev-revenue')) el('sess-prev-revenue').textContent = totalRevenue.toLocaleString() + ' ج';
+  if(el('sess-prev-profit')){
+    el('sess-prev-profit').textContent = totalProfit.toFixed(1) + ' ج';
+    el('sess-prev-profit').style.color = totalProfit >= 0 ? 'var(--emerald)' : 'var(--rose)';
+  }
+}
+
+// ── Override: openPackageModal Enhanced ──
+const _openPackageModal_orig = openPackageModal;
+openPackageModal = function(id, presetPatId){
+  const p = id ? DB.get('packages').find(x => x.id === id) : null;
+  const targetPatId = presetPatId || (p?p.patId:null) || window._curPat || null;
+  document.getElementById('pkg-modal-title').textContent = p ? '✏️ تعديل الباقة' : '🎁 باقة علاجية جديدة';
+  document.getElementById('pkg-id').value = p ? p.id : '';
+  const sel = document.getElementById('pkg-pat');
+  if(sel) sel.innerHTML = DB.get('patients').map(pt =>
+    `<option value="${pt.id}" data-name="${pt.name}"${String(pt.id)===String(targetPatId)?' selected':''}>${pt.name}</option>`
+  ).join('');
+  // ملء checkboxes الخدمات
+  const selectedIds = p ? (p.serviceIds || []) : [];
+  _fillPkgServicesCheckboxes(selectedIds);
+  if(p){
+    document.getElementById('pkg-name').value = p.name||'';
+    document.getElementById('pkg-sessions-count').value = p.sessionsCount||6;
+    document.getElementById('pkg-price').value = p.price||0;
+    document.getElementById('pkg-discount').value = p.discount||0;
+    document.getElementById('pkg-paid').value = p.paid||0;
+    document.getElementById('pkg-start').value = p.startDate||'';
+    document.getElementById('pkg-end').value = p.endDate||'';
+    document.getElementById('pkg-status').value = p.status||'نشطة';
+    document.getElementById('pkg-notes').value = p.notes||'';
+    document.getElementById('pkg-services').value = p.services||'';
+  } else {
+    ['pkg-name','pkg-notes'].forEach(fid => { const el=document.getElementById(fid); if(el) el.value=''; });
+    document.getElementById('pkg-sessions-count').value = 6;
+    document.getElementById('pkg-price').value = '';
+    document.getElementById('pkg-discount').value = 0;
+    document.getElementById('pkg-paid').value = 0;
+    document.getElementById('pkg-start').value = new Date().toISOString().split('T')[0];
+    document.getElementById('pkg-end').value = '';
+    document.getElementById('pkg-status').value = 'نشطة';
+    document.getElementById('pkg-services').value = '';
+  }
+  calcPkgProfitPreview();
+  openModal('package-modal');
+};
+
+// ── Override: savePackage Enhanced ──
+const _savePackage_orig = savePackage;
+savePackage = function(){
+  const sel = document.getElementById('pkg-pat');
+  const opt = sel.options[sel.selectedIndex];
+  if(!opt?.value){ showToast('warning','⚠️ اختر عميلاً'); return; }
+  const name = gv('pkg-name').trim();
+  if(!name){ showToast('warning','⚠️ اسم الباقة مطلوب'); return; }
+  const id = gv('pkg-id');
+  // جمع الخدمات المحددة من checkboxes
+  const checked = [...document.querySelectorAll('#pkg-services-checkboxes input[type=checkbox]:checked')];
+  const serviceIds = checked.map(cb => cb.value);
+  const sessCount = parseInt(gv('pkg-sessions-count'))||6;
+  const price = parseFloat(gv('pkg-price'))||0;
+  const discount = parseFloat(gv('pkg-discount'))||0;
+  // حساب تكلفة المواد تلقائياً
+  const matCost = calcPackageMaterialCost(serviceIds, sessCount);
+  const effectivePrice = price - discount;
+  const expectedProfit = effectivePrice - matCost;
+  const data = {
+    patId: opt.value, patName: opt.dataset?.name||opt.text,
+    name, services: gv('pkg-services'),
+    serviceIds,
+    sessionsCount: sessCount,
+    sessionsUsed: id ? (DB.get('packages').find(p=>p.id===id)?.sessionsUsed||0) : 0,
+    price, discount, effectivePrice,
+    paid: parseFloat(gv('pkg-paid'))||0,
+    materialCost: matCost,
+    expectedProfit,
+    startDate: gv('pkg-start'), endDate: gv('pkg-end'),
+    status: gv('pkg-status'), notes: gv('pkg-notes')
+  };
+  if(id){
+    const oldPkg = DB.get('packages').find(p=>p.id===id);
+    const oldPaid = oldPkg?.paid || 0;
+    DB.upd('packages', id, data);
+    const paidDelta = Math.max(0, data.paid - oldPaid);
+    if(paidDelta > 0){
+      DB.push('cashlog',{
+        type:'وارد', source:`باقة — ${data.patName}`, refId:id,
+        amount:paidDelta, service:data.name, method:'كاش',
+        date:new Date().toISOString().split('T')[0],
+        notes:`دفعة إضافية على باقة: ${data.name}`
+      });
+    }
+    showToast('success','✅ تم تحديث الباقة');
+  } else {
+    const newPkg = DB.push('packages', data);
+    const remaining = Math.max(0, data.price - data.paid);
+    if(remaining > 0){
+      DB.push('invoices',{
+        patId:data.patId, patientId:data.patId, patient:data.patName,
+        service:`باقة: ${data.name}`,
+        originalPrice:data.price, discount:discount,
+        total:data.effectivePrice, paid:data.paid||0, remaining,
+        status:'معلق', method:'كاش',
+        date:data.startDate||new Date().toISOString().split('T')[0],
+        pkgId:newPkg?.id||null,
+        notes:`فاتورة مرتبطة بالباقة — متبقي ${remaining.toLocaleString()} ج`
+      });
+      const pat = DB.get('patients').find(p=>String(p.id)===String(data.patId));
+      if(pat) DB.upd('patients', pat.id, {status:'قسط'});
+      showToast('success',`✅ تم إنشاء باقة "${name}" لـ ${data.patName}`,`🧾 متبقي ${remaining.toLocaleString()} ج أُضيف للأقساط`);
+    } else {
+      DB.push('invoices',{
+        patId:data.patId, patientId:data.patId, patient:data.patName,
+        service:`باقة: ${data.name}`,
+        originalPrice:data.price, discount:discount,
+        total:data.effectivePrice, paid:data.effectivePrice, remaining:0,
+        status:'مدفوع', method:'كاش',
+        date:data.startDate||new Date().toISOString().split('T')[0],
+        pkgId:newPkg?.id||null, notes:`فاتورة باقة مدفوعة بالكامل`
+      });
+      showToast('success',`✅ تم إنشاء باقة "${name}" لـ ${data.patName}`);
+    }
+  }
+  closeModal('package-modal');
+  renderPackages();
+};
+
+// ── Override: openSessionModal Enhanced ──
+const _openSessionModal_orig = openSessionModal;
+openSessionModal = function(id){
+  const s = id ? DB.get('sessions').find(x => x.id === id) : null;
+  document.getElementById('sess-modal-title').textContent = s ? '✏️ تعديل خطة الجلسات' : '✨ خطة جلسات جديدة';
+  document.getElementById('sess-id').value = s ? s.id : '';
+  // ملء قائمة العملاء
+  const sel = document.getElementById('sess-pat');
+  sel.innerHTML = DB.get('patients').map(p =>
+    `<option value="${p.id}" data-name="${p.name}"${s&&s.patId===p.id?' selected':''}>${p.name}</option>`
+  ).join('');
+  // ملء قائمة الخدمات
+  const svcSel = document.getElementById('sess-service-id');
+  if(svcSel){
+    svcSel.innerHTML = '<option value="">-- اختر خدمة --</option>' +
+      (DB.get('services')||[]).map(sv =>
+        `<option value="${sv.id}" data-price="${sv.price||0}"${s&&(s.serviceId===sv.id||s.service===sv.name)?' selected':''}>${sv.name} — ${(sv.price||0).toLocaleString()} ج</option>`
+      ).join('');
+  }
+  // ملء قائمة الأطباء
+  const docSel = document.getElementById('sess-doc');
+  if(docSel) docSel.innerHTML = DB.get('doctors').map(d =>
+    `<option${s&&s.doctor===d.name?' selected':''}>${d.name}</option>`
+  ).join('') || '<option>د. منى سامي</option>';
+
+  if(s){
+    document.getElementById('sess-type').value = s.type||'';
+    document.getElementById('sess-total-count').value = s.total||6;
+    document.getElementById('sess-done-count').value = s.done||0;
+    document.getElementById('sess-price').value = s.price||0;
+    document.getElementById('sess-branch').value = s.branch||'مدينة نصر';
+    document.getElementById('sess-start').value = s.startDate||'';
+    document.getElementById('sess-status').value = s.status||'جارية';
+    document.getElementById('sess-notes').value = s.notes||'';
+  } else {
+    document.getElementById('sess-type').value = '';
+    document.getElementById('sess-total-count').value = 6;
+    document.getElementById('sess-done-count').value = 0;
+    document.getElementById('sess-price').value = '';
+    document.getElementById('sess-start').value = new Date().toISOString().split('T')[0];
+    document.getElementById('sess-status').value = 'جارية';
+    document.getElementById('sess-notes').value = '';
+  }
+  calcSessFinancials();
+  openModal('session-modal');
+};
+
+// ── Override: saveSession Enhanced ──
+const _saveSession_orig = saveSession;
+saveSession = function(){
+  const sel = document.getElementById('sess-pat');
+  const opt = sel.options[sel.selectedIndex];
+  if(!opt?.value){ showToast('warning','⚠️ اختر عميلاً'); return; }
+  const id = gv('sess-id');
+  const svcSel = document.getElementById('sess-service-id');
+  const svcId = svcSel?.value || null;
+  const svc = svcId ? DB.get('services').find(s => s.id === svcId) : null;
+  const sessCount = parseInt(gv('sess-total-count'))||6;
+  const pricePerSess = parseFloat(gv('sess-price'))||0;
+  const matCostPerSess = svcId && typeof calcServiceMaterialCost==='function'
+    ? calcServiceMaterialCost(svcId) : 0;
+  const data = {
+    patId:opt.value, patName:opt.dataset?.name||opt.text,
+    serviceId:svcId, service:svc?.name||gv('sess-type'),
+    type:gv('sess-type')||svc?.name||'',
+    doctor:gv('sess-doc'),
+    total:sessCount, done:parseInt(gv('sess-done-count'))||0,
+    price:pricePerSess, materialCostPerSession:matCostPerSess,
+    totalRevenue:pricePerSess*sessCount,
+    totalMaterialCost:matCostPerSess*sessCount,
+    expectedProfit:(pricePerSess-matCostPerSess)*sessCount,
+    branch:gv('sess-branch'),
+    startDate:gv('sess-start'),
+    status:gv('sess-status'),
+    notes:gv('sess-notes')
+  };
+  if(id){ DB.upd('sessions',id,data); showToast('success','✅ تم تحديث خطة الجلسات'); }
+  else  { DB.push('sessions',data);   showToast('success',`✅ تم إنشاء خطة جلسات لـ ${data.patName}`); }
+  closeModal('session-modal');
+  renderSessions();
+};
+
+// ── Override: addSessionProgress Enhanced — يسجّل تكاليف وإيرادات عند إتمام جلسة ──
+const _addSessionProgress_orig = addSessionProgress;
+addSessionProgress = function(id){
+  const s = DB.get('sessions').find(x => x.id === id); if(!s) return;
+  if((s.done||0) >= (s.total||0)){ showToast('warning','⚠️ اكتملت كل الجلسات المقررة'); return; }
+  const newDone = (s.done||0) + 1;
+  const newStatus = newDone >= s.total ? 'مكتملة' : s.status;
+  DB.upd('sessions', id, {done:newDone, status:newStatus});
+  // ✅ خصم المخزون بناءً على الخدمة المرتبطة
+  const svc = DB.get('services').find(x => x.id === s.serviceId || x.name === s.service);
+  if(svc) deductInventory(svc.id, 1);
+  // ✅ حساب وتسجيل التكلفة الفعلية للجلسة
+  const matCost = svc && typeof calcServiceMaterialCost==='function'
+    ? calcServiceMaterialCost(svc.id) : (s.materialCostPerSession||0);
+  const revenue = s.price || 0;
+  const profit  = revenue - matCost;
+  const today   = new Date().toISOString().split('T')[0];
+  // تسجيل إيراد الجلسة في cashlog لو لم يكن مرتبطاً بباقة
+  const activePkg = getPatientActivePackage(s.patId);
+  if(!activePkg && revenue > 0){
+    DB.push('cashlog',{
+      type:'وارد', source:`جلسة — ${s.patName}`,
+      amount:revenue, method:'كاش', date:today,
+      notes:`جلسة ${newDone}/${s.total||0}: ${svc?.name||s.service||'—'}`,
+      refType:'session', sessionPlanId:id
+    });
+  }
+  // تسجيل تفاصيل الجلسة المكتملة
+  DB.push('session_completions',{
+    sessionPlanId:id, patId:s.patId, patName:s.patName,
+    serviceId:s.serviceId, serviceName:svc?.name||s.service||'—',
+    sessionNo:newDone, date:today,
+    revenue, materialCost:matCost, profit,
+    inventoryDeducted:!!svc
+  });
+  showToast('success',
+    `✅ تم تسجيل الجلسة ${newDone} من ${s.total}`,
+    newStatus==='مكتملة'?'🎉 اكتملت خطة الجلسات!':
+    `ربح الجلسة: ${profit.toFixed(1)} ج`
+  );
+  renderSessions();
+};
+
+
+// ── Override: renderPackages Enhanced — adds material cost & profit display ──
+const _renderPackages_orig = renderPackages;
+renderPackages = function(){
+  const grid = document.getElementById('pkg-grid'); if(!grid) return;
+  const q = (document.getElementById('pkg-search')?.value||'').toLowerCase();
+  const status = document.getElementById('pkg-status-filter')?.value||'';
+  let items = DB.get('packages');
+  if(q) items = items.filter(p => p.name?.toLowerCase().includes(q) || p.patName?.toLowerCase().includes(q));
+  if(status) items = items.filter(p => p.status === status);
+  const all = DB.get('packages');
+  const active = all.filter(p => p.status==='نشطة');
+  const revenue = all.reduce((s,p) => s+(p.paid||0), 0);
+  const clients = new Set(all.map(p => p.patId)).size;
+  txt('pkg-kpi-total', all.length);
+  txt('pkg-kpi-active', active.length);
+  txt('pkg-kpi-revenue', revenue.toLocaleString());
+  txt('pkg-kpi-clients', clients);
+  const SCOL = {نشطة:'sc',منتهية:'sd',معلقة:'sp'};
+
+  grid.innerHTML = items.map(p => {
+    const remaining = Math.max(0, (p.price||0)-(p.paid||0));
+    const sessUsed = p.sessionsUsed || 0;
+    const sessTotal = p.sessionsCount || 0;
+    const sessLeft = Math.max(0, sessTotal - sessUsed);
+    const sessPct = sessTotal ? Math.round(sessUsed/sessTotal*100) : 0;
+    const sessColor = sessLeft===0 ? 'var(--rose)' : sessLeft===1 ? 'var(--gold-light)' : 'var(--emerald)';
+    const sessArr = sessTotal > 0 ? Array.from({length:sessTotal},(_,i) =>
+      i < sessUsed
+        ? `<span style="width:14px;height:14px;border-radius:50%;background:var(--teal);display:inline-block;margin:1px;"></span>`
+        : `<span style="width:14px;height:14px;border-radius:50%;background:var(--glass-border);display:inline-block;margin:1px;"></span>`
+    ).join('') : '';
+    // حساب تكلفة المواد
+    let matCost = p.materialCost || 0;
+    if(!matCost && p.serviceIds && Array.isArray(p.serviceIds)){
+      matCost = calcPackageMaterialCost(p.serviceIds, sessTotal);
+    }
+    const effectivePrice = p.effectivePrice || ((p.price||0) - (p.discount||0));
+    const pkgProfit = effectivePrice - matCost;
+    const profitColor = pkgProfit >= 0 ? 'var(--emerald)' : 'var(--rose)';
+    return `<div class="bcard">
+      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
+        <div>
+          <div style="font-size:15px;font-weight:800;">${p.name||'—'}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">👤 ${p.patName||'—'}</div>
+        </div>
+        <span class="ast ${SCOL[p.status]||'sd'}">${p.status}</span>
+      </div>
+      <div class="g2c" style="gap:8px;margin-bottom:11px;">
+        <div style="background:var(--glass);border-radius:8px;padding:9px;text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--gold-light)">${(p.price||0).toLocaleString()}</div><div style="font-size:11px;color:var(--text-muted)">السعر (ج)</div></div>
+        <div style="background:var(--glass);border-radius:8px;padding:9px;text-align:center;"><div style="font-size:18px;font-weight:800;color:${remaining>0?'var(--rose)':'var(--emerald)'};">${remaining.toLocaleString()}</div><div style="font-size:11px;color:var(--text-muted)">المتبقي (ج)</div></div>
+      </div>
+      ${matCost > 0 ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+        <div style="background:var(--glass);border-radius:8px;padding:7px;text-align:center;">
+          <div style="font-size:13px;font-weight:700;color:var(--rose);">${matCost.toFixed(1)} ج</div>
+          <div style="font-size:10px;color:var(--text-muted)">تكلفة المواد</div>
+        </div>
+        <div style="background:var(--glass);border-radius:8px;padding:7px;text-align:center;">
+          <div style="font-size:13px;font-weight:700;color:${profitColor};">${pkgProfit.toFixed(1)} ج</div>
+          <div style="font-size:10px;color:var(--text-muted)">الربح المتوقع</div>
+        </div>
+      </div>` : ''}
+      <div style="background:var(--glass);border-radius:8px;padding:9px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:12px;font-weight:700;">🎯 الجلسات</span>
+          <span style="font-size:13px;font-weight:800;color:${sessColor}">${sessUsed} / ${sessTotal} <span style="font-size:11px;color:var(--text-muted);">(متبقي: ${sessLeft})</span></span>
+        </div>
+        <div class="prog"><div class="prog-f" style="width:${sessPct}%;background:${sessColor}"></div></div>
+        <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:2px;">${sessArr}</div>
+        ${sessLeft===1?`<div style="font-size:11px;color:var(--gold-light);margin-top:4px;font-weight:700;">⚠️ جلسة أخيرة تبقّت!</div>`:''}
+        ${sessLeft===0?`<div style="font-size:11px;color:var(--rose);margin-top:4px;font-weight:700;">✅ اكتملت كل الجلسات</div>`:''}
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">📅 ${p.startDate||'—'} ← ${p.endDate||'—'}</div>
+      ${p.services?`<div style="margin-bottom:8px;font-size:11px;color:var(--teal);">🔗 ${p.services}</div>`:''}
+      <div style="display:flex;gap:7px;">
+        ${sessLeft>0?`<button class="btn btn-teal btn-sm" style="flex:1" onclick="usePackageSession('${p.id}')">✅ تسجيل جلسة</button>`:''}
+        <button class="btn btn-ghost btn-sm" ${sessLeft>0?'':'style="flex:1"'} onclick="openPackageModal('${p.id}')">✏️ تعديل</button>
+        <button class="btn btn-danger btn-sm" onclick="delPackage('${p.id}')">🗑 حذف</button>
+      </div>
+    </div>`;
+  }).join('') || '<div class="card" style="text-align:center;padding:40px;color:var(--text-muted);grid-column:1/-1;">لا توجد باقات مطابقة</div>';
+};
+

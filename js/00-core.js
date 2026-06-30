@@ -310,6 +310,8 @@ EventBus.on('invoices:updated', function(inv){
 // ── 3. استلام مشتريات → تحديث المخزون + سعر آخر شراء + مديونية المورد + حركة مالية ──
 EventBus.on('purchases:updated', function(purchase){
   if(purchase.status !== 'مستلم') return;
+  // ── حماية من التكرار: تجاهل إذا تم تحديث المخزون مسبقاً لهذه الطلبية ──
+  if(purchase._inventoryUpdated === true) return;
   const today = purchase.deliveryDate || new Date().toISOString().split('T')[0];
 
   // ── أ. تحديث المخزون + سعر آخر شراء من purchase_items ──
@@ -363,6 +365,15 @@ EventBus.on('purchases:updated', function(purchase){
       notes: `استلام طلبية رقم ${purchase.id}`
     });
   }
+
+  // ── د. تسجيل أن المخزون تم تحديثه لهذه الطلبية (لمنع التكرار) ──
+  // نستخدم setTimeout لتجنب تشغيل الـ hook مرة أخرى من نفس الحدث
+  setTimeout(() => {
+    const cur = (DB.get('purchases')||[]).find(p => p.id === purchase.id);
+    if(cur && !cur._inventoryUpdated){
+      DB.upd('purchases', purchase.id, { _inventoryUpdated: true });
+    }
+  }, 100);
 });
 
 // ── 4. إتمام جلسة → تحديث عداد جلسات العميل ──
