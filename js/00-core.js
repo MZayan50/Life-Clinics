@@ -202,6 +202,47 @@ const DB = {
 // ══════════════════════════════════════════
 
 // ── دالة مساعدة: إعادة حساب إجمالي إنفاق ومديونية العميل (فواتير + باقات) ──
+// ── ✅ FIX: مصدر موحّد لملخص حساب العميل المالي (إنفاق/مدفوع/متبقي/زيارات) ──
+// تُستخدم من: viewPat, _refreshProfile, renderPatAccount (02-patients.js)
+// بنفس منطق _recalcPatFinancials بالضبط — بما فيها الأقساط المستقلة —
+// عشان نمنع تضارب الأرقام بين شاشة وشاشة لما حد يعدّل المنطق في مكان وينسى الباقي.
+function getPatientFinancialSummary(patId){
+  const pat = DB.get('patients').find(p => String(p.id) === String(patId));
+  const patName = pat ? pat.name : null;
+
+  const allInvsRaw = DB.get('invoices').filter(i =>
+    String(i.patId) === String(patId) || (i.patId === undefined && i.patient === patName)
+  );
+  const allInvs = [...new Map(allInvsRaw.map(i => [i.id, i])).values()]; // dedupe
+  const allPkgs = DB.get('packages').filter(p => String(p.patId) === String(patId));
+  const pkgIds  = new Set(allPkgs.map(p => String(p.id)));
+
+  // استبعاد فواتير الباقات (pkgId) لتجنب الاحتساب المزدوج
+  const standaloneInvs = allInvs.filter(i => !i.pkgId || !pkgIds.has(String(i.pkgId)));
+
+  const invSpent   = standaloneInvs.reduce((s, i) => s + (i.total     || 0), 0);
+  const invPaid    = standaloneInvs.reduce((s, i) => s + (i.paid      || 0), 0);
+  const invBalance = standaloneInvs.reduce((s, i) => s + (i.remaining || 0), 0);
+
+  const pkgSpent   = allPkgs.reduce((s, p) => s + (p.price || 0), 0);
+  const pkgPaid    = allPkgs.reduce((s, p) => s + (p.paid  || 0), 0);
+  const pkgBalance = allPkgs.reduce((s, p) => s + Math.max(0, (p.price || 0) - (p.paid || 0)), 0);
+
+  // الأقساط "المستقلة" (غير مرتبطة بفاتورة fromInvId ولا بباقة fromPkgId)
+  const standaloneInstBalance = DB.get('installments')
+    .filter(i => String(i.patientId) === String(patId) && !i.fromInvId && !i.fromPkgId)
+    .reduce((s, i) => s + (i.remaining || 0), 0);
+
+  const pkgSessionsDone = allPkgs.reduce((s, p) => s + (p.sessionsUsed || 0), 0);
+
+  return {
+    spent:    invSpent + pkgSpent,
+    paid:     invPaid + pkgPaid,
+    remaining: invBalance + pkgBalance + standaloneInstBalance,
+    visits:   standaloneInvs.length + pkgSessionsDone
+  };
+}
+
 function _recalcPatFinancials(patId){
   const pat = DB.get('patients').find(p => String(p.id) === String(patId));
   if(!pat) return;

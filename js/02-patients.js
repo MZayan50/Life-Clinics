@@ -68,26 +68,12 @@ function viewPat(id){
   const patPackages = DB.get('packages').filter(pk => String(pk.patId)===String(id));
   const patSessions = DB.get('sessions').filter(s => s.patId===id);
 
-  // استبعاد فواتير الباقات (pkgId) لتجنب الاحتساب المزدوج
-  const pkgInvIds = new Set(patPackages.map(pk => String(pk.id)));
-  const standaloneInvs = patInvoices.filter(i => !i.pkgId || !pkgInvIds.has(String(i.pkgId)));
-
-  // إجمالي مالي = فواتير مستقلة فقط + باقات
-  const invSpent  = standaloneInvs.reduce((s,i)=>s+(i.total||0),0);
-  const pkgSpent  = patPackages.reduce((s,pk)=>s+(pk.price||0),0);
-  const totalSpent = invSpent + pkgSpent;
-
-  const invPaid   = standaloneInvs.reduce((s,i)=>s+(i.paid||0),0);
-  const pkgPaid   = patPackages.reduce((s,pk)=>s+(pk.paid||0),0);
-  const totalPaid = invPaid + pkgPaid;
-
-  const invRemain = standaloneInvs.reduce((s,i)=>s+(i.remaining||0),0);
-  const pkgRemain = patPackages.reduce((s,pk)=>s+Math.max(0,(pk.price||0)-(pk.paid||0)),0);
-  const totalRemain = invRemain + pkgRemain;
-
-  // الزيارات = عدد الفواتير المستقلة + الجلسات المكتملة من الباقات
-  const pkgSessionsDone = patPackages.reduce((s,pk)=>s+(pk.sessionsUsed||0),0);
-  const totalVisits = standaloneInvs.length + pkgSessionsDone;
+  // ── ملخص مالي موحّد (مصدر واحد: getPatientFinancialSummary في 00-core.js) ──
+  const _fin = getPatientFinancialSummary(id);
+  const totalSpent  = _fin.spent;
+  const totalPaid   = _fin.paid;
+  const totalRemain = _fin.remaining;
+  const totalVisits = _fin.visits;
 
   const lastVisitInv = patInvoices.filter(i=>i.date).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
   const lastVisitDate = lastVisitInv ? lastVisitInv.date : '—';
@@ -216,16 +202,9 @@ function viewPat(id){
     if(!_scr || !_scr.classList.contains('active')) return;
     const _p2 = DB.get('patients').find(x => x.id === id);
     if(!_p2) return;
-    const _invs = DB.get('invoices').filter(i => String(i.patId)===String(id)||(i.patId===undefined&&i.patient===_p2.name));
-    const _pkgs = DB.get('packages').filter(pk => String(pk.patId)===String(id));
     const _sess = DB.get('sessions').filter(s => s.patId===id);
-    // استبعاد فواتير الباقات لتجنب الاحتساب المزدوج
-    const _pkgInvIds = new Set(_pkgs.map(pk => String(pk.id)));
-    const _standaloneInvs = _invs.filter(i => !i.pkgId || !_pkgInvIds.has(String(i.pkgId)));
-    const _sp = _standaloneInvs.reduce((s,i)=>s+(i.total||0),0)  + _pkgs.reduce((s,pk)=>s+(pk.price||0),0);
-    const _pd = _standaloneInvs.reduce((s,i)=>s+(i.paid||0),0)   + _pkgs.reduce((s,pk)=>s+(pk.paid||0),0);
-    const _rm = _standaloneInvs.reduce((s,i)=>s+(i.remaining||0),0) + _pkgs.reduce((s,pk)=>s+Math.max(0,(pk.price||0)-(pk.paid||0)),0);
-    const _vis = _standaloneInvs.length + _pkgs.reduce((s,pk)=>s+(pk.sessionsUsed||0),0);
+    const _fin2 = getPatientFinancialSummary(id);
+    const _sp = _fin2.spent, _pd = _fin2.paid, _rm = _fin2.remaining, _vis = _fin2.visits;
     txt('pp-sessions', _vis);
     txt('pp-spent',    _sp.toLocaleString()+' ج');
     txt('pp-paid-total',_pd.toLocaleString()+' ج');
@@ -317,13 +296,11 @@ function renderPatAccount(id){
 
   // ── تحديث الكروت الإحصائية في رأس الملف (فواتير مستقلة + باقات) ──
   const _txt = (elId,v) => { const el=document.getElementById(elId); if(el) el.textContent=v; };
-  // استبعاد فواتير الباقات (pkgId) لتجنب الاحتساب المزدوج
-  const _pkgIds = new Set(allPatPkgs.map(pk => String(pk.id)));
-  const _standaloneInvs2 = allPatInvs.filter(i => !i.pkgId || !_pkgIds.has(String(i.pkgId)));
-  const _totalSpent  = _standaloneInvs2.reduce((s,i)=>s+(i.total||0),0)  + allPatPkgs.reduce((s,pk)=>s+(pk.price||0),0);
-  const _totalPaid   = _standaloneInvs2.reduce((s,i)=>s+(i.paid||0),0)   + allPatPkgs.reduce((s,pk)=>s+(pk.paid||0),0);
-  const _totalRemain = _standaloneInvs2.reduce((s,i)=>s+(i.remaining||0),0) + allPatPkgs.reduce((s,pk)=>s+Math.max(0,(pk.price||0)-(pk.paid||0)),0);
-  const _totalVisits = _standaloneInvs2.length + allPatPkgs.reduce((s,pk)=>s+(pk.sessionsUsed||0),0);
+  const _fin3 = getPatientFinancialSummary(id);
+  const _totalSpent  = _fin3.spent;
+  const _totalPaid   = _fin3.paid;
+  const _totalRemain = _fin3.remaining;
+  const _totalVisits = _fin3.visits;
   _txt('pp-sessions',  _totalVisits);
   _txt('pp-spent',     _totalSpent.toLocaleString()+' ج');
   _txt('pp-paid-total',_totalPaid.toLocaleString()+' ج');
