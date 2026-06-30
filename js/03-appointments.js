@@ -83,8 +83,22 @@ function delAppt(id){
         DB.upd('packages', pkg.id, { sessionsUsed: newUsed, status: 'نشطة' });
       }
     }
-    // حذف سجلات الخزينة المرتبطة بالفاتورة
-    (DB.get('cashlog')||[]).filter(c => String(c.refId)===String(linkedInv.id)).forEach(c => DB.del('cashlog', c.id));
+    // ✅ FIX حرج: cashlog غير قابل للحذف بتصميم متعمَّد (append-only — انظر
+    // firestore.rules). DB.del() هنا كانت تُرفَض صامتاً من السيرفر فترجع
+    // القيود تظهر بعد أي F5. الحل: قيد عكسي (إلغاء) بدل الحذف الفعلي.
+    (DB.get('cashlog')||[]).filter(c => String(c.refId)===String(linkedInv.id)).forEach(c => {
+      DB.push('cashlog', {
+        type: c.type==='وارد' ? 'صادر' : 'وارد',
+        source: `إلغاء (حذف موعد) — ${c.source||''}`,
+        refId: c.id,
+        patient: c.patient||'', patId: c.patId||'',
+        amount: c.amount||0,
+        method: c.method||'كاش',
+        date: new Date().toISOString().split('T')[0],
+        timestamp: new Date().toISOString(),
+        notes: `إلغاء تلقائي بسبب حذف الموعد وفاتورته المرتبطة`
+      });
+    });
     // حذف الفاتورة نفسها وإعادة حساب رصيد العميل (DB.del لا يُطلق إعادة حساب تلقائياً)
     DB.del('invoices', linkedInv.id);
     if(typeof _recalcPatFinancials === 'function' && (a.patId || linkedInv.patId)) {

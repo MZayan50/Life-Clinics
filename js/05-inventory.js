@@ -316,19 +316,30 @@ function saveSupplierPaymentEdit(payId){
   const newNotes  = document.getElementById(`sp-edit-notes-${payId}`)?.value || '';
   if(newAmount <= 0){ showToast('warning','⚠️ أدخل مبلغ صحيح'); return; }
 
+  const oldAmount = sp.amount || 0;
+  const delta = newAmount - oldAmount;
+
   DB.upd('supplier_payments', payId, { amount:newAmount, method:newMethod, notes:newNotes });
 
-  // ── مزامنة قيد الخزينة المقابل ليبقى الرقمان متطابقين دائماً ──
-  // المسار الأساسي: عبر cashlogId المخزَّن وقت الإنشاء (مضمون 100% للدفعات الجديدة).
-  // مسار احتياطي: عبر refId (للسجلات اللي اتسجلت بعد إصلاح الربط لكن قبل إضافة cashlogId).
-  // لو الاتنين مش موجودين (دفعة قديمة من قبل هذا الإصلاح بالكامل)، يُحدَّث سجل
-  // الدفعة فقط ويُنبَّه المستخدم لمراجعة قيد الخزينة يدوياً لتفادي تعديل قيد خاطئ.
-  let cashEntry = sp.cashlogId ? (DB.get('cashlog')||[]).find(c => c.id === sp.cashlogId) : null;
-  if(!cashEntry) cashEntry = (DB.get('cashlog')||[]).find(c => c.refId === payId);
-  if(cashEntry){
-    DB.upd('cashlog', cashEntry.id, { amount:newAmount, method:newMethod, notes:newNotes });
-  } else {
-    showToast('warning','⚠️ تم تعديل الدفعة، لكن قيد الخزينة القديم المقابل لم يُربط تلقائياً (دفعة قديمة) — راجعه يدوياً في شاشة الخزينة');
+  // ✅ FIX حرج: cashlog غير قابل للتعديل بتصميم متعمَّد (دفتر append-only لمنع
+  // التلاعب — انظر firestore.rules: "allow update: if false" على /cashlog).
+  // محاولة DB.upd('cashlog', ...) كانت بتتظبط محلياً (Optimistic UI) فتبان
+  // وكأنها اشتغلت، لكن السيرفر بيرفضها صامتاً، فالقيمة ترجع للقديم بعد أي F5
+  // — وده اللي ظهر كـ"البيانات بتختفي". الحل الصحيح: تسجيل قيد "تصحيح" منفصل
+  // بالفارق فقط (وليس تعديل القيد الأصلي)، فيفضل السجل التاريخي الأصلي سليم
+  // ويعكس المجموع الكلي في الخزينة القيمة الجديدة الصحيحة تلقائياً.
+  if(delta !== 0){
+    const today = new Date().toISOString().split('T')[0];
+    DB.push('cashlog', {
+      type: delta > 0 ? 'صادر' : 'وارد', // زيادة المبلغ = صرف إضافي، تقليله = استرجاع
+      source: `تصحيح دفعة مورد — ${sp.supplierName||''}`,
+      refId: payId,
+      amount: Math.abs(delta),
+      method: newMethod,
+      date: today,
+      timestamp: new Date().toISOString(),
+      notes: `تصحيح من ${oldAmount.toLocaleString()} ج إلى ${newAmount.toLocaleString()} ج${newNotes?' — '+newNotes:''}`
+    });
   }
 
   // ── إعادة حساب owed بعد التعديل ──
@@ -337,7 +348,7 @@ function saveSupplierPaymentEdit(payId){
   const totalPaid   = (DB.get('supplier_payments')||[]).filter(x=>x.supplierId===supId).reduce((s,x)=>s+(x.amount||0),0);
   DB.upd('suppliers', supId, { owed: Math.max(0, totalBought - totalPaid) });
 
-  showToast('success','✅ تم تعديل الدفعة');
+  showToast('success','✅ تم تعديل الدفعة (وتسجيل قيد تصحيح في الخزينة)');
   openSupplierDetail(supId);
   renderSuppliers();
 }

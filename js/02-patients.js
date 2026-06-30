@@ -571,9 +571,29 @@ function delPat(id){
     .forEach(ii => { DB.del('invoice_items', ii.id); deleted++; });
 
   // ── 3. سجلات الخزينة المرتبطة بالعميل ──
+  // ✅ FIX حرج: cashlog غير قابل للحذف بتصميم متعمَّد (دفتر append-only —
+  // انظر firestore.rules: "allow delete: if false" على /cashlog). DB.del()
+  // هنا كانت بتتظبط محلياً فقط (Optimistic UI) ثم تُرفَض صامتاً من السيرفر
+  // وتدخل في طابور إعادة محاولة لا ينجح أبداً (OQ)، فالقيود كانت ترجع تظهر
+  // بعد أي F5 أو من جهاز تاني رغم حذف العميل. الحل: تسجيل قيد عكسي (إلغاء)
+  // بنفس المبلغ ونوع معاكس لكل قيد، فيتصفّر الأثر على رصيد الخزينة مع
+  // الحفاظ على السجل التاريخي الأصلي سليماً للمراجعة لاحقاً.
   (DB.get('cashlog')||[])
     .filter(c => String(c.patId)===String(id))
-    .forEach(c => { DB.del('cashlog', c.id); deleted++; });
+    .forEach(c => {
+      DB.push('cashlog', {
+        type: c.type==='وارد' ? 'صادر' : 'وارد', // عكس النوع لتصفير الأثر
+        source: `إلغاء (حذف عميل) — ${c.source||''}`,
+        refId: c.id,
+        patient: c.patient||'', patId: c.patId||'',
+        amount: c.amount||0,
+        method: c.method||'كاش',
+        date: new Date().toISOString().split('T')[0],
+        timestamp: new Date().toISOString(),
+        notes: `إلغاء تلقائي بسبب حذف العميل "${pat.name}"`
+      });
+      deleted++;
+    });
 
   // ── 4. خطط الأقساط ──
   (DB.get('installments')||[])
