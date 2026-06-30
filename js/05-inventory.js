@@ -144,7 +144,11 @@ function renderSuppliers(q){
   const _thisMonthSup = new Date().toISOString().slice(0,7);
   const _totalPurchases = _allPurchases.filter(p=>p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
   const _totalPayments  = _allPayments.reduce((s,sp)=>s+(sp.amount||0),0);
-  const _totalOwed      = Math.max(0, _totalPurchases - _totalPayments);
+  // ✅ FIX: مجموع مديونية كل الموردين الآن عبر الدالة الموحَّدة (نفس مصدر
+  // الحقيقة المستخدم في كل من بطاقة كل مورد وكشف الحساب التفصيلي والميزانية)
+  const _totalOwed = typeof calcAllSuppliersOwed === 'function'
+    ? calcAllSuppliersOwed()
+    : Math.max(0, _totalPurchases - _totalPayments);
   txt('sup-kpi-total',    all.length);
   txt('sup-kpi-purchases', _totalPurchases.toLocaleString()+' ج');
   txt('sup-kpi-payments',  _totalPayments.toLocaleString()+' ج');
@@ -152,15 +156,12 @@ function renderSuppliers(q){
   txt('sup-kpi-orders',    _allPurchases.filter(p => p.status==='مستلم' && (p.orderDate||p.deliveryDate||'').startsWith(_thisMonthSup)).length);
   txt('sup-count-lbl', sups.length+' مورد');
 
-  const allPurchases = DB.get('purchases') || [];
-  const allPayments  = DB.get('supplier_payments') || [];
-
-  // حساب owed لكل مورد من المشتريات
-  const calcOwed = (supId) => {
-    const bought = allPurchases.filter(p => p.supplierId === supId && p.status === 'مستلم').reduce((s,p)=>s+(p.total||0),0);
-    const paid   = allPayments.filter(sp => sp.supplierId === supId).reduce((s,sp)=>s+(sp.amount||0),0);
-    return Math.max(0, bought - paid);
-  };
+  // حساب owed لكل مورد — عبر الدالة الموحَّدة calcSupplierOwed (00-core.js)
+  const calcOwed = (supId) => typeof calcSupplierOwed === 'function'
+    ? calcSupplierOwed(supId)
+    : Math.max(0,
+        (DB.get('purchases')||[]).filter(p => p.supplierId === supId && p.status === 'مستلم').reduce((s,p)=>s+(p.total||0),0)
+        - (DB.get('supplier_payments')||[]).filter(sp => sp.supplierId === supId).reduce((s,sp)=>s+(sp.amount||0),0));
 
   const tb = document.getElementById('sup-tbody'); if(!tb) return;
   tb.innerHTML = sups.map(s => {
@@ -186,9 +187,17 @@ function renderSuppliers(q){
 function openSupplierModal(id){
   const s = id ? DB.get('suppliers').find(x => x.id === id) : null;
   document.getElementById('sup-modal-title').textContent = s ? '✏️ تعديل مورد' : '🚚 مورد جديد';
-  ['id','name','cat','phone','email','contact','terms','owed','status','notes'].forEach(f => {
+  ['id','name','cat','phone','email','contact','terms','status','notes'].forEach(f => {
     const el = document.getElementById('sup-'+f); if(el) el.value = s ? s[f]||'' : '';
   });
+  // ✅ FIX: المستحقات تُعرض الآن كقيمة محسوبة حياً من المشتريات والدفعات
+  // (للقراءة فقط) بدل حقل قابل للتعديل اليدوي كان بيتسبب في تضارب الرقم
+  // بين شاشة المورد وكشف الحساب التفصيلي والميزانية.
+  const owedEl = document.getElementById('sup-owed');
+  if(owedEl){
+    const owedVal = s && typeof calcSupplierOwed === 'function' ? calcSupplierOwed(s.id) : 0;
+    owedEl.value = s ? owedVal.toLocaleString()+' ج' : '0 ج (لا توجد مشتريات بعد)';
+  }
   if(!s){ document.getElementById('sup-status').value = 'نشط'; document.getElementById('sup-terms').value = '30 يوم'; }
   openModal('supplier-modal');
 }
@@ -197,9 +206,11 @@ function saveSupplier(){
   const name = document.getElementById('sup-name')?.value.trim();
   if(!name){ showToast('warning','⚠️ اسم المورد مطلوب'); return; }
   const id   = document.getElementById('sup-id')?.value;
+  // ✅ FIX: لم يعد owed يُحفَظ من إدخال يدوي — تُحسب وتُحدَّث تلقائياً فقط
+  // من hook استلام المشتريات وتسجيل/تعديل الدفعات (00-core.js و05-inventory.js)
   const data = { name, cat:gv('sup-cat'), phone:gv('sup-phone'), email:gv('sup-email'),
                  contact:gv('sup-contact'), terms:gv('sup-terms'),
-                 owed:parseFloat(gv('sup-owed'))||0, status:gv('sup-status'), notes:gv('sup-notes') };
+                 status:gv('sup-status'), notes:gv('sup-notes') };
   if(id){ DB.upd('suppliers', id, data); showToast('success', `✅ تم تحديث ${name}`); }
   else  { DB.push('suppliers', data);   showToast('success', `✅ تم إضافة ${name}`); }
   // لا داعي لاستدعاء renderSuppliers يدوياً — EventBus يتولى ذلك
@@ -230,7 +241,8 @@ function openSupplierDetail(supId){
 
   const totalBought = purchases.filter(p=>p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
   const totalPaid   = payments.reduce((s,sp)=>s+(sp.amount||0),0);
-  const owed        = Math.max(0, totalBought - totalPaid);
+  // ✅ FIX: نفس الدالة الموحَّدة المستخدمة في شاشة الموردين والميزانية
+  const owed = typeof calcSupplierOwed === 'function' ? calcSupplierOwed(supId) : Math.max(0, totalBought - totalPaid);
 
   const modal = document.getElementById('supplier-detail-modal');
   if(!modal){ showToast('error','❌ modal غير موجود'); return; }
@@ -342,11 +354,11 @@ function saveSupplierPaymentEdit(payId){
     });
   }
 
-  // ── إعادة حساب owed بعد التعديل ──
+  // ── إعادة حساب owed بعد التعديل (عبر الدالة الموحَّدة) ──
   const supId = sp.supplierId;
-  const totalBought = (DB.get('purchases')||[]).filter(p=>p.supplierId===supId&&p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
-  const totalPaid   = (DB.get('supplier_payments')||[]).filter(x=>x.supplierId===supId).reduce((s,x)=>s+(x.amount||0),0);
-  DB.upd('suppliers', supId, { owed: Math.max(0, totalBought - totalPaid) });
+  DB.upd('suppliers', supId, { owed: typeof calcSupplierOwed === 'function' ? calcSupplierOwed(supId)
+    : Math.max(0, (DB.get('purchases')||[]).filter(p=>p.supplierId===supId&&p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0)
+      - (DB.get('supplier_payments')||[]).filter(x=>x.supplierId===supId).reduce((s,x)=>s+(x.amount||0),0)) });
 
   showToast('success','✅ تم تعديل الدفعة (وتسجيل قيد تصحيح في الخزينة)');
   openSupplierDetail(supId);
@@ -373,10 +385,10 @@ function paySupplier(){
   const cashRecord = DB.push('cashlog',{ type:'صادر', source:`دفعة مورد — ${sup.name}`, refId:payRecord.id, amount, method, date:today, notes });
   DB.upd('supplier_payments', payRecord.id, { cashlogId:cashRecord.id });
 
-  // إعادة حساب owed
-  const totalBought = (DB.get('purchases')||[]).filter(p=>p.supplierId===supId&&p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
-  const totalPaid   = (DB.get('supplier_payments')||[]).filter(sp=>sp.supplierId===supId).reduce((s,sp)=>s+(sp.amount||0),0);
-  DB.upd('suppliers', supId, { owed: Math.max(0, totalBought - totalPaid) });
+  // إعادة حساب owed (عبر الدالة الموحَّدة)
+  DB.upd('suppliers', supId, { owed: typeof calcSupplierOwed === 'function' ? calcSupplierOwed(supId)
+    : Math.max(0, (DB.get('purchases')||[]).filter(p=>p.supplierId===supId&&p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0)
+      - (DB.get('supplier_payments')||[]).filter(sp=>sp.supplierId===supId).reduce((s,sp)=>s+(sp.amount||0),0)) });
 
   document.getElementById('sd-pay-amount').value = '';
   document.getElementById('sd-pay-notes').value  = '';
@@ -525,6 +537,15 @@ function savePurchase(){
   if(!DB.get('purchases').length) DB.set('purchases',[]);
   let purchaseId;
   if(id){
+    // ✅ FIX: حماية اتساق المخزون عند تعديل طلب شراء "مستلم" مسبقاً —
+    // إن كان مستلماً وتغيّرت كميته/سعره/منتجه، أو تغيّرت حالته من/إلى
+    // "مستلم"، يجب رد الكمية القديمة وتطبيق الجديدة بدل تجاهل الفرق
+    // (كان الحارس _inventoryUpdated يمنع أي تحديث لاحق للمخزون نهائياً).
+    const oldPur = (DB.get('purchases')||[]).find(p => p.id === id);
+    const wasReceived = !!(oldPur && oldPur.status === 'مستلم');
+    const willBeReceived = data.status === 'مستلم';
+    const oldItemsSnapshot = wasReceived ? (DB.get('purchase_items')||[]).filter(i => i.purchaseId === id) : [];
+
     DB.upd('purchases', id, data);
     purchaseId = id;
     showToast('success', `✅ تم تحديث طلب: ${productName}`);
@@ -534,6 +555,20 @@ function savePurchase(){
       purchaseUnit: purchaseUnitLabel, qtyPerUnit: qtyPerUnit_pur,
       consumeUnit: consumeUnitLabel, totalConsumeQty: totalConsumeQty_pur });
     DB.set('purchase_items', existing);
+
+    if(wasReceived){
+      // رد الكمية القديمة من المخزون أولاً (بصورة المخزون وقت الاستلام الأصلي)
+      if(typeof reverseInventoryForPurchase === 'function') reverseInventoryForPurchase(id, oldItemsSnapshot);
+      // ثم تطبيق الكمية الجديدة إن ظل الطلب "مستلم" — عبر إعادة تشغيل hook الاستلام
+      DB.upd('purchases', id, {
+        _inventoryUpdated: false,
+        deliveryDate: data.deliveryDate || data.orderDate,
+        status: willBeReceived ? 'مستلم' : data.status
+      });
+    } else if(willBeReceived){
+      // لم يكن مستلماً من قبل وأصبح كذلك الآن — تشغيل hook الاستلام
+      DB.upd('purchases', id, { _inventoryUpdated: false, deliveryDate: data.deliveryDate || data.orderDate });
+    }
   } else {
     const newPur = DB.push('purchases', data);
     purchaseId = newPur?.id;
@@ -541,6 +576,19 @@ function savePurchase(){
     DB.push('purchase_items', { purchaseId, productId, productName, qty, unitPrice,
       purchaseUnit: purchaseUnitLabel, qtyPerUnit: qtyPerUnit_pur,
       consumeUnit: consumeUnitLabel, totalConsumeQty: totalConsumeQty_pur });
+    // ✅ FIX حرج: إنشاء طلب شراء جديد مباشرة بحالة "مستلم" (بدون المرور
+    // بزر "استلام") كان لا يُحدِّث المخزون أو مديونية المورد إطلاقاً، لأن
+    // DB.push يُطلق الحدث 'purchases:created' فقط، بينما hook الاستلام في
+    // 00-core.js يستمع حصرياً لـ 'purchases:updated'. فكانت النتيجة: دين
+    // على المورد يظهر في حسابه دون أي زيادة مقابلة في المخزون — وهذا بالضبط
+    // "العملية الحسابية غير الصحيحة" بين شاشتي الموردين والمنتجات.
+    if(data.status === 'مستلم'){
+      DB.upd('purchases', purchaseId, {
+        status: 'مستلم',
+        deliveryDate: data.deliveryDate || data.orderDate,
+        _inventoryUpdated: false
+      });
+    }
     showToast('success', `✅ تم إرسال طلب شراء: ${productName}`);
   }
   closeModal('purchase-modal');
@@ -562,7 +610,24 @@ function recvPurchase(id){
 }
 
 function delPurchase(id){
-  if(confirm('حذف طلب الشراء؟')){ DB.del('purchases', id); showToast('info','🗑 تم الحذف'); }
+  const pur = (DB.get('purchases')||[]).find(p => p.id === id);
+  if(!pur) return;
+  // ✅ FIX: حذف طلب شراء "مستلم" كان يحذف السجل فقط دون رد الكمية التي
+  // أُضيفت بالفعل للمخزون عند الاستلام — فيبقى المخزون "منتفخاً" بكمية
+  // لا تقابلها فاتورة شراء حقيقية، رغم اختفاء دين المورد المقابل لها فوراً.
+  const isReceived = pur.status === 'مستلم';
+  const msg = isReceived
+    ? `⚠️ هذا الطلب "مستلم" والمخزون مُحدَّث بالفعل بكمياته. حذفه سيخصم هذه الكميات من المخزون تلقائياً. متابعة؟`
+    : 'حذف طلب الشراء؟';
+  if(confirm(msg)){
+    if(isReceived && typeof reverseInventoryForPurchase === 'function'){
+      reverseInventoryForPurchase(id);
+    }
+    // حذف أصناف الطلب المرتبطة بدل تركها يتيمة في purchase_items
+    (DB.get('purchase_items')||[]).filter(i => i.purchaseId === id).forEach(i => DB.del('purchase_items', i.id));
+    DB.del('purchases', id);
+    showToast('info', isReceived ? '🗑 تم الحذف وتحديث المخزون' : '🗑 تم الحذف');
+  }
 }
 
 // ══════════════════════════════════════════

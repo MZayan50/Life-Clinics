@@ -396,7 +396,13 @@ function renderAccounts(){
   const invValue=typeof calcInventoryCostValue==='function' ? calcInventoryCostValue()
     : DB.get('inventory').reduce((s,i)=>s+(i.qty*(i.costPerConsumeUnit||i.costPrice||i.lastPurchasePrice||0)),0);
   const receivables=(DB.get('installments')||[]).reduce((s,p)=>s+(p.remaining||0),0);
-  const suppliersOwed=(DB.get('suppliers')||[]).reduce((s,x)=>s+(x.owed||0),0);
+  // ✅ FIX (مراجعة الموردين/المالية): كان هذا يجمع حقل suppliers.owed المخزَّن،
+  // وهو لا يتحدث تلقائياً عند حذف/تعديل طلب شراء أو عند كتابة قيمة يدوية في
+  // نموذج المورد، فيختلف عن الرقم الصحيح الظاهر في شاشة الموردين نفسها.
+  // الآن نستخدم نفس الدالة الموحَّدة (calcAllSuppliersOwed) في كل مكان.
+  const suppliersOwed = typeof calcAllSuppliersOwed === 'function'
+    ? calcAllSuppliersOwed()
+    : (DB.get('suppliers')||[]).reduce((s,x)=>s+(x.owed||0),0);
   // الكاش = وارد ناقص صادر من cashlog (المصدر الوحيد الصحيح بعد الحذف)
   const cashBalance=Math.max(0,totalRevenue-totalExpense);
   txt('bs-cash',cashBalance.toLocaleString()+' ج');

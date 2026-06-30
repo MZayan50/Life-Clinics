@@ -411,6 +411,57 @@ EventBus.on('invoices:updated', function(inv){
   }
 });
 
+// ══════════════════════════════════════════
+// 💰 مديونية المورد — حساب موحَّد (مصدر الحقيقة الوحيد)
+// ✅ FIX (مراجعة الموردين/المشتريات/المنتجات):
+// كانت مديونية المورد (owed) تُخزَّن كحقل ثابت على suppliers.owed، ويُعاد
+// حسابها فقط عند استلام طلب شراء أو عند تسجيل/تعديل دفعة. أي تغيير آخر
+// (حذف طلب شراء مستلم، تعديل سعره/كميته، أو كتابة قيمة يدوية في نموذج
+// المورد) كان يترك هذا الحقل قديماً وغير صحيح، بينما شاشة الموردين وكشف
+// حساب المورد كانا يحسبانها مباشرة من المشتريات والدفعات (الطريقة الصحيحة)
+// فيظهر رقمان مختلفان لنفس المورد بين الشاشات (خصوصاً الميزانية في
+// شاشة المالية، التي كانت تجمع الحقل الثابت بدل الحساب الحي).
+// الحل: دالة واحدة تُستخدم من كل الشاشات (موردين، مشتريات، المالية).
+// ══════════════════════════════════════════
+function calcSupplierOwed(supplierId){
+  const bought = (DB.get('purchases')||[])
+    .filter(p => p.supplierId === supplierId && p.status === 'مستلم')
+    .reduce((s,p)=>s+(p.total||0), 0);
+  const paid = (DB.get('supplier_payments')||[])
+    .filter(sp => sp.supplierId === supplierId)
+    .reduce((s,sp)=>s+(sp.amount||0), 0);
+  return Math.max(0, bought - paid);
+}
+function calcAllSuppliersOwed(){
+  return (DB.get('suppliers')||[]).reduce((s,sup)=>s+calcSupplierOwed(sup.id), 0);
+}
+
+// ══════════════════════════════════════════
+// 📦 رد كمية طلب شراء مستلم من المخزون (عكس عملية الاستلام)
+// ✅ FIX: يُستخدم عند حذف طلب شراء "مستلم" أو تغيير حالته من "مستلم" إلى
+// حالة أخرى، أو عند تعديل كمية/سعر طلب مستلم مسبقاً — لمنع بقاء كمية
+// "وهمية" في المخزون لا تقابلها فاتورة شراء فعلية.
+// ══════════════════════════════════════════
+function reverseInventoryForPurchase(purchaseId, itemsOverride){
+  const items = itemsOverride || (DB.get('purchase_items')||[]).filter(pi => pi.purchaseId === purchaseId);
+  const today = new Date().toISOString().split('T')[0];
+  items.forEach(item => {
+    const prod = DB.get('inventory').find(p => p.id === item.productId);
+    if(!prod) return;
+    const qtyPerUnit = item.qtyPerUnit || prod.qtyPerUnit || 1;
+    const purchasedConsumeQty = (item.qty || 0) * qtyPerUnit;
+    const newQty = parseFloat(Math.max(0, (prod.qty||0) - purchasedConsumeQty).toFixed(4));
+    const newStatus = newQty === 0 ? 'نفذ' : newQty <= (prod.reorder||5) ? 'منخفض' : 'متوفر';
+    DB.upd('inventory', prod.id, { qty: newQty, status: newStatus });
+    DB.push('inventory_transactions', {
+      type: 'صادر', productId: prod.id, product: prod.name,
+      qty: purchasedConsumeQty, consumeUnit: item.consumeUnit || prod.consumeUnit || 'وحدة',
+      refType: 'purchase_reversal', refId: purchaseId, date: today,
+      notes: `رد مخزون — إلغاء/تعديل طلب شراء مستلم (${purchasedConsumeQty.toFixed(1)} ${item.consumeUnit||''})`
+    });
+  });
+}
+
 // ── 3. استلام مشتريات → تحديث المخزون + سعر آخر شراء + مديونية المورد + حركة مالية ──
 EventBus.on('purchases:updated', function(purchase){
   if(purchase.status !== 'مستلم') return;
@@ -439,7 +490,11 @@ EventBus.on('purchases:updated', function(purchase){
       costPerConsumeUnit: newCostPerConsumeUnit,
       purchaseUnit: item.purchaseUnit || prod.purchaseUnit || 'قطعة',
       consumeUnit:  item.consumeUnit  || prod.consumeUnit  || 'قطعة',
-      qtyPerUnit:   qtyPerUnit
+      qtyPerUnit:   qtyPerUnit,
+      // ✅ FIX: مزامنة آخر مورد فعلي اشترينا منه المنتج على شاشة المنتجات
+      // (كانت تظل فارغة أو على مورد قديم رغم استلام بضاعة من مورد جديد)
+      supplierId:   purchase.supplierId || prod.supplierId || '',
+      supplierName: purchase.supplier   || prod.supplierName || ''
     });
     DB.push('inventory_transactions', {
       type: 'وارد', productId: prod.id, product: prod.name,
@@ -456,17 +511,11 @@ EventBus.on('purchases:updated', function(purchase){
     });
   });
 
-  // ── ب. إعادة حساب مديونية المورد ──
+  // ── ب. إعادة حساب مديونية المورد (عبر الدالة الموحَّدة) ──
   if(purchase.supplierId){
     const sup = DB.get('suppliers').find(s => s.id === purchase.supplierId);
     if(sup){
-      const totalOwed = (DB.get('purchases')||[])
-        .filter(p => p.supplierId === purchase.supplierId && p.status === 'مستلم')
-        .reduce((s, p) => s + (p.total||0), 0);
-      const totalPaid = (DB.get('supplier_payments')||[])
-        .filter(sp => sp.supplierId === purchase.supplierId)
-        .reduce((s, sp) => s + (sp.amount||0), 0);
-      DB.upd('suppliers', sup.id, { owed: Math.max(0, totalOwed - totalPaid) });
+      DB.upd('suppliers', sup.id, { owed: calcSupplierOwed(sup.id) });
     }
   }
 
