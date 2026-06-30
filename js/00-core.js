@@ -319,21 +319,36 @@ EventBus.on('purchases:updated', function(purchase){
   items.forEach(item => {
     const prod = DB.get('inventory').find(p => p.id === item.productId);
     if(!prod) return;
-    const newQty    = (prod.qty || 0) + (item.qty || 0);
+    // ── تحويل وحدات الشراء → وحدات الاستهلاك ──
+    const qtyPerUnit = item.qtyPerUnit || prod.qtyPerUnit || 1;
+    const purchasedConsumeQty = (item.qty || 0) * qtyPerUnit;
+    const newQty    = parseFloat(((prod.qty || 0) + purchasedConsumeQty).toFixed(4));
     const newStatus = newQty === 0 ? 'نفذ' : newQty <= (prod.reorder || 5) ? 'منخفض' : 'متوفر';
-    // تحديث الكمية + سعر آخر شراء + التكلفة
+    // حساب تكلفة وحدة الاستهلاك: سعر الشراء / كمية الاستهلاك لكل وحدة
+    const newCostPerConsumeUnit = qtyPerUnit > 0 ? (item.unitPrice || 0) / qtyPerUnit : (item.unitPrice || 0);
+    // تحديث الكمية + سعر آخر شراء + التكلفة + وحدات الاستهلاك
     DB.upd('inventory', prod.id, {
       qty: newQty,
       status: newStatus,
       lastPurchasePrice: item.unitPrice || prod.lastPurchasePrice || 0,
-      costPrice: item.unitPrice || prod.costPrice || 0
+      costPrice: item.unitPrice || prod.costPrice || 0,
+      costPerConsumeUnit: newCostPerConsumeUnit,
+      purchaseUnit: item.purchaseUnit || prod.purchaseUnit || 'قطعة',
+      consumeUnit:  item.consumeUnit  || prod.consumeUnit  || 'قطعة',
+      qtyPerUnit:   qtyPerUnit
     });
     DB.push('inventory_transactions', {
       type: 'وارد', productId: prod.id, product: prod.name,
-      qty: item.qty, unitPrice: item.unitPrice || 0,
+      qty: purchasedConsumeQty,
+      qtyPurchaseUnits: item.qty,
+      purchaseUnit: item.purchaseUnit || prod.purchaseUnit || 'قطعة',
+      consumeUnit: item.consumeUnit || prod.consumeUnit || 'قطعة',
+      qtyPerUnit: qtyPerUnit,
+      unitPrice: item.unitPrice || 0,
+      costPerConsumeUnit: newCostPerConsumeUnit,
       refType: 'purchase', refId: purchase.id,
       date: today,
-      notes: `استلام مشتريات — ${purchase.supplier || ''}`
+      notes: `استلام مشتريات — ${purchase.supplier || ''} (${item.qty} ${item.purchaseUnit||'وحدة'} × ${qtyPerUnit} = ${purchasedConsumeQty.toFixed(1)} ${item.consumeUnit||''})`
     });
   });
 

@@ -61,7 +61,9 @@ function renderReports(){
     .filter(t => t.type==='صرف' && t.refType==='invoice' && (t.date||'').startsWith(thisMonth))
     .reduce((s,t) => {
       const prod = inventory.find(i => i.id === t.productId);
-      return s + (prod?.costPrice||0) * (t.qty||0);
+      // استخدام تكلفة وحدة الاستهلاك الفعلية إن وُجدت
+      const unitCost = prod?.costPerConsumeUnit || prod?.costPrice || 0;
+      return s + unitCost * (t.qty||0);
     }, 0);
   const netProfit = monthRev - monthExp - monthPur - monthCOGS;
 

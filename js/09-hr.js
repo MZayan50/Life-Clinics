@@ -617,7 +617,8 @@ function saveSvc(){
   const autoCost = recipe.reduce((sum, ing) => {
     const prod = products.find(p => p.id === ing.productId);
     if(!prod) return sum;
-    const unitCost = prod.cost || prod.lastPurchasePrice || 0;
+    // استخدام تكلفة وحدة الاستهلاك المحسوبة من آخر شراء
+    const unitCost = prod.costPerConsumeUnit || prod.cost || prod.costPrice || prod.lastPurchasePrice || 0;
     return sum + (parseFloat(ing.qty)||0) * unitCost;
   }, 0);
   const data = {
@@ -660,13 +661,13 @@ function renderSvcRecipeRows(){
       <div style="display:grid;grid-template-columns:1fr 70px 50px 32px;gap:4px;align-items:center;">
         <select class="fctl" style="font-size:12px;padding:4px 6px;" onchange="setSvcRecipeField(${idx},'productId',this.value)">
           <option value="">— اختر منتج —</option>
-          ${products.map(p => `<option value="${p.id}" ${p.id===ing.productId?'selected':''}>${p.name}</option>`).join('')}
+          ${products.map(p => `<option value="${p.id}" ${p.id===ing.productId?'selected':''}>${p.name}${p.consumeUnit?' ('+p.consumeUnit+')':''}</option>`).join('')}
         </select>
         <input class="fctl" type="number" min="0.01" step="0.01" style="font-size:12px;padding:4px 6px;text-align:center;"
                value="${ing.qty||''}" placeholder="الكمية"
                onchange="setSvcRecipeField(${idx},'qty',this.value)">
         <input class="fctl" type="text" style="font-size:12px;padding:4px 6px;text-align:center;"
-               value="${ing.unit||''}" placeholder="مل/جم"
+               value="${ing.unit||''}" placeholder="${products.find(p=>p.id===ing.productId)?.consumeUnit||'مل/جم'}"
                onchange="setSvcRecipeField(${idx},'unit',this.value)">
         <button type="button" class="btn btn-danger btn-xs" onclick="removeSvcRecipeRow(${idx})" style="padding:4px 6px;">✕</button>
       </div>
@@ -704,7 +705,7 @@ function updateSvcRecipeCostCalc(){
     if(!ing.productId || !ing.qty) return sum;
     const prod = products.find(p => p.id === ing.productId);
     if(!prod) return sum;
-    const unitCost = prod.cost || prod.lastPurchasePrice || 0;
+    const unitCost = prod.costPerConsumeUnit || prod.cost || prod.costPrice || prod.lastPurchasePrice || 0;
     return sum + (parseFloat(ing.qty)||0) * unitCost;
   }, 0);
   el.textContent = total.toFixed(2) + ' ج';
@@ -721,7 +722,7 @@ function updateSvcProfitPreview(){
     if(!ing.productId || !ing.qty) return sum;
     const prod = products.find(p => p.id === ing.productId);
     if(!prod) return sum;
-    const unitCost = prod.cost || prod.lastPurchasePrice || 0;
+    const unitCost = prod.costPerConsumeUnit || prod.cost || prod.costPrice || prod.lastPurchasePrice || 0;
     return sum + (parseFloat(ing.qty)||0) * unitCost;
   }, 0);
   const profit = price - cost;

@@ -41,11 +41,20 @@ function deductInventory(serviceId, sessionQty){
       const item = inv.find(i => i.id === ingredient.productId);
       if(!item) return;
       const deductQty = parseFloat(ingredient.qty) * sessionQty;
-      const newQty    = Math.max(0, item.qty - deductQty);
+      const newQty    = parseFloat(Math.max(0, item.qty - deductQty).toFixed(4));
       const newStatus = newQty === 0 ? 'نفذ' : newQty <= (item.reorder||0) ? 'منخفض' : 'متوفر';
       DB.upd('inventory', item.id, { qty: newQty, status: newStatus });
+      // تسجيل حركة خصم في سجل المخزون
+      if(typeof DB.push === 'function'){
+        DB.push('inventory_transactions', {
+          type: 'صادر', productId: item.id, product: item.name,
+          qty: deductQty, consumeUnit: ingredient.unit || item.consumeUnit || 'وحدة',
+          refType: 'session', date: new Date().toISOString().split('T')[0],
+          notes: `استهلاك جلسة — ${svc.name||''}`
+        });
+      }
       if(newQty <= (item.reorder||0)){
-        showToast('warning', `⚠️ مخزون منخفض: ${item.name}`, `متبقي ${newQty} ${ingredient.unit||'وحدة'}`);
+        showToast('warning', `⚠️ مخزون منخفض: ${item.name}`, `متبقي ${newQty.toFixed(2)} ${ingredient.unit||item.consumeUnit||'وحدة'}`);
       }
     });
     return;
@@ -56,11 +65,19 @@ function deductInventory(serviceId, sessionQty){
   const consumeQty = (svc.consumeQty || 1) * sessionQty;
   const item = inv.find(i => i.id === svc.linkedProductId);
   if(!item) return;
-  const newQty    = Math.max(0, item.qty - consumeQty);
+  const newQty    = parseFloat(Math.max(0, item.qty - consumeQty).toFixed(4));
   const newStatus = newQty === 0 ? 'نفذ' : newQty <= (item.reorder||0) ? 'منخفض' : 'متوفر';
   DB.upd('inventory', item.id, { qty: newQty, status: newStatus });
+  if(typeof DB.push === 'function'){
+    DB.push('inventory_transactions', {
+      type: 'صادر', productId: item.id, product: item.name,
+      qty: consumeQty, consumeUnit: item.consumeUnit || 'وحدة',
+      refType: 'session', date: new Date().toISOString().split('T')[0],
+      notes: `استهلاك جلسة — ${svc.name||''}`
+    });
+  }
   if(newQty <= (item.reorder||0)){
-    showToast('warning', `⚠️ مخزون منخفض: ${item.name}`, `متبقي ${newQty} وحدة`);
+    showToast('warning', `⚠️ مخزون منخفض: ${item.name}`, `متبقي ${newQty.toFixed(2)} ${item.consumeUnit||'وحدة'}`);
   }
 }
 
@@ -80,7 +97,7 @@ function calcServiceMaterialCost(serviceId){
       if(!ingredient.productId || !ingredient.qty) return total;
       const item = inv.find(i => i.id === ingredient.productId);
       if(!item) return total;
-      const unitCost = item.cost || item.lastPurchasePrice || 0;
+      const unitCost = item.costPerConsumeUnit || item.cost || item.costPrice || item.lastPurchasePrice || 0;
       return total + (parseFloat(ingredient.qty) * unitCost);
     }, 0);
   }
@@ -89,7 +106,7 @@ function calcServiceMaterialCost(serviceId){
   if(svc.linkedProductId){
     const item = inv.find(i => i.id === svc.linkedProductId);
     if(item){
-      const unitCost = item.cost || item.lastPurchasePrice || 0;
+      const unitCost = item.costPerConsumeUnit || item.cost || item.costPrice || item.lastPurchasePrice || 0;
       return (svc.consumeQty || 1) * unitCost;
     }
   }
@@ -221,7 +238,7 @@ function openSupplierDetail(supId){
       <tr>
         <td style="font-size:12px">${p.orderDate||'—'}</td>
         <td style="font-weight:600">${p.product||'—'}</td>
-        <td>${(p.qty||0).toLocaleString()}</td>
+        <td>${(p.qty||0)} ${p.purchaseUnit||''}${p.totalConsumeQty>0?' <span style="font-size:10px;color:var(--teal)">= '+p.totalConsumeQty.toFixed(1)+' '+p.consumeUnit+'</span>':''}</td>
         <td>${(p.unitPrice||0).toLocaleString()} ج</td>
         <td style="font-weight:700">${(p.total||0).toLocaleString()} ج</td>
         <td><span class="ast ${p.status==='مستلم'?'sc':p.status==='ملغي'?'sd':'sp'}">${p.status||'—'}</span></td>
@@ -301,7 +318,7 @@ function renderPurchases(q){
     <td style="font-size:11px;color:var(--gold-light);font-weight:700">#PO-${String(i+1).padStart(3,'0')}</td>
     <td style="font-weight:600">${p.product}</td>
     <td style="font-size:12px">${p.supplier||'—'}</td>
-    <td style="text-align:center;font-weight:700">${p.qty||0}</td>
+    <td style="text-align:center;font-weight:700">${p.qty||0} ${p.purchaseUnit||''}${p.totalConsumeQty>0?' <span style="font-size:10px;color:var(--teal)">= '+p.totalConsumeQty.toFixed(1)+' '+p.consumeUnit+'</span>':''}</td>
     <td style="color:var(--gold-light);font-weight:700">${(p.total||0).toLocaleString()} ج</td>
     <td style="font-size:12px">${p.orderDate||'—'}</td>
     <td style="font-size:12px;color:${p.deliveryDate&&new Date(p.deliveryDate)<new Date()&&p.status!=='مستلم'?'var(--rose)':'var(--text-muted)'}">${p.deliveryDate||'—'}</td>
@@ -329,6 +346,8 @@ function openPurchaseModal(id){
   document.getElementById('pur-qty').value          = p ? p.qty : '';
   document.getElementById('pur-unit-price').value   = p ? p.unitPrice : '';
   document.getElementById('pur-total-preview').textContent = p ? (p.total||0).toLocaleString()+' ج' : '0 ج';
+  // تحديث حقول وحدة الشراء بعد اختيار المنتج
+  setTimeout(() => { if(typeof onPurProductChange==='function') onPurProductChange(); }, 50);
   document.getElementById('pur-order-date').value   = p ? p.orderDate : new Date().toISOString().split('T')[0];
   document.getElementById('pur-delivery-date').value = p ? p.deliveryDate||'' : '';
   const statusEl = document.getElementById('pur-status');
@@ -341,7 +360,7 @@ function fillPurchaseProducts(){
   const sel = document.getElementById('pur-product'); if(!sel) return;
   const items = DB.get('inventory') || [];
   sel.innerHTML = '<option value="">-- اختر منتج من المخزون --</option>' +
-    items.map(i => `<option value="${i.id}" data-name="${i.name}" data-branch="${i.branch||''}">${i.name}${i.branch?' ('+i.branch+')':''} — مخزون: ${i.qty}</option>`).join('');
+    items.map(i => `<option value="${i.id}" data-name="${i.name}" data-branch="${i.branch||''}" data-purchase-unit="${i.purchaseUnit||'قطعة'}" data-qty-per-unit="${i.qtyPerUnit||1}" data-consume-unit="${i.consumeUnit||'قطعة'}">${i.name}${i.branch?' ('+i.branch+')':''} — مخزون: ${(i.qty||0).toFixed(1)} ${i.consumeUnit||'وحدة'}</option>`).join('');
 }
 
 function fillPurchaseSuppliers(){
@@ -350,10 +369,34 @@ function fillPurchaseSuppliers(){
   sel.innerHTML = '<option value="">-- اختر مورد --</option>' + sups.map(s => `<option value="${s.id}" data-name="${s.name}">${s.name}</option>`).join('');
 }
 
+function onPurProductChange(){
+  const sel = document.getElementById('pur-product');
+  const opt = sel?.options[sel?.selectedIndex];
+  const puEl = document.getElementById('pur-purchase-unit');
+  const qpuEl = document.getElementById('pur-qty-per-unit');
+  if(puEl) puEl.value = opt?.dataset?.purchaseUnit || '—';
+  if(qpuEl) qpuEl.value = opt?.dataset?.qtyPerUnit ? (opt.dataset.qtyPerUnit + ' ' + (opt.dataset.consumeUnit||'')) : '—';
+  calcPurTotal();
+}
+
 function calcPurTotal(){
   const q = parseFloat(document.getElementById('pur-qty')?.value) || 0;
   const p = parseFloat(document.getElementById('pur-unit-price')?.value) || 0;
-  txt('pur-total-preview', (q*p).toLocaleString()+' ج');
+  const total = q * p;
+  txt('pur-total-preview', total.toLocaleString()+' ج');
+  // حساب الكمية الاستهلاكية الإجمالية وتكلفة وحدة الاستهلاك
+  const sel = document.getElementById('pur-product');
+  const opt = sel?.options[sel?.selectedIndex];
+  const qtyPerUnit = parseFloat(opt?.dataset?.qtyPerUnit) || 1;
+  const consumeUnit = opt?.dataset?.consumeUnit || 'وحدة';
+  const totalConsumeQty = q * qtyPerUnit;
+  const costPerConsume = totalConsumeQty > 0 ? total / totalConsumeQty : 0;
+  const totalQtyEl = document.getElementById('pur-total-qty-units');
+  const costPerEl  = document.getElementById('pur-cost-per-consume');
+  const total2El   = document.getElementById('pur-total-preview2');
+  if(totalQtyEl) totalQtyEl.textContent = totalConsumeQty.toFixed(1) + ' ' + consumeUnit;
+  if(costPerEl)  costPerEl.textContent  = costPerConsume.toFixed(2) + ' ج/' + consumeUnit;
+  if(total2El)   total2El.textContent   = total.toLocaleString()+' ج';
 }
 
 function savePurchase(){
@@ -368,8 +411,18 @@ function savePurchase(){
   const supSel = document.getElementById('pur-supplier');
   const supplierId = supSel?.value || '';
   const supplierName = supSel?.options[supSel?.selectedIndex]?.dataset?.name || supplierId;
+  // استرداد بيانات وحدة الشراء من المنتج
+  const purProdOpt = purSel?.options[purSel?.selectedIndex];
+  const purchaseUnitLabel = purProdOpt?.dataset?.purchaseUnit || 'وحدة';
+  const qtyPerUnit_pur = parseFloat(purProdOpt?.dataset?.qtyPerUnit) || 1;
+  const consumeUnitLabel = purProdOpt?.dataset?.consumeUnit || 'وحدة';
+  const totalConsumeQty_pur = qty * qtyPerUnit_pur;
   const data = { productId, product:productName, supplierId, supplier:supplierName,
                  qty, unitPrice, total:qty*unitPrice,
+                 purchaseUnit: purchaseUnitLabel,
+                 qtyPerUnit: qtyPerUnit_pur,
+                 consumeUnit: consumeUnitLabel,
+                 totalConsumeQty: totalConsumeQty_pur,
                  orderDate:gv('pur-order-date'), deliveryDate:gv('pur-delivery-date'),
                  branch:gv('pur-branch'), status:gv('pur-status'),
                  notes: (document.getElementById('pur-notes')?.value||'').trim() };
@@ -381,13 +434,17 @@ function savePurchase(){
     showToast('success', `✅ تم تحديث طلب: ${productName}`);
     // تحديث سجل purchase_items الموجود
     const existing = (DB.get('purchase_items')||[]).filter(i => i.purchaseId !== id);
-    existing.push({ purchaseId: id, productId, productName, qty, unitPrice });
+    existing.push({ purchaseId: id, productId, productName, qty, unitPrice,
+      purchaseUnit: purchaseUnitLabel, qtyPerUnit: qtyPerUnit_pur,
+      consumeUnit: consumeUnitLabel, totalConsumeQty: totalConsumeQty_pur });
     DB.set('purchase_items', existing);
   } else {
     const newPur = DB.push('purchases', data);
     purchaseId = newPur?.id;
-    // إنشاء سجل في purchase_items
-    DB.push('purchase_items', { purchaseId, productId, productName, qty, unitPrice });
+    // إنشاء سجل في purchase_items مع بيانات وحدات الاستهلاك
+    DB.push('purchase_items', { purchaseId, productId, productName, qty, unitPrice,
+      purchaseUnit: purchaseUnitLabel, qtyPerUnit: qtyPerUnit_pur,
+      consumeUnit: consumeUnitLabel, totalConsumeQty: totalConsumeQty_pur });
     showToast('success', `✅ تم إرسال طلب شراء: ${productName}`);
   }
   closeModal('purchase-modal');
@@ -667,10 +724,29 @@ function openMultiPurchaseModal(){
   openModal('multi-purchase-modal');
 }
 
+function onMpurProductChange(){
+  const sel = document.getElementById('mpur-item-product');
+  const opt = sel?.options[sel?.selectedIndex];
+  const puEl = document.getElementById('mpur-item-purchase-unit');
+  const prevEl = document.getElementById('mpur-item-consume-preview');
+  if(puEl) puEl.value = opt?.dataset?.purchaseUnit || '—';
+  calcMpurItemPreview();
+}
+
+function calcMpurItemPreview(){
+  const sel = document.getElementById('mpur-item-product');
+  const opt = sel?.options[sel?.selectedIndex];
+  const qtyPerUnit = parseFloat(opt?.dataset?.qtyPerUnit) || 1;
+  const consumeUnit = opt?.dataset?.consumeUnit || 'وحدة';
+  const qty = parseFloat(document.getElementById('mpur-item-qty')?.value) || 0;
+  const prevEl = document.getElementById('mpur-item-consume-preview');
+  if(prevEl) prevEl.value = qty > 0 ? (qty * qtyPerUnit).toFixed(1) + ' ' + consumeUnit : '—';
+}
+
 function fillMpurProducts(){
   const sel = document.getElementById('mpur-item-product'); if(!sel) return;
   sel.innerHTML = '<option value="">-- اختر منتج --</option>' +
-    (DB.get('inventory')||[]).map(i => `<option value="${i.id}">${i.name} — مخزون: ${i.qty}</option>`).join('');
+    (DB.get('inventory')||[]).map(i => `<option value="${i.id}" data-purchase-unit="${i.purchaseUnit||'قطعة'}" data-qty-per-unit="${i.qtyPerUnit||1}" data-consume-unit="${i.consumeUnit||'قطعة'}">${i.name} — مخزون: ${(i.qty||0).toFixed(1)} ${i.consumeUnit||'وحدة'}</option>`).join('');
 }
 
 function addPurItem(){
@@ -681,9 +757,14 @@ function addPurItem(){
   const unitPrice   = parseFloat(document.getElementById('mpur-item-price')?.value) || 0;
   if(!productId){ showToast('warning','⚠️ اختر منتجاً'); return; }
   if(qty <= 0){ showToast('warning','⚠️ الكمية مطلوبة'); return; }
+  const mpurSel = document.getElementById('mpur-item-product');
+  const mpurOpt = mpurSel?.options[mpurSel?.selectedIndex];
+  const purchaseUnit_m = mpurOpt?.dataset?.purchaseUnit || 'وحدة';
+  const qtyPerUnit_m   = parseFloat(mpurOpt?.dataset?.qtyPerUnit) || 1;
+  const consumeUnit_m  = mpurOpt?.dataset?.consumeUnit || 'وحدة';
   const existing = _purItems.find(i => i.productId === productId);
   if(existing){ existing.qty += qty; existing.unitPrice = unitPrice; }
-  else { _purItems.push({ productId, productName, qty, unitPrice }); }
+  else { _purItems.push({ productId, productName, qty, unitPrice, purchaseUnit: purchaseUnit_m, qtyPerUnit: qtyPerUnit_m, consumeUnit: consumeUnit_m }); }
   const mpurQtyEl = document.getElementById('mpur-item-qty');
   const mpurPriceEl = document.getElementById('mpur-item-price');
   if(mpurQtyEl) mpurQtyEl.value = '';
@@ -699,17 +780,22 @@ function removePurItem(idx){
 function renderPurItems(){
   const tb = document.getElementById('mpur-items-tbody'); if(!tb) return;
   if(!_purItems.length){
-    tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:12px">لم تُضَف أصناف بعد</td></tr>';
+    tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:12px">لم تُضَف أصناف بعد</td></tr>';
     txt('mpur-grand-total','0 ج');
     return;
   }
-  tb.innerHTML = _purItems.map((item, i) => `<tr>
-    <td style="font-weight:600">${item.productName}</td>
-    <td style="text-align:center">${item.qty}</td>
-    <td>${(item.unitPrice).toLocaleString()} ج</td>
-    <td style="font-weight:700;color:var(--gold-light)">${(item.qty*item.unitPrice).toLocaleString()} ج</td>
-    <td><button class="btn btn-danger btn-xs" onclick="removePurItem(${i})">🗑</button></td>
-  </tr>`).join('');
+  tb.innerHTML = _purItems.map((item, i) => {
+    const totalConsumeQty = item.qty * (item.qtyPerUnit||1);
+    const consumeUnit = item.consumeUnit || 'وحدة';
+    return `<tr>
+      <td style="font-weight:600">${item.productName}</td>
+      <td style="text-align:center">${item.qty} ${item.purchaseUnit||''}</td>
+      <td style="color:var(--teal);font-size:12px">${totalConsumeQty.toFixed(1)} ${consumeUnit}</td>
+      <td>${(item.unitPrice).toLocaleString()} ج</td>
+      <td style="font-weight:700;color:var(--gold-light)">${(item.qty*item.unitPrice).toLocaleString()} ج</td>
+      <td><button class="btn btn-danger btn-xs" onclick="removePurItem(${i})">🗑</button></td>
+    </tr>`;
+  }).join('');
   const grand = _purItems.reduce((s,i)=>s+i.qty*i.unitPrice,0);
   txt('mpur-grand-total', grand.toLocaleString()+' ج');
 }
@@ -735,6 +821,7 @@ function saveMultiPurchase(){
   const newPur = DB.push('purchases', data);
   const purchaseId = newPur?.id;
   _purItems.forEach(item => {
+    // item يحمل بالفعل purchaseUnit, qtyPerUnit, consumeUnit من addPurItem
     DB.push('purchase_items', { purchaseId, ...item });
   });
   // إذا تم الإنشاء كـ "مستلم"، شغّل hook الاستلام عبر upd (لا يحتوي _inventoryUpdated → سيعمل)
@@ -762,7 +849,7 @@ function renderInventoryTransactions(productId){
     <td style="font-size:12px">${t.date||'—'}</td>
     <td style="font-weight:600">${t.product||'—'}</td>
     <td><span class="tag ${t.type.includes('وارد')||t.type.includes('+') ? 'tg-teal' : 'tg-rose'}">${t.type}</span></td>
-    <td style="font-weight:700;color:${t.type.includes('وارد')||t.type.includes('+') ? 'var(--emerald)' : 'var(--rose)'}">${t.qty||0}</td>
+    <td style="font-weight:700;color:${t.type.includes('وارد')||t.type.includes('+') ? 'var(--emerald)' : 'var(--rose)'}">${typeof t.qty==='number'?t.qty.toFixed(2):t.qty||0} ${t.consumeUnit||''}</td>
     <td style="font-size:11px;color:var(--text-muted)">${t.refType||'—'}</td>
     <td style="font-size:11px;color:var(--text-muted)">${t.notes||'—'}</td>
   </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">لا توجد حركات</td></tr>';

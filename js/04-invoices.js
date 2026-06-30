@@ -13,10 +13,10 @@ function renderInv(){
     return `<tr>
       <td style="font-weight:600">${i.name}</td>
       <td style="font-size:11px;color:var(--text-muted)">${i.supplierName||'—'}</td>
-      <td style="font-weight:700;color:${i.qty===0?'var(--rose)':i.qty<=i.reorder?'var(--amber)':'var(--emerald)'}">${i.qty}</td>
+      <td style="font-weight:700;color:${i.qty===0?'var(--rose)':i.qty<=i.reorder?'var(--amber)':'var(--emerald)'}">${(i.qty||0).toFixed(1)} ${i.consumeUnit||'وحدة'}</td>
       <td>${i.reorder}</td>
       <td style="font-size:12px;color:${i.expiry&&new Date(i.expiry)<new Date()?'var(--rose)':'var(--text-muted)'}">${i.expiry||'—'}</td>
-      <td style="color:var(--rose);font-weight:700">${i.costPrice>0?i.costPrice+' ج':'—'}</td>
+      <td style="color:var(--rose);font-weight:700">${i.costPerConsumeUnit>0?(i.costPerConsumeUnit.toFixed(2)+' ج/'+i.consumeUnit):(i.costPrice>0?i.costPrice+' ج':'—')}</td>
       <td>${i.price} ج${marginHtml}</td>
       <td><span class="stk ${i.status==='متوفر'?'stk-ok':i.status==='منخفض'?'stk-low':'stk-out'}">${i.status}</span></td>
       <td><button class="btn btn-teal btn-xs" onclick="openProductSaleModal('${i.id}')">🛒 بيع</button> <button class="btn btn-ghost btn-xs" onclick="openProductModal('${i.id}')">✏️</button> <button class="btn btn-ghost btn-xs" style="font-size:10px" onclick="openAdjustModal('${i.id}')">📊</button> <button class="btn btn-danger btn-xs" onclick="delInv('${i.id}')">🗑</button></td>
@@ -26,7 +26,8 @@ function renderInv(){
   const low=all.filter(i=>i.status==='منخفض').length,out=all.filter(i=>i.status==='نفذ').length;
   txt('inv-total',all.length);txt('inv-low',low);txt('inv-out',out);
   // قيمة المخزون بسعر الشراء (التكلفة الفعلية)
-  txt('inv-val',all.reduce((s,i)=>s+(i.qty*(i.costPrice||i.price||0)),0).toLocaleString()+' ج');
+  // قيمة المخزون = الكمية بوحدة الاستهلاك × تكلفة وحدة الاستهلاك
+  txt('inv-val',all.reduce((s,i)=>s+(i.qty*(i.costPerConsumeUnit||i.costPrice||i.price||0)),0).toLocaleString()+' ج');
   txt('badge-stock',low+out);txt('kpi-stk',low+out);
 }
 function delInv(id){if(confirm('حذف المنتج؟')){DB.del('inventory',id);renderInv();showToast('info','🗑️ تم حذف المنتج');}}
@@ -41,6 +42,14 @@ function openProductModal(id){
   document.getElementById('prod-price').value=p?p.price:'';
   document.getElementById('prod-exp').value=p?p.expiry||'':'';
   const catEl=document.getElementById('prod-cat');if(catEl&&p)catEl.value=p.cat||catEl.options[0].value;
+  // ── حقول وحدات الشراء والاستهلاك ──
+  const puEl=document.getElementById('prod-purchase-unit');
+  if(puEl){ if(p&&p.purchaseUnit) puEl.value=p.purchaseUnit; else puEl.value='قطعة'; }
+  const cuEl=document.getElementById('prod-consume-unit');
+  if(cuEl){ if(p&&p.consumeUnit) cuEl.value=p.consumeUnit; else cuEl.value='قطعة'; }
+  const qpuEl=document.getElementById('prod-qty-per-unit');
+  if(qpuEl) qpuEl.value=p?p.qtyPerUnit||'':'';
+  calcProdCostPerUnit();
   // ملء قائمة الموردين
   const supEl=document.getElementById('prod-supplier');
   if(supEl){
@@ -69,8 +78,14 @@ function saveProd(){
   const supplierName=supEl?.options[supEl?.selectedIndex]?.dataset?.name||'';
   const costPrice=parseFloat(gv('prod-cost'))||0;
   const sellPrice=parseFloat(gv('prod-price'))||0;
+  const purchaseUnit=gv('prod-purchase-unit')||'قطعة';
+  const consumeUnit=gv('prod-consume-unit')||'قطعة';
+  const qtyPerUnit=parseFloat(gv('prod-qty-per-unit'))||1;
+  // حساب تكلفة وحدة الاستهلاك تلقائياً
+  const costPerConsumeUnit = qtyPerUnit > 0 ? costPrice / qtyPerUnit : costPrice;
   const data={name,cat:gv('prod-cat'),qty,reorder,
     costPrice, price:sellPrice,
+    purchaseUnit, consumeUnit, qtyPerUnit, costPerConsumeUnit,
     supplierId, supplierName,
     expiry:gv('prod-exp'),branch,
     status:qty===0?'نفذ':qty<=reorder?'منخفض':'متوفر'};
@@ -78,6 +93,20 @@ function saveProd(){
   else{DB.push('inventory',data);showToast('success',`✅ تم إضافة ${name}`);}
   closeModal('product-modal');renderInv();
 }
+function calcProdCostPerUnit(){
+  const cost     = parseFloat(document.getElementById('prod-cost')?.value)||0;
+  const qtyPerU  = parseFloat(document.getElementById('prod-qty-per-unit')?.value)||1;
+  const consumeU = document.getElementById('prod-consume-unit')?.value||'';
+  const valEl    = document.getElementById('prod-cost-per-unit-val');
+  if(!valEl) return;
+  if(cost > 0 && qtyPerU > 0){
+    const perUnit = cost / qtyPerU;
+    valEl.textContent = perUnit.toFixed(2) + ' ج/' + (consumeU||'وحدة');
+  } else {
+    valEl.textContent = '— ج';
+  }
+}
+
 function calcProdMargin(){
   const cost  = parseFloat(document.getElementById('prod-cost')?.value)||0;
   const sell  = parseFloat(document.getElementById('prod-price')?.value)||0;
