@@ -263,17 +263,83 @@ function openSupplierDetail(supId){
   // جدول الدفعات
   const payTb = document.getElementById('sd-pay-tbody');
   if(payTb){
-    payTb.innerHTML = payments.length ? payments.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(sp=>`
-      <tr>
-        <td style="font-size:12px">${sp.date||'—'}</td>
-        <td style="color:var(--emerald);font-weight:700">${(sp.amount||0).toLocaleString()} ج</td>
-        <td style="font-size:12px">${sp.method||'كاش'}</td>
-        <td style="font-size:11px;color:var(--text-muted)">${sp.notes||'—'}</td>
-      </tr>`).join('')
-    : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px">لا توجد دفعات</td></tr>';
+    payTb.innerHTML = payments.length ? payments.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(sp=>_renderSupplierPaymentRow(sp,false)).join('')
+    : '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px">لا توجد دفعات</td></tr>';
   }
 
   openModal('supplier-detail-modal');
+}
+
+// ── ✅ ميزة جديدة: تعديل دفعة مورد مسجَّلة بالغلط (مباشرة من الصف، بدون حذف) ──
+function _renderSupplierPaymentRow(sp, editMode){
+  if(editMode){
+    return `<tr data-payid="${sp.id}">
+      <td style="font-size:12px">${sp.date||'—'}</td>
+      <td><input type="number" id="sp-edit-amount-${sp.id}" value="${sp.amount||0}" min="0" style="width:90px;padding:5px 7px;border-radius:6px;border:1px solid var(--glass-border,#ccc);font-family:inherit"></td>
+      <td>
+        <select id="sp-edit-method-${sp.id}" style="font-size:12px;padding:5px;border-radius:6px;">
+          <option value="كاش" ${sp.method==='كاش'?'selected':''}>كاش</option>
+          <option value="بنك" ${sp.method==='بنك'?'selected':''}>تحويل بنكي</option>
+          <option value="شيك" ${sp.method==='شيك'?'selected':''}>شيك</option>
+        </select>
+      </td>
+      <td><input type="text" id="sp-edit-notes-${sp.id}" value="${(sp.notes||'').replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;padding:5px;border-radius:6px;border:1px solid var(--glass-border,#ccc)"></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-primary btn-xs" onclick="saveSupplierPaymentEdit('${sp.id}')">✅</button>
+        <button class="btn btn-ghost btn-xs" onclick="openSupplierDetail('${sp.supplierId}')">❌</button>
+      </td>
+    </tr>`;
+  }
+  return `<tr data-payid="${sp.id}">
+    <td style="font-size:12px">${sp.date||'—'}</td>
+    <td style="color:var(--emerald);font-weight:700">${(sp.amount||0).toLocaleString()} ج</td>
+    <td style="font-size:12px">${sp.method||'كاش'}</td>
+    <td style="font-size:11px;color:var(--text-muted)">${sp.notes||'—'}</td>
+    <td><button class="btn btn-ghost btn-xs" onclick="editSupplierPaymentRow('${sp.id}')" title="تعديل المبلغ">✏️</button></td>
+  </tr>`;
+}
+
+function editSupplierPaymentRow(payId){
+  const sp = (DB.get('supplier_payments')||[]).find(x => x.id === payId);
+  if(!sp){ showToast('error','❌ الدفعة غير موجودة'); return; }
+  const row = document.querySelector(`#sd-pay-tbody tr[data-payid="${payId}"]`);
+  if(!row) return;
+  row.outerHTML = _renderSupplierPaymentRow(sp, true);
+  document.getElementById(`sp-edit-amount-${payId}`)?.focus();
+}
+
+function saveSupplierPaymentEdit(payId){
+  const sp = (DB.get('supplier_payments')||[]).find(x => x.id === payId);
+  if(!sp){ showToast('error','❌ الدفعة غير موجودة'); return; }
+  const newAmount = parseFloat(document.getElementById(`sp-edit-amount-${payId}`)?.value) || 0;
+  const newMethod = document.getElementById(`sp-edit-method-${payId}`)?.value || 'كاش';
+  const newNotes  = document.getElementById(`sp-edit-notes-${payId}`)?.value || '';
+  if(newAmount <= 0){ showToast('warning','⚠️ أدخل مبلغ صحيح'); return; }
+
+  DB.upd('supplier_payments', payId, { amount:newAmount, method:newMethod, notes:newNotes });
+
+  // ── مزامنة قيد الخزينة المقابل ليبقى الرقمان متطابقين دائماً ──
+  // المسار الأساسي: عبر cashlogId المخزَّن وقت الإنشاء (مضمون 100% للدفعات الجديدة).
+  // مسار احتياطي: عبر refId (للسجلات اللي اتسجلت بعد إصلاح الربط لكن قبل إضافة cashlogId).
+  // لو الاتنين مش موجودين (دفعة قديمة من قبل هذا الإصلاح بالكامل)، يُحدَّث سجل
+  // الدفعة فقط ويُنبَّه المستخدم لمراجعة قيد الخزينة يدوياً لتفادي تعديل قيد خاطئ.
+  let cashEntry = sp.cashlogId ? (DB.get('cashlog')||[]).find(c => c.id === sp.cashlogId) : null;
+  if(!cashEntry) cashEntry = (DB.get('cashlog')||[]).find(c => c.refId === payId);
+  if(cashEntry){
+    DB.upd('cashlog', cashEntry.id, { amount:newAmount, method:newMethod, notes:newNotes });
+  } else {
+    showToast('warning','⚠️ تم تعديل الدفعة، لكن قيد الخزينة القديم المقابل لم يُربط تلقائياً (دفعة قديمة) — راجعه يدوياً في شاشة الخزينة');
+  }
+
+  // ── إعادة حساب owed بعد التعديل ──
+  const supId = sp.supplierId;
+  const totalBought = (DB.get('purchases')||[]).filter(p=>p.supplierId===supId&&p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
+  const totalPaid   = (DB.get('supplier_payments')||[]).filter(x=>x.supplierId===supId).reduce((s,x)=>s+(x.amount||0),0);
+  DB.upd('suppliers', supId, { owed: Math.max(0, totalBought - totalPaid) });
+
+  showToast('success','✅ تم تعديل الدفعة');
+  openSupplierDetail(supId);
+  renderSuppliers();
 }
 
 function paySupplier(){
@@ -288,8 +354,13 @@ function paySupplier(){
   if(!sup) return;
 
   const today = new Date().toISOString().split('T')[0];
-  DB.push('supplier_payments',{ supplierId:supId, supplierName:sup.name, amount, method, date:today, notes });
-  DB.push('cashlog',{ type:'صادر', source:`دفعة مورد — ${sup.name}`, amount, method, date:today, notes });
+  // ✅ FIX: ربط ثنائي الاتجاه بين سجل الدفعة وقيد الخزينة المقابل له —
+  // كانا بيُنشأا بدون أي رابط بينهما، فمستحيل نلاقي القيد الصحيح لاحقاً
+  // عند التعديل أو الحذف. refId على cashlog يفعّل أيضاً حارس منع التكرار
+  // المركزي في DB.push (لم يكن فعّالاً هنا قبل كده لعدم وجود refId).
+  const payRecord  = DB.push('supplier_payments',{ supplierId:supId, supplierName:sup.name, amount, method, date:today, notes });
+  const cashRecord = DB.push('cashlog',{ type:'صادر', source:`دفعة مورد — ${sup.name}`, refId:payRecord.id, amount, method, date:today, notes });
+  DB.upd('supplier_payments', payRecord.id, { cashlogId:cashRecord.id });
 
   // إعادة حساب owed
   const totalBought = (DB.get('purchases')||[]).filter(p=>p.supplierId===supId&&p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
