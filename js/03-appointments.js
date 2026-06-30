@@ -48,7 +48,7 @@ function renderAppts(){
     <td><span class="ast ${ASC[a.status]||'sd'}">${a.status}</span></td>
     <td style="display:flex;gap:5px;white-space:nowrap;">
       <button class="btn btn-ghost btn-xs" onclick="openApptModal('${a.id}')">✏️</button>
-      <button class="btn btn-ghost btn-xs" onclick="updAppt('${a.id}','مكتمل')">✅</button>
+      ${a.status!=='مكتمل'?`<button class="btn btn-ghost btn-xs" onclick="openConsultDoneModal('${a.id}')" title="إنهاء الموعد وإصدار الفاتورة">✅</button>`:''}
       <button class="btn btn-teal btn-xs" onclick="sendApptWA('${a.id}')" title="إرسال الموعد عبر واتساب">💬</button>
       <button class="btn btn-danger btn-xs" onclick="delAppt('${a.id}')">🗑</button>
     </td>
@@ -63,10 +63,38 @@ function updAppt(id, st){
 }
 
 function delAppt(id){
-  if(confirm('حذف الموعد؟')){
-    DB.del('appointments', id);
-    // لا داعي لاستدعاءات render — EventBus يتولى ذلك
+  const a = DB.get('appointments').find(x => String(x.id)===String(id));
+  if(!a){ showToast('error','❌ الموعد غير موجود'); return; }
+
+  // ── لو الموعد مكتمل وله فاتورة مرتبطة، نحذف الفاتورة المرتبطة أيضاً لتفادي بيانات يتيمة ──
+  const linkedInv = DB.get('invoices').find(i => String(i.fromAppt)===String(id));
+  let warnMsg = 'حذف الموعد؟';
+  if(linkedInv){
+    warnMsg = `⚠️ هذا الموعد مكتمل وله فاتورة مرتبطة (${(linkedInv.total||0).toLocaleString()} ج).\nسيتم حذف الفاتورة وأي دفعات خزينة مرتبطة بها، وإرجاع جلسة الباقة إن وُجدت.\nملاحظة: لن يتم إرجاع كميات المخزون المخصومة تلقائياً.\n\nهل أنت متأكد من حذف الموعد؟`;
   }
+  if(!confirm(warnMsg)) return;
+
+  if(linkedInv){
+    // إرجاع جلسة الباقة لو الفاتورة كانت مغطاة بباقة
+    if(linkedInv.pkgId){
+      const pkg = DB.get('packages').find(p => String(p.id)===String(linkedInv.pkgId));
+      if(pkg){
+        const newUsed = Math.max(0, (pkg.sessionsUsed||0) - 1);
+        DB.upd('packages', pkg.id, { sessionsUsed: newUsed, status: 'نشطة' });
+      }
+    }
+    // حذف سجلات الخزينة المرتبطة بالفاتورة
+    (DB.get('cashlog')||[]).filter(c => String(c.refId)===String(linkedInv.id)).forEach(c => DB.del('cashlog', c.id));
+    // حذف الفاتورة نفسها وإعادة حساب رصيد العميل (DB.del لا يُطلق إعادة حساب تلقائياً)
+    DB.del('invoices', linkedInv.id);
+    if(typeof _recalcPatFinancials === 'function' && (a.patId || linkedInv.patId)) {
+      _recalcPatFinancials(a.patId || linkedInv.patId);
+    }
+  }
+
+  DB.del('appointments', id);
+  showToast('success', linkedInv ? '✅ تم حذف الموعد والفاتورة المرتبطة' : '✅ تم حذف الموعد');
+  // لا داعي لاستدعاءات render — EventBus يتولى ذلك
 }
 
 function sendApptWA(id){

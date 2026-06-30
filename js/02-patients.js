@@ -206,6 +206,7 @@ function viewPat(id){
     </tr>`;
   }).join('')||'<tr><td colspan="14" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد فواتير</td></tr>';
   showScreen('patient-profile');
+  renderPatHistory(id);
 
   // ── مزامنة لحظية: تحديث ملف العميل تلقائياً عند أي تغيير ──
   if(window._patProfileListener) { try{ window._patProfileListener(); }catch(e){} }
@@ -235,12 +236,67 @@ function viewPat(id){
     // لو تاب "حساب العميل" ظاهر، حدّث الجدول أيضاً
     const tInv = document.getElementById('t-inv');
     if(tInv && tInv.style.display !== 'none') renderPatAccount(id);
+    // تحديث تاب "السجل" الموحّد
+    renderPatHistory(id);
   };
-  var _ppEvts = ['invoices:created','invoices:updated','invoices:deleted','packages:created','packages:updated','sessions:updated','db:changed'];
+  var _ppEvts = ['invoices:created','invoices:updated','invoices:deleted','packages:created','packages:updated','sessions:updated','appointments:created','appointments:updated','appointments:deleted','db:changed'];
   _ppEvts.forEach(function(ev){ EventBus.on(ev, _refreshProfile); });
   window._patProfileListener = () => {
     _ppEvts.forEach(function(ev){ EventBus.off(ev, _refreshProfile); });
   };
+}
+
+// ══════════════════════════════════════════════════════
+// 📋 RENDER PATIENT HISTORY — تبويب "السجل" الموحّد
+// يجمع: مواعيد + فواتير + باقات في خط زمني واحد
+// (كان التبويب موجوداً في الواجهة بدون أي دالة تملأه)
+// ══════════════════════════════════════════════════════
+function renderPatHistory(id){
+  if(!id) return;
+  const el = document.getElementById('hist-list');
+  if(!el) return;
+  const p = DB.get('patients').find(x => x.id === id);
+  if(!p) return;
+
+  const appts = DB.get('appointments').filter(a => String(a.patId)===String(id) || a.patient===p.name);
+  const invs  = DB.get('invoices').filter(i => String(i.patId)===String(id) || (i.patId===undefined && i.patient===p.name));
+  const pkgs  = DB.get('packages').filter(pk => String(pk.patId)===String(id));
+
+  const items = [];
+  appts.forEach(a => items.push({
+    _date: a.date||'', _time: a.time||'',
+    _icon: a.status==='مكتمل'?'✅':a.status==='ملغي'?'🚫':a.status==='لم يحضر'?'❌':'📅',
+    _title: `موعد — ${a.service||'—'}${a.doctor?' · د. '+a.doctor:''}`,
+    _sub: `${a.status||'—'}${a.branch?' · '+a.branch:''}`,
+    _color: a.status==='مكتمل'?'var(--emerald)':a.status==='ملغي'||a.status==='لم يحضر'?'var(--rose)':'var(--teal)'
+  }));
+  invs.forEach(i => items.push({
+    _date: i.date||'', _time: '',
+    _icon: '🧾',
+    _title: `فاتورة — ${i.service||'—'}`,
+    _sub: `${(i.total||0).toLocaleString()} ج · ${i.status||'—'}`,
+    _color: 'var(--gold-light)'
+  }));
+  pkgs.forEach(pk => items.push({
+    _date: pk.startDate||'', _time: '',
+    _icon: '🎁',
+    _title: `باقة — ${pk.name||'—'}`,
+    _sub: `${(pk.price||0).toLocaleString()} ج · ${pk.status||'—'}`,
+    _color: 'var(--teal)'
+  }));
+
+  items.sort((x,y) => (y._date+y._time).localeCompare(x._date+x._time));
+
+  el.innerHTML = items.length ? items.map(it => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);">
+      <div style="font-size:18px;flex-shrink:0;">${it._icon}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:13px;">${it._title}</div>
+        <div style="font-size:11.5px;color:${it._color};">${it._sub}</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${it._date||'—'}${it._time?' · '+it._time:''}</div>
+    </div>`).join('')
+    : '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px">لا يوجد سجل بعد</div>';
 }
 
 // ══════════════════════════════════════════════════════
