@@ -75,7 +75,12 @@ function saveProd(){
   const name=gv('prod-name').trim();if(!name){showToast('warning','⚠️ اسم المنتج مطلوب');return;}
   const qty=parseInt(gv('prod-qty'))||0,reorder=parseInt(gv('prod-reord'))||5;
   const id=gv('prod-id');
-  const branch=gv('prod-branch')||(DB.get('branches')||[{name:'مدينة نصر'}])[0].name;
+  // ✅ FIX: DB.get('branches') بترجع [] (array فاضية) مش undefined لو مفيش
+  // فروع، والـ [] صح منطقيًا (truthy) في JS فـ "||" القديمة ماكنتش بتشتغل
+  // خالص، وكانت بتطلع خطأ Cannot read properties of undefined لما حد يحفظ
+  // منتج من غير ما يكون فيه أي فرع مُسجَّل أصلاً.
+  const _branches = DB.get('branches')||[];
+  const branch=gv('prod-branch')||(_branches[0]&&_branches[0].name)||'';
   const supEl=document.getElementById('prod-supplier');
   const supplierId=supEl?.value||'';
   const supplierName=supEl?.options[supEl?.selectedIndex]?.dataset?.name||'';

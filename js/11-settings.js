@@ -197,6 +197,11 @@ async function initFirebase(cfg){
         window._usersCache = usersObj;
         // حدّث localStorage كنسخة احتياطية offline فقط
         try { localStorage.setItem(USERS_KEY, JSON.stringify(usersObj)); } catch(e){}
+        // ✅ FIX (مزامنة لحظية — مرحلة 3): لو شاشة المستخدمين مفتوحة وقت
+        // التغيير (مثلاً جهاز تاني ضاف موظف جديد)، حدّثها فورًا من غير ما
+        // تحتاج تقفل التاب وتفتحه تاني.
+        const usersTabVisible = document.getElementById('se-perm')?.style.display === 'block';
+        if(usersTabVisible && typeof renderUsers === 'function') renderUsers();
       }, err => console.warn('Firestore users listener error:', err.message));
 
   } catch(err) {
@@ -832,12 +837,18 @@ function fillResBranchSelect(id,cur){
 // 🏢 DYNAMIC BRANCH SELECTS — يملأ كل قوائم الفروع في البرنامج من قاعدة البيانات
 // ══════════════════════════════════════════
 function fillAllBranchSelects(){
+  // ✅ FIX حرج (الفروع الوهمية — الجزء الثاني): الدالة كانت بترجع فورًا
+  // (return) من غير ما تعمل أي حاجة لو مفيش فروع حقيقية في قاعدة البيانات
+  // (branches.length === 0) — وده بالظبط حالة "حذفت كل الفروع". النتيجة:
+  // كل الـ <select> بتاعة الفرع المنتشرة في الصفحات التانية (فاتورة جديدة،
+  // جلسة، طبيب، موظف، مصروف، شراء، تحويل...) كانت بتفضل عارضة القيم
+  // الوهمية الجاهزة (مدينة نصر/المهندسين) المكتوبة يدويًا جوه index.html —
+  // لأن مفيش حد بينضّفها. الحل: منشتغلش بشرط، ونمسح القيم القديمة دايمًا.
   const branches = DB.get('branches') || [];
-  if(!branches.length) return;
   const names = branches.map(b=>b.name);
 
   // قائمة كل الـ IDs التي تحتاج فروع (مع/بدون "كل الفروع")
-  const withAll   = ['doc-branch-filter','wl-branch-filter'];
+  const withAll   = ['doc-branch-filter','wl-branch-filter','dash-branch-sel'];
   const withoutAll= ['wl-branch','sess-branch','doc-branch','st-branch','exp-branch',
                      'pur-branch','tr-from','tr-to','am-branch','pm-branch',
                      'rm-branch','eq-branch','prod-branch'];
@@ -846,20 +857,24 @@ function fillAllBranchSelects(){
     const sel=document.getElementById(id); if(!sel)return;
     const cur=sel.value;
     sel.innerHTML='<option value="">كل الفروع</option>'+names.map(n=>`<option value="${n}">${n}</option>`).join('');
-    if(cur)sel.value=cur;
+    if(cur && (cur===''||names.includes(cur)))sel.value=cur;
   });
 
   withoutAll.forEach(id=>{
     const sel=document.getElementById(id); if(!sel)return;
     const cur=sel.value;
-    sel.innerHTML=names.map(n=>`<option>${n}</option>`).join('');
+    sel.innerHTML = names.length
+      ? names.map(n=>`<option>${n}</option>`).join('')
+      : '<option value="">-- أضف فرعًا أولاً من الإعدادات --</option>';
     if(cur && names.includes(cur))sel.value=cur;
   });
 
   // قوائم الفلتر العامة (بدون ID ثابت — select داخل الشاشات)
   document.querySelectorAll('select.selbox').forEach(sel=>{
     const opts=[...sel.options].map(o=>o.value||o.text);
-    // إذا يحتوي على "مدينة نصر" أو "المهندسين" فقط (الافتراضية القديمة) → حدّثه
+    // إذا يحتوي على "مدينة نصر" أو "المهندسين" (الافتراضية القديمة المكتوبة
+    // يدويًا في الـ HTML) ومفيش فيها أي فرع حقيقي فعلي → نضّفه دايمًا، حتى
+    // لو مفيش فروع حقيقية نهائيًا الآن (في الحالة دي نسيبه بـ "كل الفروع" فقط).
     const hasOldBranch = opts.some(o=>o==='مدينة نصر'||o==='المهندسين');
     const hasDynamic = opts.some(o=>o&&!['','كل الفروع','مدينة نصر','المهندسين'].includes(o));
     if(hasOldBranch && !hasDynamic){

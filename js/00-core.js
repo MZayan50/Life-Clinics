@@ -590,6 +590,15 @@ function _flushUIRefresh(){
     if(_pendingRefresh.has('services')     && active==='services')     renderSvcs();
     if(_pendingRefresh.has('leads')        && active==='leads')        renderLeads();
     if(_pendingRefresh.has('photos')       && active==='photos')       renderPhotos();
+    // ✅ FIX (مزامنة لحظية — مرحلة 3): إكمال باقي الشاشات
+    if(_pendingRefresh.has('doctors')      && active==='doctors')      renderDocs();
+    if(_pendingRefresh.has('staff')        && active==='staff')        renderStaff();
+    if(_pendingRefresh.has('branches')     && active==='branches')     renderBranches();
+    if(_pendingRefresh.has('rooms')        && active==='resources')    renderRooms();
+    if(_pendingRefresh.has('equipment')    && active==='resources')    renderEquipment();
+    if(_pendingRefresh.has('campaigns')    && active==='campaigns')    renderCampaigns();
+    if(_pendingRefresh.has('waitlist')     && active==='waitlist')     renderWaitlist();
+    if(_pendingRefresh.has('waitlist')     && active==='reception')    renderReception();
   } catch(e){ console.warn('[UI Refresh]', e); }
   _pendingRefresh.clear();
 }
@@ -660,6 +669,32 @@ EventBus.on('photos:deleted',       () => _scheduleUIRefresh('photos'));
 EventBus.on('packages:created',     () => _scheduleUIRefresh('sessions'));
 EventBus.on('packages:updated',     () => _scheduleUIRefresh('sessions'));
 EventBus.on('packages:deleted',     () => _scheduleUIRefresh('sessions'));
+// ✅ FIX (مزامنة لحظية — مرحلة 3): هذه الـ collections كانت بتتحدّث في الـ
+// cache فعليًا من onSnapshot (بيانات صحيحة)، لكن مفيش أي hook بيقول للشاشة
+// المفتوحة "حدّثي نفسك" — فلو جهاز تاني ضاف/عدّل/حذف طبيب أو موظف أو فرع أو
+// غرفة أو جهاز أو حملة تسويقية وأنت فاتح نفس الشاشة، التحديث ما كنتش تشوفه
+// إلا لو خرجت من الشاشة ورجعتلها تاني. دلوقتي بيتحدث تلقائيًا زي باقي الشاشات.
+EventBus.on('doctors:created',      () => _scheduleUIRefresh('doctors'));
+EventBus.on('doctors:updated',      () => _scheduleUIRefresh('doctors'));
+EventBus.on('doctors:deleted',      () => _scheduleUIRefresh('doctors'));
+EventBus.on('staff:created',        () => _scheduleUIRefresh('staff'));
+EventBus.on('staff:updated',        () => _scheduleUIRefresh('staff'));
+EventBus.on('staff:deleted',        () => _scheduleUIRefresh('staff'));
+EventBus.on('branches:created',     () => _scheduleUIRefresh('branches'));
+EventBus.on('branches:updated',     () => _scheduleUIRefresh('branches'));
+EventBus.on('branches:deleted',     () => _scheduleUIRefresh('branches'));
+EventBus.on('rooms:created',        () => _scheduleUIRefresh('rooms'));
+EventBus.on('rooms:updated',        () => _scheduleUIRefresh('rooms'));
+EventBus.on('rooms:deleted',        () => _scheduleUIRefresh('rooms'));
+EventBus.on('equipment:created',    () => _scheduleUIRefresh('equipment'));
+EventBus.on('equipment:updated',    () => _scheduleUIRefresh('equipment'));
+EventBus.on('equipment:deleted',    () => _scheduleUIRefresh('equipment'));
+EventBus.on('campaigns:created',    () => _scheduleUIRefresh('campaigns'));
+EventBus.on('campaigns:updated',    () => _scheduleUIRefresh('campaigns'));
+EventBus.on('campaigns:deleted',    () => _scheduleUIRefresh('campaigns'));
+EventBus.on('waitlist:created',     () => _scheduleUIRefresh('waitlist'));
+EventBus.on('waitlist:updated',     () => _scheduleUIRefresh('waitlist'));
+EventBus.on('waitlist:deleted',     () => _scheduleUIRefresh('waitlist'));
 
 // ══════════════════════════════════════════
 // 🔗 LOOKUP HELPERS
