@@ -1047,7 +1047,8 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <div class="screen" id="screen-leads">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
     <div><h2 style="font-size:17px;font-weight:800;">العملاء المحتملون</h2><p style="font-size:12.5px;color:var(--text-muted)" id="leads-lbl">0 lead</p></div>
-    <button class="btn btn-primary" onclick="openModal('lead-modal')">+ Lead جديد</button>
+    <div class="sbox" style="margin-right:auto;max-width:240px;"><span>🔍</span><input type="text" id="leads-search" placeholder="بحث بالاسم/المصدر/الخدمة..." oninput="renderLeads(this.value)"></div>
+    <button class="btn btn-primary" onclick="openLeadModal()">+ Lead جديد</button>
   </div>
   <div class="kanban" id="leads-kanban"></div>
 </div>
@@ -2201,7 +2202,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       <div class="fgrp"><label class="flbl">القناة</label><select class="fctl" id="camp-channel"><option>إنستجرام</option><option>فيسبوك</option><option>واتساب</option><option>SMS</option><option>إيميل</option><option>جوجل</option></select></div>
       <div class="fgrp"><label class="flbl">الهدف</label><select class="fctl" id="camp-goal"><option>زيادة الحجوزات</option><option>ترويج خدمة</option><option>استقطاب عملاء جدد</option><option>ولاء العملاء</option></select></div>
       <div class="fgrp"><label class="flbl">الميزانية (ج)</label><input class="fctl" type="number" id="camp-budget" placeholder="0"></div>
-      <div class="fgrp"><label class="flbl">العملاء المحتملون</label><input class="fctl" type="number" id="camp-leads-count" placeholder="0"></div>
+      <div class="fgrp"><label class="flbl">العملاء المحتملون (تلقائي)</label><input class="fctl" id="camp-leads-count" disabled placeholder="يُحسب من شاشة Leads"></div>
       <div class="fgrp"><label class="flbl">تاريخ البداية</label><input class="fctl" type="date" id="camp-start"></div>
       <div class="fgrp"><label class="flbl">تاريخ النهاية</label><input class="fctl" type="date" id="camp-end"></div>
       <div class="fgrp"><label class="flbl">الحالة</label><select class="fctl" id="camp-status"><option>مجدولة</option><option>نشطة</option><option>منتهية</option></select></div>
@@ -2521,11 +2522,13 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 
 <div class="modal-overlay" id="lead-modal">
   <div class="modal" style="max-width:480px"><div class="mhdr"><div class="mtitle">🎯 Lead جديد</div><button class="mclose" onclick="closeModal('lead-modal')">✕</button></div>
+    <input type="hidden" id="lead-modal-id">
   <div class="mbody"><div class="fg">
     <div class="fgrp"><label class="flbl">الاسم *</label><input class="fctl" id="ld-name" placeholder="الاسم"></div>
     <div class="fgrp"><label class="flbl">الهاتف</label><input class="fctl" id="ld-phone" placeholder="01X-XXX-XXXX"></div>
     <div class="fgrp"><label class="flbl">الخدمة</label><select class="fctl" id="ld-svc"><option>ليزر شعر</option><option>هيدرافيشل</option><option>بوتكس</option><option>بلازما</option></select></div>
     <div class="fgrp"><label class="flbl">المصدر</label><select class="fctl" id="ld-src"><option>فيسبوك</option><option>إنستجرام</option><option>واتساب</option><option>مكالمة</option></select></div>
+    <div class="fgrp full"><label class="flbl">الحملة التسويقية (اختياري)</label><select class="fctl" id="ld-campaign"><option value="">— بدون حملة —</option></select></div>
     <div class="fgrp full"><label class="flbl">ملاحظات</label><textarea class="fctl ta" id="ld-notes" placeholder="أي تفاصيل..."></textarea></div>
   </div></div>
   <div class="mfoot"><button class="btn btn-ghost" onclick="closeModal('lead-modal')">إلغاء</button><button class="btn btn-primary" onclick="saveLead()">إضافة</button></div></div>
@@ -2538,6 +2541,8 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="mhdr"><div class="mtitle">📅 تحديد موعد Lead</div><button class="mclose" onclick="closeModal('lead-convert-modal')">✕</button></div>
     <div class="mbody">
       <input type="hidden" id="cvt-lead-id">
+      <div class="fgrp full" id="cvt-svc-warn" style="display:none;background:rgba(234,179,8,.12);border:1px solid rgba(234,179,8,.35);border-radius:8px;padding:8px 12px;font-size:12px;color:#fde68a;">⚠️ خدمة الـ Lead غير مطابقة لأي خدمة مسجّلة — برجاء اختيار الخدمة الصحيحة قبل التحويل</div>
+      <div class="fgrp full"><label class="flbl">💆 الخدمة</label><select class="fctl" id="cvt-service"></select></div>
       <div class="fgrp"><label class="flbl">🗓️ تاريخ الموعد</label><input class="fctl" type="date" id="cvt-appt-date"></div>
       <div class="fgrp"><label class="flbl">⏰ الوقت</label><input class="fctl" type="time" id="cvt-appt-time" value="10:00"></div>
       <div class="fgrp"><label class="flbl">ملاحظات</label><input class="fctl" type="text" id="cvt-appt-notes" placeholder="أي تفاصيل إضافية..."></div>
