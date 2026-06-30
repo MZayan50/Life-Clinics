@@ -78,7 +78,10 @@ function renderDocs(){
     totalToday += docApptsToday(d.name);
     const rev = docRevenue(d.name, d.id);
     totalRevenue += rev;
-    totalComm   += rev * (d.commission || 0) / 100;
+    // ✅ FIX (خطة التوحيد — مرحلة 1.1أ): العمولة الفعلية المسجَّلة وليس
+    // تقديراً بإيراد×نسبة حالية (كانت تُحرّف لو الإيراد شمل غير المسدَّد،
+    // أو لو نسبة العمولة تغيّرت بعد فواتير قديمة).
+    totalComm   += getDoctorCommissionDue(d.id, d.name);
   });
   txt('doc-kpi-total',   DB.get('doctors').length);
   txt('doc-kpi-today',   totalToday);
@@ -87,7 +90,9 @@ function renderDocs(){
 
   grid.innerHTML = docs.map((d, i) => {
     const rev   = docRevenue(d.name, d.id);
-    const comm  = Math.round(rev * (d.commission || 0) / 100);
+    // ✅ FIX (خطة التوحيد — مرحلة 1.1أ): نفس منطق getDoctorCommissionDue
+    // المستخدَم في إجمالي الـKPI أعلاه، لضمان تطابق الرقمين دائماً.
+    const comm  = Math.round(getDoctorCommissionDue(d.id, d.name));
     const today = docApptsToday(d.name);
     const total = docApptsTotal(d.name);
     return `<div class="bcard">

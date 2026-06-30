@@ -95,7 +95,11 @@ const DB = {
     'campaigns', 'packages', 'sessions', 'waitlist', 'rooms', 'equipment',
     'suppliers', 'purchases', 'purchase_items', 'supplier_payments', 'visits',
     'inventory_transactions', 'audit_log', 'transfers',
-    'photos', 'installments', 'cashlog', 'advances', 'product_sales'
+    'photos', 'installments', 'cashlog', 'advances', 'product_sales',
+    // ✅ FIX (مراجعة شاملة): كانت غائبة بالكامل عن هذه القائمة، فكل بيانات
+    // تكلفة/ربح الجلسات (session_completions) لم تكن تُكتب إلى Firestore إطلاقاً —
+    // محفوظة في الذاكرة المحلية فقط وتختفي نهائياً عند أي إعادة تحميل للصفحة.
+    'session_completions'
   ],
 
   // ── In-memory cache: Firestore data lives here ──
@@ -273,6 +277,36 @@ function _recalcPatFinancials(patId){
     balance: totalBalance,
     status:  totalBalance > 0 ? 'قسط' : (pat.status === 'قسط' ? 'نشط' : pat.status)
   });
+}
+
+// ── ✅ FIX (خطة التوحيد — مرحلة 0.1): مصدر الحقيقة الوحيد لعمولة الطبيب ──
+// مجموع commissionAmount الفعلي المسجَّل لحظة كل دفعة (وليس إعادة حساب
+// تقديرية بـ إيراد × نسبة العمولة الحالية، لأن النسبة قد تتغيّر لاحقاً
+// وتُحرّف كل العمولات السابقة بأثر رجعي إذا اعتمدنا على النسبة الحالية).
+// تحل محل أي إعادة حساب يدوي في أي شاشة (09-hr.js، 07-clinical.js).
+function getDoctorCommissionDue(doctorId, doctorName){
+  const invoices = DB.get('invoices').filter(i =>
+    (doctorId && i.doctorId === doctorId) || (!doctorId && i.doctor === doctorName)
+  );
+  return invoices.reduce((s, i) => s + (i.commissionAmount || 0), 0);
+}
+
+// ── ✅ FIX (خطة التوحيد — مرحلة 0.2): مصدر الحقيقة الوحيد لإيراد أي فرع ──
+// مبني على cashlog (التحصيل الفعلي/وارد فقط)، وليس على الفواتير (paid عند
+// الإصدار)، لأن الفواتير قد تُسدَّد لاحقاً على دفعات بتواريخ مختلفة.
+// يدعم فرز بتاريخ محدد أو بشهر (monthKey بصيغة YYYY-MM).
+function getBranchRevenue(branchIdOrName, { date, monthKey } = {}){
+  let rows = (DB.get('cashlog') || []).filter(c => c.type === 'وارد');
+  if(date)     rows = rows.filter(c => c.date === date);
+  if(monthKey) rows = rows.filter(c => (c.date || '').startsWith(monthKey));
+  const patById = {};
+  DB.get('patients').forEach(p => { patById[p.id] = p; });
+  rows = rows.filter(c => {
+    if(c.branch) return c.branch === branchIdOrName || (c.branch || '').includes(branchIdOrName);
+    const pat = c.patId ? patById[c.patId] : null;
+    return pat ? (pat.branch === branchIdOrName || (pat.branch || '').includes(branchIdOrName)) : false;
+  });
+  return rows.reduce((s, c) => s + (c.amount || 0), 0);
 }
 
 // ── ✅ FIX: دالة موحدة لتسجيل/تحديث عمولة الطبيب على أي دفعة (أولى أو لاحقة) ──

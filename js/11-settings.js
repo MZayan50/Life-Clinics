@@ -155,7 +155,13 @@ async function initFirebase(cfg){
       'services','leads','doctors','staff','expenses','branches',
       'campaigns','packages','sessions','waitlist','rooms','equipment',
       'suppliers','purchases','purchase_items','visits','inventory_transactions',
-      'cashlog','installments','photos','audit_log','transfers'
+      'cashlog','installments','photos','audit_log','transfers',
+      // ✅ FIX (مراجعة شاملة): هذه الأربعة كانت تُكتب إلى Firestore (موجودة في DB._fb بـ 00-core.js)
+      // لكن لم يكن لها أي مستمع onSnapshot هنا — فكانت تختفي من الذاكرة المحلية (تُقرأ كـ [])
+      // بمجرد إعادة تحميل الصفحة، رغم أنها محفوظة فعلياً في القاعدة. هذا كان يُسبب:
+      // مديونية موردين وهمية (تتجاهل الدفعات السابقة)، صرف رواتب دون خصم السلف الحقيقية،
+      // واختفاء سجل مبيعات المنتجات وبيانات أرباح/تكاليف الجلسات بعد كل refresh.
+      'supplier_payments','advances','product_sales','session_completions'
     ];
     COLLECTIONS.forEach(col => attachFirestoreSync(col));
 
@@ -676,7 +682,12 @@ function renderBranches(){
     const bName = b.name || '';
     // مطابقة بالاسم أو بالـ branchId
     const branchPats = patients.filter(p=>(p.branch||'').includes(bName)||(p.branchId||'')===(b.id||'')).length;
-    const branchRevenue = invoices.filter(inv=>(inv.branch||'').includes(bName)||(inv.branchId||'')===(b.id||'')).reduce((s,inv)=>s+(inv.paid||0),0);
+    // ✅ FIX (خطة التوحيد — مرحلة 1.2): مصدر الحقيقة الموحَّد لإيراد الفرع
+    // (cashlog وارد فقط، يطابق نفس الرقم المعروض بدائرة "توزيع الفروع" بالداشبورد).
+    // ⚠️ نستخدم bName (اسم الفرع) وليس b.id لأن حقل branch في invoices/cashlog
+    // يخزَّن دائماً كاسم نصي — لا يوجد أي مكان في الكود يعبّئ branchId فعلياً،
+    // فتمرير b.id كان سيُرجع صفراً دائماً لعدم وجود تطابق.
+    const branchRevenue = getBranchRevenue(bName);
     const branchDocs = doctors.filter(d=>(d.branch||'').includes(bName)||(d.branchId||'')===(b.id||'')).length;
     const branchStaff = staff.filter(s=>(s.branch||'').includes(bName)||(s.branchId||'')===(b.id||'')).length;
     const todayAppts = appointments.filter(a=>((a.branch||'').includes(bName)||(a.branchId||'')===(b.id||''))&&a.date===new Date().toISOString().split('T')[0]).length;

@@ -798,8 +798,12 @@ function renderDoctorView(){
   const waiting=appts.filter(a=>['وصل','انتظار','متأخر'].includes(a.status)).length;
   const done=appts.filter(a=>a.status==='مكتمل').length;
   const todayInvs=DB.get('invoices').filter(i=>i.doctor===docName&&(i.date||'')==today);
-  const todayRev=todayInvs.reduce((s,i)=>s+(i.paid||0),0);
-  const comm=Math.round(todayRev*(docInfo?.commission||0)/100);
+  const todayRev=todayInvs.reduce((s,i)=>s+(i.paid||0),0); // إيراد فواتير اليوم — مقياس عرض منفصل، لا علاقة له بحساب العمولة
+  // ✅ FIX (خطة التوحيد — مرحلة 1.1ب): commissionAmount تراكمية على الفاتورة
+  // وليست مفصولة يومياً، فلا توجد طريقة دقيقة لعرض "عمولة اليوم فقط" بدون
+  // حقل تاريخ منفصل لكل تحديث عمولة. الحل الصحيح: عرض إجمالي العمولة
+  // المستحقة الفعلي (وليس تقريباً يومياً خاطئاً بإيراد اليوم × نسبة العمولة).
+  const comm=Math.round(getDoctorCommissionDue(docInfo?.id, docName));
   txt('dv-kpi-today',appts.length);txt('dv-kpi-waiting',waiting);txt('dv-kpi-done',done);
   txt('dv-kpi-comm',comm.toLocaleString());txt('dv-count-lbl',appts.length+' مريض');
   const AVA_C=['linear-gradient(135deg,#C4A882,#9A7050)','linear-gradient(135deg,#2DD4BF,#14B8A6)','linear-gradient(135deg,#8B5CF6,#6D28D9)','linear-gradient(135deg,#F43F5E,#BE123C)','linear-gradient(135deg,#10B981,#047857)'];

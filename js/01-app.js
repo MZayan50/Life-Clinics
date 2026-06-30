@@ -104,6 +104,12 @@ function buildChart(){
   buildTopDoctors();
 }
 
+// ⚠️ ملاحظة موثَّقة (خطة التوحيد — مرحلة 1.4، الاستثناء الوحيد المقبول):
+// هذه الدالة تعتمد على invoices.paid (تاريخ إصدار الفاتورة) وليس cashlog
+// (تاريخ التحصيل الفعلي) كباقي الداشبورد، لأن cashlog لا يحمل اسم الخدمة
+// بنفس الدقة المطلوبة لتوزيع الإيراد على كل خدمة. لذلك الرقم هنا *تقريبي*
+// ولا يجب توقع تطابقه حرفياً مع رقم الإيراد الرئيسي (kpi-rev) في نفس
+// الشاشة، والمبني على cashlog. هذا قرار مقصود ومُوثَّق — وليس باجاً منسياً.
 function updateServiceDistribution(){
   const el = document.getElementById('dash-svc-dist');
   if(!el) return;
@@ -605,7 +611,13 @@ function buildKpiSparklines(){
     const d = new Date(now); d.setDate(d.getDate()-6+i);
     return d.toISOString().split('T')[0];
   });
-  const revData = days.map(d=>inv.filter(i=>i.date===d).reduce((s,i)=>s+(i.paid||0),0));
+  // ✅ FIX (خطة التوحيد — مرحلة 1.4): استخدام _dashCashRevenue (مصدر cashlog
+  // الموحَّد) بدل جمع inv.paid مباشرة، لمطابقة نفس منهجية buildDashboard().
+  // ⚠️ ملاحظة: هذه الدالة (buildKpiSparklines) غير مُستدعاة فعلياً في أي
+  // مسار تنفيذ حالي (تُستدعى فقط من buildDashExtra التي تعمل فقط لو
+  // buildDashboard غير معرَّفة — وهي معرَّفة دائماً). الإصلاح هنا للأمان
+  // المستقبلي ولمنع تكرار نفس الخطأ لو استُخدمت هذه الدالة لاحقاً.
+  const revData = days.map(d=>_dashCashRevenue({date:d}));
   const apptData = days.map(d=>apts.filter(a=>a.date===d).length);
   const patData = days.map(d=>pats.filter(p=>(p.created||p.date||'').startsWith(d)).length);
   // reuse revData for monthly KPI sparkline

@@ -27,7 +27,10 @@ function renderInv(){
   txt('inv-total',all.length);txt('inv-low',low);txt('inv-out',out);
   // قيمة المخزون بسعر الشراء (التكلفة الفعلية)
   // قيمة المخزون = الكمية بوحدة الاستهلاك × تكلفة وحدة الاستهلاك
-  txt('inv-val',all.reduce((s,i)=>s+(i.qty*(i.costPerConsumeUnit||i.costPrice||i.price||0)),0).toLocaleString()+' ج');
+  // ✅ FIX (خطة التوحيد — مرحلة 1.3): استخدام نفس الدالة الموحَّدة المستخدمة
+  // في الميزانية وتقرير المخزون (06-finance.js و10-reports.js)، بدل حساب
+  // محلي منفصل هنا كان من الممكن أن يختلف عنها بفارق طفيف في منطق fallback.
+  txt('inv-val', calcInventoryCostValue().toLocaleString()+' ج');
   txt('badge-stock',low+out);txt('kpi-stk',low+out);
 }
 function delInv(id){if(confirm('حذف المنتج؟')){DB.del('inventory',id);renderInv();showToast('info','🗑️ تم حذف المنتج');}}
