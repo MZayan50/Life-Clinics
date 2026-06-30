@@ -218,8 +218,15 @@ function _recalcPatFinancials(patId){
   const invBalance = allInvs.reduce((s, i) => s + (i.remaining || 0), 0);
   const pkgSpent   = allPkgs.reduce((s, p) => s + (p.price  || 0), 0);
   const pkgBalance = allPkgs.reduce((s, p) => s + Math.max(0, (p.price || 0) - (p.paid || 0)), 0);
+  // ✅ FIX (مشكلة #8): خطط الأقساط "المستقلة" (غير مرتبطة بفاتورة fromInvId ولا بباقة fromPkgId)
+  // لم تكن محتسَبة هنا أبداً، فكانت دوال متفرقة (saveInstallment/delInstallment) تعيد حساب
+  // الرصيد بمعادلات بديلة يدوية لتعويض هذا النقص — وهو ما تسبب في تضارب الأرقام بين الشاشات.
+  // الآن تُحتسب هنا مرة واحدة، فتصبح هذه الدالة المصدر الوحيد الصحيح للرصيد في كل مكان.
+  const standaloneInstBalance = DB.get('installments')
+    .filter(i => String(i.patientId) === String(pat.id) && !i.fromInvId && !i.fromPkgId)
+    .reduce((s, i) => s + (i.remaining || 0), 0);
   const totalSpent   = invSpent   + pkgSpent;
-  const totalBalance = invBalance + pkgBalance;
+  const totalBalance = invBalance + pkgBalance + standaloneInstBalance;
   DB.upd('patients', pat.id, {
     spent:   totalSpent,
     balance: totalBalance,

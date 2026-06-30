@@ -294,6 +294,31 @@ function payInstallment(planId){
       });
     }
   }
+  // ✅ FIX (مشكلة #7): دفع قسط باقة (fromPkgId) لم يكن يُحدّث pkg.paid ولا فاتورة الباقة المرتبطة
+  // إطلاقاً، فكان pkg.paid يبقى عالقاً عند قيمته الأصلية للأبد، ما يجعل أي شاشة تعتمد على
+  // packages (الداشبورد، الفواتير، تقارير الإيرادات) تتجاهل دفعات الأقساط المتأخرة على الباقات.
+  if(plan.fromPkgId){
+    const pkg = DB.get('packages').find(p => String(p.id) === String(plan.fromPkgId));
+    if(pkg){
+      const newPkgPaid = Math.min(pkg.price||0, (pkg.paid||0) + plan.installmentAmount);
+      // DB.upd يُصدر packages:updated تلقائياً، وهو ما يستدعي _recalcPatFinancials
+      // فيحدّث patients.balance بالقيمة الصحيحة فوراً (00-core.js سطر 423)
+      DB.upd('packages', pkg.id, { paid: newPkgPaid });
+      // لو للباقة فاتورة مرتبطة (pkgId)، حدّثها أيضاً حتى لا تختلف عن قيمة الباقة الفعلية
+      const pkgInv = DB.get('invoices').find(i => String(i.pkgId) === String(pkg.id));
+      if(pkgInv){
+        const newInvPaid = Math.min(pkgInv.total||pkg.price||0, (pkgInv.paid||0) + plan.installmentAmount);
+        const newInvRem  = Math.max(0, (pkgInv.total||pkg.price||0) - newInvPaid);
+        DB.upd('invoices', pkgInv.id, {
+          paid:      newInvPaid,
+          remaining: newInvRem,
+          status:    newInvRem === 0 ? 'مدفوع' : 'جزئي'
+        });
+      }
+    }
+  }
+  // ✅ يضمن تحديث رصيد العميل فوراً في كل الحالات (مستقل/فاتورة/باقة) دون انتظار حدث آخر
+  if(pat && typeof _recalcPatFinancials === 'function') _recalcPatFinancials(pat.id);
   showToast('success',`✅ تم تسجيل دفع القسط #${nextInst.num}`,`${plan.installmentAmount.toLocaleString()} ج`);
   renderInstallments();
 }
@@ -304,16 +329,12 @@ function delInstallment(id){
       // حذف من localStorage وFirestore معاً
       DB.del('installments', id);
       // إعادة حساب balance للعميل بعد الحذف
+      // ✅ FIX (مشكلة #8): كانت المعادلة هنا بديلة وناقصة — تتجاهل أرصدة الباقات التي لم
+      // تُسجَّل بعد كقسط (pkg.price - pkg.paid مباشرة)، فيختلف الرصيد هنا عن نفس الرصيد
+      // المحسوب في بروفايل العميل. الآن نستخدم نفس الدالة المركزية الوحيدة المعتمدة في كل
+      // مكان آخر (فواتير، باقات، بروفايل العميل) لضمان رقم واحد متطابق دائماً.
       const pat = DB.get('patients').find(p=>String(p.id)===String(plan.patientId));
-      if(pat){
-        const invBalance  = DB.get('invoices').filter(i=>String(i.patId)===String(pat.id)||i.patient===pat.name).reduce((s,i)=>s+(i.remaining||0),0);
-        const instBalance = (DB.get('installments')||[]).filter(i=>String(i.patientId)===String(pat.id)&&!i.fromInvId).reduce((s,i)=>s+(i.remaining||0),0);
-        const newBalance  = invBalance + instBalance;
-        DB.upd('patients', pat.id, {
-          balance: newBalance,
-          status: newBalance > 0 ? 'قسط' : (pat.status === 'قسط' ? 'نشط' : pat.status)
-        });
-      }
+      if(pat && typeof _recalcPatFinancials === 'function') _recalcPatFinancials(pat.id);
     }
     showToast('info','🗑️ تم حذف خطة الأقساط');
     renderInstallments();
@@ -371,7 +392,9 @@ function renderAccounts(){
   txt('acc-margin',margin+'%');
 
   // Balance Sheet
-  const invValue=DB.get('inventory').reduce((s,i)=>s+(i.qty*i.price),0);
+  // ✅ FIX: قيمة المخزون الآن بسعر التكلفة عبر الدالة الموحَّدة (كانت بسعر البيع سابقاً)
+  const invValue=typeof calcInventoryCostValue==='function' ? calcInventoryCostValue()
+    : DB.get('inventory').reduce((s,i)=>s+(i.qty*(i.costPerConsumeUnit||i.costPrice||i.lastPurchasePrice||0)),0);
   const receivables=(DB.get('installments')||[]).reduce((s,p)=>s+(p.remaining||0),0);
   const suppliersOwed=(DB.get('suppliers')||[]).reduce((s,x)=>s+(x.owed||0),0);
   // الكاش = وارد ناقص صادر من cashlog (المصدر الوحيد الصحيح بعد الحذف)
@@ -381,10 +404,14 @@ function renderAccounts(){
   txt('bs-receivables',receivables.toLocaleString()+' ج');
   txt('bs-total-assets',(cashBalance+invValue+receivables).toLocaleString()+' ج');
   txt('bs-suppliers',suppliersOwed.toLocaleString()+' ج');
-  // bs-salaries = رواتب مصروفة فعلاً من cashlog:صادر مصدره "رواتب"
+  // bs-salaries = رواتب مصروفة فعلاً من cashlog:صادر مصدره "رواتب" — رقم عرضي فقط
   const paidSalaries=cashlog.filter(c=>c.type==='صادر'&&(c.notes||'').includes('راتب')).reduce((s,c)=>s+(c.amount||0),0);
   txt('bs-salaries',paidSalaries.toLocaleString()+' ج');
-  txt('bs-equity',(cashBalance+invValue+receivables-suppliersOwed-paidSalaries).toLocaleString()+' ج');
+  // ✅ FIX: الرواتب المدفوعة فعلياً جزء من cashlog:صادر، وبالتالي مخصومة بالفعل
+  // ضمن totalExpense عند حساب cashBalance أعلاه. طرح paidSalaries مرة أخرى هنا
+  // كان يخصم الرواتب مرتين من حقوق الملكية. المعادلة الصحيحة: الأصول - التزامات الموردين فقط.
+  txt('bs-equity',(cashBalance+invValue+receivables-suppliersOwed).toLocaleString()+' ج');
+
 
   // Cash flow table — الصادر من cashlog:صادر بالشهر
   const cfTb=document.getElementById('cf-tbody');if(!cfTb)return;

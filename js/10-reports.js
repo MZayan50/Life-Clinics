@@ -45,12 +45,18 @@ function renderReports(){
   const today     = new Date().toISOString().split('T')[0];
   const thisMonth = today.substring(0,7);
 
-  const monthRev  = invoices.filter(i=>(i.date||'').startsWith(thisMonth)).reduce((s,i)=>s+(i.paid||0),0);
+  // ✅ FIX (مراجعة مالية): "إيرادات الشهر" هنا كانت تُحسب من invoice.paid مجمّعة
+  // بتاريخ إصدار الفاتورة، بينما شاشة الحسابات الختامية (06-finance.js) تحسبها من
+  // حركات cashlog الفعلية بتاريخ الدفعة نفسها — رقمان مختلفان لنفس المفهوم يسببان
+  // التباسًا عند مقارنة الشاشتين لنفس الشهر. تم توحيد المنهجية: نفس مصدر الحقيقة (cashlog)
+  // ونفس تاريخ الدفعة الفعلي، بدل تاريخ إصدار الفاتورة.
+  const cashlog0  = DB.get('cashlog')||[];
+  const monthRev  = cashlog0.filter(c=>c.type==='وارد'&&(c.date||'').startsWith(thisMonth)).reduce((s,c)=>s+(c.amount||0),0);
   const totalPend = invoices.reduce((s,i)=>s+(i.remaining||0),0);
   const newPats   = patients.filter(p=>(p.createdAt||'').startsWith(thisMonth)).length;
   const todayAppt = appts.filter(a=>a.date===today).length;
   // ✅ المصروفات من cashlog:صادر (يتزامن تلقائياً مع الحذف)
-  const cashlog   = DB.get('cashlog')||[];
+  const cashlog   = cashlog0;
   const monthExp  = cashlog.filter(c=>c.type==='صادر'&&(c.date||'').startsWith(thisMonth)).reduce((s,c)=>s+(c.amount||0),0);
   const purchases = DB.get('purchases') || [];
   const monthPur  = purchases.filter(p=>(p.orderDate||'').startsWith(thisMonth) && p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
@@ -65,7 +71,12 @@ function renderReports(){
       const unitCost = prod?.costPerConsumeUnit || prod?.costPrice || 0;
       return s + unitCost * (t.qty||0);
     }, 0);
-  const netProfit = monthRev - monthExp - monthPur - monthCOGS;
+  // ✅ FIX (مراجعة مالية): كانت المعادلة تطرح monthPur (قيمة المشتريات المستلمة) و
+  // monthCOGS (تكلفة المباع فعلياً) معاً، فتخصم تكلفة نفس المادة مرتين: مرة كاملة
+  // عند الشراء، ومرة عند البيع. الشراء تحويل أصول (كاش → مخزون) ولا يُحمَّل على
+  // الربح إلا عند البيع (COGS). المعادلة الصحيحة تستبعد monthPur من صافي الربح،
+  // وتُبقيه فقط كرقم تشغيلي إعلامي (تدفق نقدي خارج) يُعرض في بطاقته الخاصة.
+  const netProfit = monthRev - monthExp - monthCOGS;
 
   el.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
@@ -154,7 +165,11 @@ function generatePatientsReport(patients, appointments){
 function generateInventoryReport(inventory){
   const lowStock = inventory.filter(i=>i.status==='منخفض');
   const outStock = inventory.filter(i=>i.status==='نفذ');
-  const totalValue = inventory.reduce((s,i)=>s+(i.qty*i.price),0);
+  // ✅ FIX (مراجعة مالية): كانت القيمة تُحسب بسعر البيع (i.price) بدل سعر التكلفة،
+  // ما يُضخّم قيمة المخزون الظاهرة بفارق هامش الربح. موحَّدة الآن مع نفس الدالة
+  // المستخدمة في الميزانية (06-finance.js) عبر calcInventoryCostValue().
+  const totalValue = typeof calcInventoryCostValue==='function' ? calcInventoryCostValue()
+    : inventory.reduce((s,i)=>s+(i.qty*(i.costPerConsumeUnit||i.costPrice||i.lastPurchasePrice||0)),0);
   const expiringSoon = inventory.filter(i=>{
     if(!i.expiry) return false;
     const diff = (new Date(i.expiry)-new Date())/(1000*60*60*24);

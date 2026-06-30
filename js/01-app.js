@@ -51,6 +51,34 @@ function showToast(type,msg,sub=''){
   setTimeout(()=>{t.style.transition='all .3s';t.style.opacity='0';t.style.transform='translateY(8px)';setTimeout(()=>t.remove(),300);},4000);
 }
 
+// ══════════════════════════════════════════
+// 💰 مصدر الإيراد الموحّد للداشبورد — cashlog فقط
+// ══════════════════════════════════════════
+// ✅ FIX (مشكلة #6): كل حسابات إيراد الداشبورد كانت مبنية على invoices.filter(...).reduce(paid)
+// وهذا يتجاهل تماماً إيراد "خطط الجلسات" (يُسجَّل في cashlog مباشرة دون فاتورة — متعمَّد وموثَّق
+// في 12-financial-integration.js). لكن كل مصادر الإيراد الأخرى (فاتورة، دفعة جزئية، قسط، دفعة
+// باقة، بيع منتج) تُسجَّل بالفعل في cashlog أيضاً (راجع 00-core.js, 04-invoices.js, 06-finance.js,
+// 07-clinical.js, 05-inventory.js) — فـ cashlog هو بالفعل المصدر الموحَّد الصحيح والكامل، تماماً
+// كما تعتمد عليه شاشة الحسابات الختامية (06-finance.js). هذه الدالة توحّد الداشبورد على نفس المصدر.
+function _dashCashRevenue({ date, monthKey, branch } = {}){
+  const cashlog = DB.get('cashlog') || [];
+  let rows = cashlog.filter(c => c.type === 'وارد');
+  if(date)     rows = rows.filter(c => c.date === date);
+  if(monthKey) rows = rows.filter(c => (c.date||'').startsWith(monthKey));
+  if(branch){
+    const patById = {};
+    DB.get('patients').forEach(p => { patById[p.id] = p; });
+    rows = rows.filter(c => {
+      // معظم قيود الفاتورة/القسط تحمل branch مباشرة. قيود الجلسات وبعض دفعات الباقات
+      // لا تحمل branch، فنرجع لفرع العميل نفسه عبر patId كحل بديل دقيق.
+      if(c.branch) return c.branch === branch;
+      const pat = c.patId ? patById[c.patId] : null;
+      return pat ? pat.branch === branch : false;
+    });
+  }
+  return rows.reduce((s,c) => s + (c.amount||0), 0);
+}
+
 // CHART — real data from DB
 function buildChart(){
   const chart=document.getElementById('revenue-chart'),labels=document.getElementById('revenue-labels');if(!chart)return;
@@ -63,7 +91,7 @@ function buildChart(){
   for(let i=6;i>=0;i--){
     const d=new Date(now.getFullYear(),now.getMonth()-i,1);
     const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const rev=invoices.filter(inv=>inv.date&&inv.date.startsWith(key)).reduce((s,inv)=>s+(inv.paid||0),0);
+    const rev=_dashCashRevenue({monthKey:key});
     monthsData.push(rev);
     monthNames.push(MN2[d.getMonth()].slice(0,3));
   }
@@ -184,8 +212,8 @@ function aiGetSystemPrompt(){
   const ic = DB.get('inventory').filter(i=>i.status==='منخفض'||i.status==='نفذ').length;
   const today = new Date().toISOString().split('T')[0];
   const thisMonth = today.substring(0,7);
-  const rev = DB.get('invoices').filter(i=>i.date===today).reduce((s,i)=>s+(i.paid||0),0);
-  const monthRev = DB.get('invoices').filter(i=>(i.date||'').startsWith(thisMonth)).reduce((s,i)=>s+(i.paid||0),0);
+  const rev = _dashCashRevenue({date: today});
+  const monthRev = _dashCashRevenue({monthKey: thisMonth});
   const branches = [...new Set(DB.get('patients').map(p=>p.branch).filter(Boolean))];
   const branchStr = branches.length ? branches.join('، ') : 'مدينة نصر والمهندسين';
   // Fix dynamic revenue prompt
@@ -751,9 +779,9 @@ function buildDashboard(){
   const todayApts = filterBranch(allApts.filter(a=>a.date===today));
   txt('kpi-appt', todayApts.length.toLocaleString());
 
-  // ── KPI 3: Today Revenue ──
+  // ── KPI 3: Today Revenue (✅ من cashlog — يشمل خطط الجلسات أيضاً) ──
   const todayRevInvs = filterBranch(allInvs.filter(i=>i.date===today));
-  const todayRev = todayRevInvs.reduce((s,i)=>s+(i.paid||0),0);
+  const todayRev = _dashCashRevenue({date: today, branch});
   txt('kpi-rev', todayRev.toLocaleString());
 
   // ── KPI 4: Cash Balance from cashlog (وارد/صادر هي القيم الحقيقية المُخزَّنة) ──
@@ -767,7 +795,7 @@ function buildDashboard(){
   // ── Sparklines ──
   const now = new Date();
   const days7 = Array.from({length:7},(_,i)=>{const d=new Date(now);d.setDate(d.getDate()-6+i);return d.toISOString().split('T')[0];});
-  const revData  = days7.map(d=>allInvs.filter(i=>i.date===d).reduce((s,i)=>s+(i.paid||0),0));
+  const revData  = days7.map(d=>_dashCashRevenue({date:d, branch}));
   const apptData = days7.map(d=>allApts.filter(a=>a.date===d).length);
   const patData  = days7.map(d=>allPats.filter(p=>(p.createdAt||'').startsWith(d)).length);
 
@@ -875,7 +903,7 @@ function buildIncomeOverview(){
   const MN = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
   const monthsData = MN.map((_,i)=>{
     const key = `${year}-${String(i+1).padStart(2,'0')}`;
-    return invoices.filter(inv=>(inv.date||'').startsWith(key)).reduce((s,inv)=>s+(inv.paid||0),0);
+    return _dashCashRevenue({monthKey:key});
   });
   const max = Math.max(...monthsData,1);
   const curMonthIdx = (year===curYear) ? new Date().getMonth() : -1;
@@ -925,7 +953,7 @@ function buildProfitChart(){
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   });
   const data = months.map(key=>{
-    const rev = invoices.filter(i=>(i.date||'').startsWith(key)).reduce((s,i)=>s+(i.paid||0),0);
+    const rev = _dashCashRevenue({monthKey:key});
     const exp = cashlog.filter(c=>c.type==='صادر'&&(c.date||'').startsWith(key)).reduce((s,c)=>s+(c.amount||0),0);
     const pur = purchases.filter(p=>(p.orderDate||'').startsWith(key)&&p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
     return rev-exp-pur;
@@ -956,10 +984,19 @@ function buildProfitChart(){
 
 // ── 5) توزيع الفروع (Branch revenue donut) ──
 function buildBranchDonut(){
-  const invoices = DB.get('invoices')||[];
+  // ✅ FIX (مشكلة #6): كان مبنياً على invoices فقط، فيتجاهل إيراد خطط الجلسات بالكامل.
+  // الآن من cashlog (المصدر الموحَّد)، مع نسب كل قيد لفرعه مباشرة، أو لفرع العميل
+  // كحل بديل لو القيد نفسه لا يحمل فرعاً (مثل بعض قيود الجلسات/الباقات).
+  const cashlog = (DB.get('cashlog')||[]).filter(c=>c.type==='وارد');
+  const patById = {};
+  DB.get('patients').forEach(p=>{ patById[p.id]=p; });
   const colors = ['var(--purple)','var(--teal)','var(--amber)','var(--rose)','var(--blue)'];
   const map = {};
-  invoices.forEach(i=>{ const b=i.branch||'غير محدد'; map[b]=(map[b]||0)+(i.paid||0); });
+  cashlog.forEach(c=>{
+    const pat = c.patId ? patById[c.patId] : null;
+    const b = c.branch || pat?.branch || 'غير محدد';
+    map[b] = (map[b]||0) + (c.amount||0);
+  });
   const entries = Object.entries(map).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
   const total = entries.reduce((s,[,v])=>s+v,0);
   txt('dash-branch-total', total?total.toLocaleString():'0');
