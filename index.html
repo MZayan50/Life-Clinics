@@ -676,6 +676,14 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
             <span style="font-size:12px;">✅ فواتير مكتملة اليوم</span>
             <span style="font-size:18px;font-weight:900;color:var(--emerald);" id="kpi-inv-done">0</span>
           </div>
+          <div onclick="showScreen('sessions')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(139,92,246,.06);border-radius:8px;border:1px solid rgba(139,92,246,.12);cursor:pointer;">
+            <span style="font-size:12px;">🔬 تكلفة مواد الجلسات (اليوم)</span>
+            <span style="font-size:16px;font-weight:900;color:var(--purple);" id="kpi-session-cost">0 ج</span>
+          </div>
+          <div onclick="showScreen('sessions')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(20,184,166,.06);border-radius:8px;border:1px solid rgba(20,184,166,.12);cursor:pointer;">
+            <span style="font-size:12px;">📈 ربح الجلسات (اليوم)</span>
+            <span style="font-size:16px;font-weight:900;color:var(--teal);" id="kpi-session-profit">0 ج</span>
+          </div>
         </div>
       </div>
 
@@ -2523,6 +2531,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <script src="js/09-hr.js"></script>
 <script src="js/10-reports.js"></script>
 <script src="js/11-settings.js"></script>
+<script src="js/12-financial-integration.js"></script>
 <script>
   // ✅ ننتظر تحميل كل الملفات قبل استدعاء init()
   if (typeof init === 'function') {
