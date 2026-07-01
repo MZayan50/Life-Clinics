@@ -89,8 +89,10 @@ function deductInventory(serviceId, sessionQty){
 // (06-finance.js و 10-reports.js) لضمان نفس الرقم بنفس المنهجية في كل مكان.
 // ══════════════════════════════════════════
 function calcInventoryCostValue(){
+  // ✅ FIX (مشكلة #5): استخدام costPerConsumeUnit فقط، وليس costPrice أو lastPurchasePrice
+  // لأن costPerConsumeUnit تُحدّث دائماً من الشراء الأخير وتأخذ في الاعتبار تحويل الوحدات
   return (DB.get('inventory')||[]).reduce((s,i)=>{
-    const unitCost = i.costPerConsumeUnit || i.cost || i.costPrice || i.lastPurchasePrice || 0;
+    const unitCost = i.costPerConsumeUnit || 0;  // تكلفة وحدة الاستهلاك فقط
     return s + (i.qty||0) * unitCost;
   }, 0);
 }

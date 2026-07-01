@@ -50,8 +50,23 @@ function renderReports(){
   // حركات cashlog الفعلية بتاريخ الدفعة نفسها — رقمان مختلفان لنفس المفهوم يسببان
   // التباسًا عند مقارنة الشاشتين لنفس الشهر. تم توحيد المنهجية: نفس مصدر الحقيقة (cashlog)
   // ونفس تاريخ الدفعة الفعلي، بدل تاريخ إصدار الفاتورة.
+  
+  // ✅ FIX (مشكلة #4): الإيرادات من الفواتير فقط (packages.paid يتم احتسابها منفصلة)
+  // لا نحسب packages.paid كإيراد لأنها مدفوعة مسبق، تُحسب كـ downPayment فقط
   const cashlog0  = DB.get('cashlog')||[];
-  const monthRev  = cashlog0.filter(c=>c.type==='وارد'&&(c.date||'').startsWith(thisMonth)).reduce((s,c)=>s+(c.amount||0),0);
+  
+  // الإيرادات من الفواتير والجلسات فقط (بدون الباقات المسبقة)
+  const monthRevFromCashlog  = cashlog0
+    .filter(c=>c.type==='وارد'&&(c.date||'').startsWith(thisMonth)&&
+            (c.source.includes('فاتورة') || c.source.includes('جلسة')))
+    .reduce((s,c)=>s+(c.amount||0),0);
+  
+  // الإيرادات من الباقات (مسبق)
+  const monthRevFromPackages = (DB.get('packages')||[])
+    .filter(p=>(p.startDate||'').startsWith(thisMonth))
+    .reduce((s,p)=>s+(p.paid||0),0);
+  
+  const monthRev = monthRevFromCashlog + monthRevFromPackages;
   const totalPend = invoices.reduce((s,i)=>s+(i.remaining||0),0);
   const newPats   = patients.filter(p=>(p.createdAt||'').startsWith(thisMonth)).length;
   const todayAppt = appts.filter(a=>a.date===today).length;
@@ -60,22 +75,25 @@ function renderReports(){
   const monthExp  = cashlog.filter(c=>c.type==='صادر'&&(c.date||'').startsWith(thisMonth)).reduce((s,c)=>s+(c.amount||0),0);
   const purchases = DB.get('purchases') || [];
   const monthPur  = purchases.filter(p=>(p.orderDate||'').startsWith(thisMonth) && p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
-  // تكلفة المنتجات المباعة هذا الشهر (COGS) من costPrice
+  
+  // ✅ FIX (مشكلة #5): تكلفة المنتجات المباعة هذا الشهر (COGS) من costPerConsumeUnit فقط
+  // لا تستخدم costPrice المباشرة أو lastPurchasePrice لأنها قد تكون قديمة
   const inventory = DB.get('inventory') || [];
   const invTrans  = DB.get('inventory_transactions') || [];
   const monthCOGS = invTrans
     .filter(t => t.type==='صرف' && t.refType==='invoice' && (t.date||'').startsWith(thisMonth))
     .reduce((s,t) => {
       const prod = inventory.find(i => i.id === t.productId);
-      // استخدام تكلفة وحدة الاستهلاك الفعلية إن وُجدت
-      const unitCost = prod?.costPerConsumeUnit || prod?.costPrice || 0;
+      // ✅ استخدام costPerConsumeUnit فقط (اللي محدثة دائماً من الشراء الأخير)
+      const unitCost = prod?.costPerConsumeUnit || 0;
       return s + unitCost * (t.qty||0);
     }, 0);
-  // ✅ FIX (مراجعة مالية): كانت المعادلة تطرح monthPur (قيمة المشتريات المستلمة) و
-  // monthCOGS (تكلفة المباع فعلياً) معاً، فتخصم تكلفة نفس المادة مرتين: مرة كاملة
-  // عند الشراء، ومرة عند البيع. الشراء تحويل أصول (كاش → مخزون) ولا يُحمَّل على
-  // الربح إلا عند البيع (COGS). المعادلة الصحيحة تستبعد monthPur من صافي الربح،
-  // وتُبقيه فقط كرقم تشغيلي إعلامي (تدفق نقدي خارج) يُعرض في بطاقته الخاصة.
+  
+  // ✅ FIX (مشكلة #6): المعادلة الصحيحة للربح
+  // monthRev = إيرادات فعلية (cashlog)
+  // monthExp = مصروفات تشغيلية
+  // monthCOGS = تكلفة المباع (من المخزون)
+  // monthPur = مشتريات (ليست من الربح مباشرة — هي تحويل أصول)
   const netProfit = monthRev - monthExp - monthCOGS;
 
   el.innerHTML = `

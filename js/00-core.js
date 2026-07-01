@@ -271,10 +271,13 @@ function _recalcPatFinancials(patId){
     .filter(i => String(i.patientId) === String(pat.id) && !i.fromInvId && !i.fromPkgId)
     .reduce((s, i) => s + (i.remaining || 0), 0);
   const totalSpent   = invSpent   + pkgSpent;
-  const totalBalance = invBalance + pkgBalance + standaloneInstBalance;
+  // ✅ FIX (مشكلة #1): خصم الدفع المسبق (advance) من الرصيد
+  const advance = pat.advance || 0;
+  const totalBalance = Math.max(0, invBalance + pkgBalance + standaloneInstBalance - advance);
   DB.upd('patients', pat.id, {
     spent:   totalSpent,
     balance: totalBalance,
+    advance: advance,  // احفظ الـ advance
     status:  totalBalance > 0 ? 'قسط' : (pat.status === 'قسط' ? 'نشط' : pat.status)
   });
 }
@@ -324,6 +327,10 @@ function recordDoctorCommission(invId, paymentAmount){
   const doc = (inv.doctorId && doctors.find(d => String(d.id) === String(inv.doctorId)))
            || doctors.find(d => d.name === inv.doctor);
   if(!doc || !(doc.commission > 0)) return;
+  
+  // ✅ FIX (مشكلة #8): حساب العمولة من المبلغ المدفوع مباشرة
+  // paymentAmount هو بالفعل المبلغ بعد تطبيق الخصم (إن وجد)
+  // العمولة = paymentAmount × (نسبة العمولة) ÷ 100
   const commDelta = Math.round(paymentAmount * (doc.commission / 100));
   if(commDelta <= 0) return;
   const prevComm = inv.commissionAmount || 0;
@@ -411,22 +418,33 @@ EventBus.on('invoices:updated', function(inv){
   }
 });
 
-// ── 3. حذف فاتورة → حذف قيد الخزينة والأقساط المرتبطة ──
+// ── 3. حذف فاتورة → حذف جميع المرتبطات تلقائياً ──
 EventBus.on('invoices:deleted', function(e){
   const invId = e.id;
-  // ✅ حذف قيد الخزينة المقابل
+  
+  // ✅ حذف قيود الخزينة المقابلة (قد تكون متعددة لو فيها دفعات جزئية)
   const cashlog = DB.get('cashlog') || [];
-  const filtered = cashlog.filter(c => String(c.refId) !== String(invId) || c.source.includes('فاتورة'));
-  if(filtered.length !== cashlog.length) DB.set('cashlog', filtered);
+  const filteredCashlog = cashlog.filter(c => String(c.refId) !== String(invId));
+  if(filteredCashlog.length !== cashlog.length) DB.set('cashlog', filteredCashlog);
   
   // ✅ حذف الأقساط المتعلقة بهذه الفاتورة (fromInvId)
   const installments = DB.get('installments') || [];
-  const instFiltered = installments.filter(i => String(i.fromInvId) !== String(invId));
-  if(instFiltered.length !== installments.length) DB.set('installments', instFiltered);
+  const filteredInst = installments.filter(i => String(i.fromInvId) !== String(invId));
+  if(filteredInst.length !== installments.length) DB.set('installments', filteredInst);
+  
+  // ✅ FIX (مشكلة #10): حذف معاملات المخزون المرتبطة
+  const invTrans = DB.get('inventory_transactions') || [];
+  const filteredTrans = invTrans.filter(t => String(t.refId) !== String(invId));
+  if(filteredTrans.length !== invTrans.length) DB.set('inventory_transactions', filteredTrans);
+  
+  // ✅ حذف العمولات المرتبطة (commissionAmount)
+  // لا نحتاج لحذف، فقط إعادة حساب — لكن العمولة كانت مسجلة في invoice.commissionAmount
+  // فعندما نحذف الفاتورة، العمولة تختفي تلقائياً
   
   // ✅ تحديث الشاشات تلقائياً
   _scheduleUIRefresh('cashlog');
   _scheduleUIRefresh('installments');
+  _scheduleUIRefresh('inventory_transactions');
 });
 
 // ══════════════════════════════════════════
