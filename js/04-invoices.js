@@ -731,26 +731,34 @@ function processSmartPayment(){
   // (كان هنا كود يدوي بيطرح amount من pat.balance مرة ثانية فوق التحديث التلقائي — باج احتساب مضاعف، تم حذفه)
   const pat=(DB.get('patients')||[]).find(p=>String(p.id)===String(inv.patId)||p.name===inv.patient);
 
-  // 3.b ✅ FIX: عمولة الطبيب على هذه الدفعة — لم تكن تُحتسب هنا إطلاقًا لأن هذه الدالة
-  // (شاشة "تحصيل دفعة" الفعلية) لا تضبط paidDelta، فكانت كل التحصيلات اللاحقة على
-  // الفاتورة تمر بدون عمولة طبيب رغم أنها أكثر مسارات الدفع استخدامًا عمليًا.
-  if(typeof recordDoctorCommission === 'function'){
-    recordDoctorCommission(invId, amount);
-  }
+  // 3.b ✅ عمولة الطبيب تُحتسب تلقائياً عبر EventBus('invoices:updated') → recordDoctorCommission
+  // لا تستدعيها يدويًا هنا لتجنب الاحتساب المزدوج ❌
 
   // 4. Auto-create installment plan if selected
   if(makeInst&&newRem>0){
-    const each=Math.ceil(newRem/instCount);
+    const each=Math.floor(newRem/instCount);  // ✅ FIX: استخدم floor بدل ceil لتوزيع متساوٍ
+    const remainder=newRem-(each*instCount);  // الباقي الذي سيُضاف للقسط الأخير
     const payments=[];
     for(let i=1;i<=instCount;i++){
       const d=new Date(today);d.setMonth(d.getMonth()+i);
-      payments.push({num:i,dueDate:d.toISOString().split('T')[0],paid:false,paidDate:null});
+      // القسط الأخير يأخذ الباقي (الفرق من التقسيم)
+      const amountForThisPlan = i === instCount ? each + remainder : each;
+      payments.push({num:i,dueDate:d.toISOString().split('T')[0],paid:false,paidDate:null,amount:amountForThisPlan});
     }
     if(!DB.get('installments')) DB.set('installments',[]);
     DB.push('installments',{
-      patientId:pat?.id||inv.patId,patientName:inv.patient,service:inv.service||'',
-      total:inv.total,downPayment:newPaid,remaining:newRem,installmentAmount:each,
-      count:instCount,payments,startDate:today,status:'نشط',fromInvId:invId
+      patientId:pat?.id||inv.patId,
+      patientName:inv.patient,
+      service:inv.service||'',
+      total:inv.total,
+      downPayment:newPaid,
+      remaining:newRem,
+      installmentAmount:each,  // ✅ المبلغ الأساسي (الأخير أكبر قليلاً من الباقي)
+      count:instCount,
+      payments,  // ✅ كل قسط له مبلغه الخاص
+      startDate:today,
+      status:'نشط',
+      fromInvId:invId
     });
     if(pat) DB.upd('patients',pat.id,{status:'قسط'});
     // Update invoice method to installments

@@ -43,14 +43,23 @@ function saveExp(){
   if(id){
     DB.upd('expenses',id,data);
     showToast('success',`✅ تم تحديث ${name}`);
-    // ✅ تحديث سجل الخزينة المقابل مباشرةً
+    // ✅ تحديث سجلات الخزينة المقابلة (قد تكون متعددة)
     const cashlog=DB.get('cashlog')||[];
-    const idx=cashlog.findIndex(c=>String(c.refId)===String(id)&&c.source==='مصروف');
-    if(idx!==-1){cashlog[idx]={...cashlog[idx],amount:data.amount,date:data.date,notes:data.name};DB.set('cashlog',cashlog);}
-    else{
-      // لم يُسجَّل من قبل — أضفه الآن
-      DB.push('cashlog',{type:'صادر',source:'مصروف',refId:id,amount:data.amount,method:'كاش',date:data.date,timestamp:new Date().toISOString(),notes:data.name});
-    }
+    const relatedEntries = cashlog.filter(c=>String(c.refId)===String(id)&&c.source==='مصروف');
+    
+    // حذف السجلات القديمة وإضافة واحد جديد فقط
+    const filtered = cashlog.filter(c=>!(String(c.refId)===String(id)&&c.source==='مصروف'));
+    filtered.push({
+      type:'صادر',
+      source:'مصروف',
+      refId:id,
+      amount:data.amount,
+      method:'كاش',
+      date:data.date,
+      timestamp:new Date().toISOString(),
+      notes:data.name
+    });
+    DB.set('cashlog', filtered);
   }
   else{
     const saved=DB.push('expenses',data);
@@ -65,13 +74,17 @@ function saveExp(){
 function delExp(id){
   const e=DB.get('expenses').find(x=>x.id===id);
   if(confirm(`حذف مصروف "${e?.name||''}"؟`)){
-    // ✅ حذف سجل الخزينة المقابل أولاً
+    // ✅ حذف جميع سجلات الخزينة المقابلة (قد تكون متعددة لو تم التعديل أكثر من مرة)
     const cashlog=DB.get('cashlog')||[];
     const filtered=cashlog.filter(c=>!(String(c.refId)===String(id)&&c.source==='مصروف'));
     if(filtered.length!==cashlog.length) DB.set('cashlog',filtered);
+    
+    // حذف المصروف نفسه
     DB.del('expenses',id);
     showToast('info','🗑 تم الحذف');
     renderExpenses();
+    
+    // تحديث الشاشات المتأثرة
     if(document.getElementById('screen-treasury')?.classList.contains('active'))renderTreasury();
     if(document.getElementById('screen-accounts')?.classList.contains('active')&&typeof renderAccounts==='function')renderAccounts();
   }

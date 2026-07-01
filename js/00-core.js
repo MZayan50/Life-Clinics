@@ -411,6 +411,24 @@ EventBus.on('invoices:updated', function(inv){
   }
 });
 
+// ── 3. حذف فاتورة → حذف قيد الخزينة والأقساط المرتبطة ──
+EventBus.on('invoices:deleted', function(e){
+  const invId = e.id;
+  // ✅ حذف قيد الخزينة المقابل
+  const cashlog = DB.get('cashlog') || [];
+  const filtered = cashlog.filter(c => String(c.refId) !== String(invId) || c.source.includes('فاتورة'));
+  if(filtered.length !== cashlog.length) DB.set('cashlog', filtered);
+  
+  // ✅ حذف الأقساط المتعلقة بهذه الفاتورة (fromInvId)
+  const installments = DB.get('installments') || [];
+  const instFiltered = installments.filter(i => String(i.fromInvId) !== String(invId));
+  if(instFiltered.length !== installments.length) DB.set('installments', instFiltered);
+  
+  // ✅ تحديث الشاشات تلقائياً
+  _scheduleUIRefresh('cashlog');
+  _scheduleUIRefresh('installments');
+});
+
 // ══════════════════════════════════════════
 // 💰 مديونية المورد — حساب موحَّد (مصدر الحقيقة الوحيد)
 // ✅ FIX (مراجعة الموردين/المشتريات/المنتجات):
@@ -715,6 +733,17 @@ EventBus.on('expenses:deleted',     () => _scheduleUIRefresh('expenses'));
 EventBus.on('purchases:created',    () => _scheduleUIRefresh('purchases'));
 EventBus.on('purchases:updated',    () => _scheduleUIRefresh('purchases'));
 EventBus.on('purchases:deleted',    () => _scheduleUIRefresh('purchases'));
+
+// ── حذف مشتريات → تحديث مديونية المورد ──
+EventBus.on('purchases:deleted', function(e) {
+  const purchase = e.record;
+  if (purchase && purchase.supplierId && purchase.status === 'مستلم') {
+    // ✅ إعادة حساب مديونية المورد تلقائياً
+    // سيُستخدم calcSupplierOwed من موقع واحد (غير معالج إضافي هنا)
+    // الشاشات الأخرى (موردين، شراء) ستُستدعي calcSupplierOwed مباشرة عند الحاجة
+    _scheduleUIRefresh('suppliers');
+  }
+});
 EventBus.on('suppliers:created',    () => _scheduleUIRefresh('suppliers'));
 EventBus.on('suppliers:updated',    () => _scheduleUIRefresh('suppliers'));
 EventBus.on('suppliers:deleted',    () => _scheduleUIRefresh('suppliers'));
