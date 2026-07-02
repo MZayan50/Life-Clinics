@@ -32,7 +32,8 @@ service cloud.firestore {
         'suppliers', 'purchases', 'purchase_items', 'visits',
         'inventory_transactions', 'audit_log', 'transfers', 'supplier_payments',
         'product_sales', 'session_completions',
-        'photos', 'installments', 'cashlog', 'settings', 'config', 'users', 'advances'
+        'photos', 'installments', 'cashlog', 'settings', 'config', 'users', 'advances',
+        'call_queue'
       ];
     }
 
@@ -160,6 +161,19 @@ service cloud.firestore {
       allow create, update: if isReasonableSize(request.resource.data);
     }
     match /waitlist/{docId} {
+      allow read, delete: if true;
+      allow create, update: if isReasonableSize(request.resource.data);
+    }
+
+    // ✅ FIX (نظام الاستدعاء): مجموعة call_queue كانت تُكتب من شاشة الطبيب
+    // وتُقرأ (onSnapshot) من شاشة الاستقبال — في 07-clinical.js و 11-settings.js —
+    // لكن لم يكن لها أي match block هنا. النتيجة: كل عملية "استدعاء" كانت
+    // تُرفَض بصمت بواسطة قاعدة "أي collection تانية ممنوع تماماً" في آخر هذا
+    // الملف (permission-denied يظهر فقط في console). الأثر العملي: تحديث حالة
+    // الموعد (وصل → في الاستشارة) كان يحصل بنجاح لأن /appointments لها قاعدة
+    // صريحة، لكن رسالة/صوت الاستدعاء نفسه كانا يختفيان تماماً ولا يصلان لأي
+    // شاشة استقبال (نفس المتصفح أو مستخدم آخر).
+    match /call_queue/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
