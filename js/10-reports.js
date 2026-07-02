@@ -26,6 +26,13 @@
   EventBus.on('purchases:created',    refresh);
   EventBus.on('purchases:updated',    refresh);
   EventBus.on('purchases:deleted',    refresh);
+  // ✅ FIX (شاشة التقارير لا تتحدث): كانت لا تسمع لأحداث الخزينة/الباقات/الأقساط،
+  // فدفعات الباقات (اللي مالهاش فاتورة مرتبطة) ودفعات خطط الأقساط ما كانتش بتحدّث
+  // مؤشرات الإيرادات وصافي الربح إلا بالخروج والدخول للشاشة يدوياً.
+  EventBus.on('cashlog:created',      refresh);
+  EventBus.on('packages:updated',     refresh);
+  EventBus.on('installments:created', refresh);
+  EventBus.on('installments:updated', refresh);
 
 }());
 

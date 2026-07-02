@@ -410,7 +410,7 @@ EventBus.on('invoices:updated', function(inv){
   // إذا كانت الفاتورة تحمل دفعة جديدة (paidDelta) سجّلها في الخزينة
   if((inv.paidDelta || 0) > 0){
     DB.push('cashlog', {
-      type: 'وارد', source: `دفعة — ${inv.patient||''}`, refId: inv.id,
+      type: 'وارد', source: `دفعة فاتورة — ${inv.patient||''}`, refId: inv.id,
       patient: inv.patient || '', patId: inv.patId || '',
       amount: inv.paidDelta, service: inv.service || '',
       doctor: inv.doctor || '', branch: inv.branch || '',

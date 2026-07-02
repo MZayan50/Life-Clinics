@@ -663,6 +663,29 @@ function openPackageFromProfile(){
   }
 }
 
+// ✅ FIX (شاشة الأقساط لا تتحدث): الدفع من شاشة ملف العميل كان يُحدّث invoices/packages
+// فقط، بينما شاشة الأقساط تعرض بيانات من مجموعة installments المنفصلة (خطة مستقلة لها
+// remaining/payments خاصة بها) ولا تُحدَّث تلقائياً أبداً من هذا المسار — فتظل تعرض
+// المتبقي والحالة القديمة رغم تحصيل المبلغ فعليًا. هذه الدالة تربط الاتجاه الناقص.
+function _syncInstallmentPlanOnPayment({invoiceId, pkgId, paidAmount, newRemaining}){
+  const plans = DB.get('installments')||[];
+  const plan = invoiceId
+    ? plans.find(p => String(p.fromInvId)===String(invoiceId))
+    : plans.find(p => String(p.fromPkgId)===String(pkgId));
+  if(!plan) return;
+  const today = new Date().toISOString().split('T')[0];
+  const update = {
+    remaining: newRemaining,
+    downPayment: (plan.downPayment||0) + paidAmount,
+    installmentAmount: newRemaining,
+    status: newRemaining===0 ? 'مكتمل' : 'نشط'
+  };
+  if(newRemaining===0 && Array.isArray(plan.payments)){
+    update.payments = plan.payments.map(x => ({...x, paid:true, paidDate:x.paidDate||today}));
+  }
+  DB.upd('installments', plan.id, update);
+}
+
 // ── دفع المتبقي من شاشة ملف العميل ──
 function openPayFromProfile(){
   const id = window._curPat;
@@ -772,6 +795,7 @@ function ppayPayAll(){
     const newPaid = (inv.paid||0) + rem;
     // paidDelta يُفعّل تسجيل cashlog تلقائياً عبر EventBus('invoices:updated') في 00-core.js
     DB.upd('invoices', inv.id, { paid:newPaid, remaining:0, status:'مدفوع', method, lastPayDate:today, paidDelta:rem });
+    _syncInstallmentPlanOnPayment({ invoiceId: inv.id, paidAmount: rem, newRemaining: 0 });
     totalPaid += rem;
   });
   pendingPkgs.forEach(pk => {
@@ -788,6 +812,7 @@ function ppayPayAll(){
       DB.upd('invoices', pkgInv.id, { paid:newInvPaid, remaining:newInvRem, status:newInvRem===0?'مدفوع':'جزئي' });
     }
     DB.push('cashlog',{ type:'وارد', amount:rem, source:`تسوية باقة — ${pat.name}`, service:pk.name||'', method, date:today, patId, patient:pat.name });
+    _syncInstallmentPlanOnPayment({ pkgId: pk.id, paidAmount: rem, newRemaining: 0 });
     totalPaid += rem;
   });
 
@@ -851,6 +876,7 @@ function processPatientPayment(){
     const newPaid = (inv.paid||0)+amount;
     const newRem  = Math.max(0,(inv.remaining||0)-amount);
     DB.upd('invoices',id,{ paid:newPaid, remaining:newRem, status:newRem===0?'مدفوع':'جزئي', method, lastPayDate:today, paidDelta:amount }); // paidDelta → cashlog عبر EventBus
+    _syncInstallmentPlanOnPayment({ invoiceId:id, paidAmount:amount, newRemaining:newRem });
     showToast('success',`✅ تم استلام ${amount.toLocaleString()} ج`, newRem===0?'الفاتورة مغلقة بالكامل':'المتبقي: '+newRem.toLocaleString()+' ج');
   } else {
     const pk = DB.get('packages').find(p=>String(p.id)===String(id));
@@ -869,6 +895,7 @@ function processPatientPayment(){
     }
     const _patObj = DB.get('patients').find(p=>String(p.id)===String(patId));
     DB.push('cashlog',{ type:'وارد', amount, source:`دفعة باقة — ${_patObj?.name||pk.patName||''}`, service:pk.name||'', method, date:today, patId, patient:_patObj?.name||pk.patName||'' });
+    _syncInstallmentPlanOnPayment({ pkgId:id, paidAmount:amount, newRemaining:Math.max(0, rem-amount) });
     showToast('success',`✅ تم استلام ${amount.toLocaleString()} ج على الباقة "${pk.name}"`);
   }
   closeModal('patient-pay-modal');
