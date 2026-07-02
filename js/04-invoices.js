@@ -710,6 +710,18 @@ function processSmartPayment(){
     lastPayNotes:notes
   });
 
+  // 1.b ✅ FIX (المديونية لا تتحدث بعد الدفع من شاشة الفواتير): لو الفاتورة
+  // مرتبطة بباقة (pkgId)، رصيد العميل يُحسب من packages.paid مباشرة وليس من
+  // هذه الفاتورة (لتجنّب الاحتساب المزدوج في _recalcPatFinancials)، فبدون
+  // تحديث الباقة هنا يظل "المتبقي" على العميل كما هو رغم دفع الفاتورة بالكامل.
+  if(inv.pkgId){
+    const pkg = (DB.get('packages')||[]).find(p => String(p.id) === String(inv.pkgId));
+    if(pkg){
+      const newPkgPaid = Math.min(pkg.price||0, (pkg.paid||0) + amount);
+      DB.upd('packages', pkg.id, { paid: newPkgPaid });
+    }
+  }
+
   // 2. Add treasury cash-in entry automatically
   if(!DB.get('cashlog')) DB.set('cashlog',[]);
   DB.push('cashlog',{

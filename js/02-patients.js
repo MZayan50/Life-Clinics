@@ -777,6 +777,16 @@ function ppayPayAll(){
   pendingPkgs.forEach(pk => {
     const rem = Math.max(0,(pk.price||0)-(pk.paid||0));
     DB.upd('packages', pk.id, { paid:(pk.paid||0)+rem });
+    // ✅ FIX (فاتورة الباقة لا تتحدث): كان يُحدَّث pk.paid فقط، فتُغلق الباقة
+    // وتتحدث patients.balance (يُحسب من packages مباشرة) لكن سجل invoices
+    // المرتبط (pkgId) يبقى بمتبقي قديم — وشاشة الفواتير تقرأ من invoices
+    // مباشرة فتظل تُظهر الدين القديم رغم تحصيله فعليًا.
+    const pkgInv = DB.get('invoices').find(i => String(i.pkgId) === String(pk.id));
+    if(pkgInv){
+      const newInvPaid = Math.min(pkgInv.total||pk.price||0, (pkgInv.paid||0) + rem);
+      const newInvRem  = Math.max(0, (pkgInv.total||pk.price||0) - newInvPaid);
+      DB.upd('invoices', pkgInv.id, { paid:newInvPaid, remaining:newInvRem, status:newInvRem===0?'مدفوع':'جزئي' });
+    }
     DB.push('cashlog',{ type:'وارد', amount:rem, source:`تسوية باقة — ${pat.name}`, service:pk.name||'', method, date:today, patId, patient:pat.name });
     totalPaid += rem;
   });
@@ -849,6 +859,14 @@ function processPatientPayment(){
     if(amount > rem){ showToast('warning',`⚠️ المبلغ أكبر من المتبقي (${rem.toLocaleString()} ج)`); return; }
     const newPaid = (pk.paid||0)+amount;
     DB.upd('packages',id,{ paid:newPaid });
+    // ✅ FIX (فاتورة الباقة لا تتحدث): نفس إصلاح ppayPayAll — تحديث الفاتورة
+    // المرتبطة بالباقة (pkgId) حتى لا تفضل شاشة الفواتير عارضة متبقي قديم.
+    const pkgInv = DB.get('invoices').find(i => String(i.pkgId) === String(pk.id));
+    if(pkgInv){
+      const newInvPaid = Math.min(pkgInv.total||pk.price||0, (pkgInv.paid||0) + amount);
+      const newInvRem  = Math.max(0, (pkgInv.total||pk.price||0) - newInvPaid);
+      DB.upd('invoices', pkgInv.id, { paid:newInvPaid, remaining:newInvRem, status:newInvRem===0?'مدفوع':'جزئي' });
+    }
     const _patObj = DB.get('patients').find(p=>String(p.id)===String(patId));
     DB.push('cashlog',{ type:'وارد', amount, source:`دفعة باقة — ${_patObj?.name||pk.patName||''}`, service:pk.name||'', method, date:today, patId, patient:_patObj?.name||pk.patName||'' });
     showToast('success',`✅ تم استلام ${amount.toLocaleString()} ج على الباقة "${pk.name}"`);

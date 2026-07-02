@@ -675,6 +675,8 @@ function _flushUIRefresh(){
     if(_pendingRefresh.has('cashlog')      && active==='payments')     renderPayments();
     if(_pendingRefresh.has('cashlog')      && active==='accounts')     { if(typeof renderAccounts==='function') renderAccounts(); }
     if(_pendingRefresh.has('invoices')     && active==='accounts')     { if(typeof renderAccounts==='function') renderAccounts(); }
+    if(_pendingRefresh.has('installments') && active==='accounts')     { if(typeof renderAccounts==='function') renderAccounts(); }
+    if(_pendingRefresh.has('patients')     && active==='accounts')     { if(typeof renderAccounts==='function') renderAccounts(); }
     if(_pendingRefresh.has('purchases')    && active==='purchases')    renderPurchases();
     if(_pendingRefresh.has('purchases')    && active==='suppliers')    renderSuppliers();
     if(_pendingRefresh.has('suppliers')    && active==='suppliers')    renderSuppliers();

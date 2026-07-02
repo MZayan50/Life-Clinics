@@ -408,7 +408,14 @@ function renderAccounts(){
   // ✅ FIX: قيمة المخزون الآن بسعر التكلفة عبر الدالة الموحَّدة (كانت بسعر البيع سابقاً)
   const invValue=typeof calcInventoryCostValue==='function' ? calcInventoryCostValue()
     : DB.get('inventory').reduce((s,i)=>s+(i.qty*(i.costPerConsumeUnit||i.costPrice||i.lastPurchasePrice||0)),0);
-  const receivables=(DB.get('installments')||[]).reduce((s,p)=>s+(p.remaining||0),0);
+  // ✅ FIX (ذمم مدينة لا تتحدث بعد التحصيل): كان هذا يجمع remaining من جدول
+  // installments فقط، فيتجاهل تمامًا ديون الفواتير العادية غير المرتبطة بخطة
+  // أقساط (invoices.remaining) — وهي غالب حالات "المديونية" على العميل. أي
+  // تحصيل لدين من فاتورة عادية كان بلا أثر على هذا الرقم لأنه أصلًا لم يكن
+  // محسوبًا فيه. الآن نستخدم patients.balance، المصدر الموحَّد الذي يحدّثه
+  // _recalcPatFinancials فورًا مع كل تغيير في الفواتير/الباقات/الأقساط
+  // (فواتير + باقات + أقساط مستقلة − دفعات مقدمة)، بنفس منطق شاشة العميل.
+  const receivables=(DB.get('patients')||[]).reduce((s,p)=>s+Math.max(0,p.balance||0),0);
   // ✅ FIX (مراجعة الموردين/المالية): كان هذا يجمع حقل suppliers.owed المخزَّن،
   // وهو لا يتحدث تلقائياً عند حذف/تعديل طلب شراء أو عند كتابة قيمة يدوية في
   // نموذج المورد، فيختلف عن الرقم الصحيح الظاهر في شاشة الموردين نفسها.
