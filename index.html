@@ -1729,8 +1729,8 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       <div id="pkg-services-checkboxes" style="border:1px solid var(--border);border-radius:8px;padding:8px;max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;background:var(--glass);"></div>
       <input type="hidden" id="pkg-services">
     </div>
-    <div class="fgrp"><label class="flbl">عدد الجلسات</label><input class="fctl" type="number" id="pkg-sessions-count" placeholder="6" oninput="calcPkgProfitPreview()"></div>
-    <div class="fgrp"><label class="flbl">سعر الباقة (ج)</label><input class="fctl" type="number" id="pkg-price" placeholder="0" oninput="calcPkgProfitPreview()"></div>
+    <div class="fgrp"><label class="flbl">عدد الجلسات</label><input class="fctl" type="number" id="pkg-sessions-count" placeholder="6" oninput="_autoCalcPkgPrice();calcPkgProfitPreview()"></div>
+    <div class="fgrp"><label class="flbl">سعر الباقة (ج) — محسوب تلقائياً من الخدمات المختارة</label><input class="fctl" type="number" id="pkg-price" placeholder="0" readonly style="background:var(--glass);cursor:not-allowed;"></div>
     <div class="fgrp"><label class="flbl">خصم الباقة (ج)</label><input class="fctl" type="number" id="pkg-discount" placeholder="0" oninput="calcPkgProfitPreview()"></div>
     <div class="fgrp"><label class="flbl">المدفوع (ج)</label><input class="fctl" type="number" id="pkg-paid" placeholder="0"></div>
     <div class="fgrp"><label class="flbl">تاريخ البداية</label><input class="fctl" type="date" id="pkg-start"></div>
