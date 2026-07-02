@@ -135,3 +135,69 @@ function renderChartOfAccounts(){
     </tr>`).join('') || `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px">لا يوجد دليل حسابات بعد — اضغط "إنشاء دليل الحسابات"</td></tr>`;
 }
 
+// ── عرض دفتر اليومية (كل القيود المسجّلة) ──
+function renderJournalEntries(){
+  const tb = document.getElementById('je-tbody');
+  if(!tb) return;
+  const entries = [...(DB.get('journal_entries')||[])].sort((a,b)=>(b.entryNumber||'').localeCompare(a.entryNumber||''));
+  tb.innerHTML = entries.map(e=>{
+    const linesHtml = e.lines.map(l=>{
+      const acc = getAccountByCode(l.accountCode);
+      const name = acc ? acc.name : l.accountCode;
+      return `${name}: ${l.debit?('مدين '+l.debit.toLocaleString()):('دائن '+l.credit.toLocaleString())}`;
+    }).join(' | ');
+    const statusTag = e.status==='reversed'
+      ? `<span class="tag tg-rose">معكوس</span>`
+      : `<span class="tag tg-teal">مرحّل</span>`;
+    return `<tr>
+      <td style="font-weight:700;font-family:monospace;font-size:12px">${e.entryNumber}</td>
+      <td style="font-size:12px">${e.date}</td>
+      <td style="font-size:12px">${e.description}</td>
+      <td style="font-size:11px;color:var(--text-muted)">${linesHtml}</td>
+      <td>${statusTag}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد قيود بعد — اضغط "تشغيل اختبار القيود"</td></tr>`;
+}
+
+// ── اختبار محرك القيود — يعمل قيد صحيح متوازن + يحاول قيد خاطئ غير متوازن للتأكد إنه بيترفض ──
+async function testJournalEntryEngine(){
+  // 1) قيد صحيح ومتوازن — المفروض ينجح
+  const goodEntry = await postJournalEntry({
+    date: new Date().toISOString().split('T')[0],
+    description: '🧪 قيد اختبار — تحصيل نقدي تجريبي',
+    sourceType: 'manual',
+    sourceId: null,
+    lines: [
+      {accountCode:'1110', debit:100, credit:0, description:'كاش تجريبي'},
+      {accountCode:'4100', debit:0, credit:100, description:'إيراد تجريبي'}
+    ]
+  });
+
+  if(goodEntry){
+    showToast('success', `✅ القيد الصحيح نجح: ${goodEntry.entryNumber}`);
+  } else {
+    showToast('error', '❌ القيد الصحيح فشل — فيه مشكلة في الإعداد، راجع الـ Firestore rules');
+    return;
+  }
+
+  // 2) قيد غير متوازن عمدًا — المفروض يترفض
+  const badEntry = await postJournalEntry({
+    date: new Date().toISOString().split('T')[0],
+    description: '🧪 قيد اختبار غير متوازن (المفروض يترفض)',
+    sourceType: 'manual',
+    sourceId: null,
+    lines: [
+      {accountCode:'1110', debit:100, credit:0, description:'كاش'},
+      {accountCode:'4100', debit:0, credit:50, description:'إيراد ناقص عمدًا'}
+    ]
+  });
+
+  if(badEntry === null){
+    showToast('info', '👍 تمام — النظام رفض القيد الغير متوازن زي ما هو متوقع');
+  } else {
+    showToast('error', '⚠️ خطأ خطير: النظام قبل قيد غير متوازن! راجع المطور فورًا');
+  }
+
+  renderJournalEntries();
+}
+
