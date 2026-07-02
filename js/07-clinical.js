@@ -793,6 +793,7 @@ function renderReception(){
   }
   
   // ── باقي شاشة الاستقبال العادية ──
+  const docSel = document.getElementById('rec-doc-filter');
   if(docSel && docSel.options.length<=1){
     DB.get('doctors').forEach(d=>{const o=document.createElement('option');o.value=d.name;o.textContent=d.name;docSel.appendChild(o);});
   }
