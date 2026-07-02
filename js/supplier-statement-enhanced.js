@@ -69,7 +69,7 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>كشف حساب شركة ${supplier.name}</title>
+  <title>كشف حساب ${supplier.name}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
     
@@ -506,7 +506,7 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
     <!-- HEADER -->
     <div class="header">
       <div class="header-left">
-        <h1>📋 كشف حساب شركة ${supplier.name}</h1>
+        <h1>📋 كشف حساب ${supplier.name}</h1>
         <p style="font-weight:600">${clinicName}</p>
         <p>📞 ${clinicPhone}</p>
       </div>
