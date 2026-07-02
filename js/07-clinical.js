@@ -1638,7 +1638,64 @@ EventBus.on('call_queue:updated', function(){
   }
 });
 
-// ── 7. Firestore Real-time Polling للـ call_queue (مزامنة حية بين المستخدمين) ──
+// ── 8. Modal لاختيار الموعد (الزر البرتقالي الرئيسي) ──
+function openCallPatientModal(){
+  const today = new Date().toISOString().split('T')[0];
+  let appts = DB.get('appointments').filter(a => a.date === today && a.status !== 'ملغي' && a.status !== 'مكتمل');
+  
+  // ترتيب: الأولويات الأولى
+  const PRIO = {'في الاستشارة':0,'وصل':1,'متأخر':2,'انتظار':3,'قادم':4,'مؤكد':5};
+  appts.sort((a,b) => {
+    const pa = PRIO[a.status] ?? 8;
+    const pb = PRIO[b.status] ?? 8;
+    if(pa !== pb) return pa - pb;
+    return _timeToMin(a.time || '00:00') - _timeToMin(b.time || '00:00');
+  });
+  
+  if(appts.length === 0) {
+    showToast('info', '⏰ لا توجد مواعيد متاحة اليوم');
+    return;
+  }
+  
+  // عرض قائمة المواعيد في الـ modal
+  const listHTML = appts.map(a => `
+    <div style="padding:12px;background:var(--glass);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div style="flex:1;">
+        <div style="font-weight:600;color:var(--text);">${a.patient}</div>
+        <div style="font-size:12px;color:var(--text-muted);">د. ${a.doctor} · ${a.service || '—'}</div>
+        <div style="font-size:11px;color:var(--amber);margin-top:4px;">⏰ ${a.time} · ${a.status}</div>
+      </div>
+      <button onclick="quickCallPatient('${a.id}')" style="
+        padding:8px 16px;
+        background:linear-gradient(135deg,var(--emerald),#047857);
+        color:white;
+        border:none;
+        border-radius:8px;
+        cursor:pointer;
+        font-weight:600;
+        font-size:13px;
+        white-space:nowrap;
+      ">📢 استدعاء</button>
+    </div>
+  `).join('');
+  
+  document.getElementById('call-patient-list').innerHTML = listHTML;
+  document.getElementById('modal-call-patient').style.display = 'flex';
+}
+
+// ── 9. استدعاء سريع من الـ modal ──
+function quickCallPatient(apptId){
+  const appt = DB.get('appointments').find(a => a.id === apptId);
+  if(!appt) { showToast('error', '❌ لم يتم العثور على الموعد'); return; }
+  
+  // استدعاء wlCallPatient للعملية الصحيحة
+  wlCallPatient(apptId);
+  
+  // إغلاق الـ modal
+  document.getElementById('modal-call-patient').style.display = 'none';
+  
+  showToast('success', `📢 تم استدعاء ${appt.patient}`);
+}
 let _lastCallQueueHash = '';
 function _setupCallQueueListener(){
   if(window._callQueueListenerActive) return;
