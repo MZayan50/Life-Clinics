@@ -363,10 +363,39 @@ function wlCheckIn(id){
 
 // Doctor: Call patient into consultation
 function wlCallPatient(id){
-  const now=new Date();
-  const t=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  DB.upd('appointments',id,{status:'في الاستشارة',consultStart:t});
-  showToast('info','💬 بدأت الاستشارة',`الوقت: ${t}`);
+  const appt = DB.get('appointments').find(a => a.id === id);
+  if(!appt) { showToast('error', '❌ لم يتم العثور على الموعد'); return; }
+  
+  const docName = appt.doctor || '؟؟';
+  const now = new Date();
+  const t = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  
+  // ✅ إنشاء استدعاء جديد وإضافته إلى call_queue
+  const call = {
+    id: genUUID(),
+    apptId: appt.id,
+    patientId: appt.patId,
+    patientName: appt.patient,
+    doctor: docName,
+    time: t,
+    timestamp: new Date().toISOString(),
+    status: 'active'  // active / seen / canceled
+  };
+  
+  // حفظ الاستدعاء في DB
+  if(!DB.get('call_queue')) DB.set('call_queue', []);
+  DB.push('call_queue', call);
+  
+  // تحديث حالة الموعد
+  DB.upd('appointments', id, { status: 'في الاستشارة', consultStart: t });
+  
+  showToast('success', `📢 تم استدعاء ${appt.patient}`, `الوقت: ${t}`);
+  
+  // تحديث شاشة الاستقبال فوراً
+  if(document.getElementById('screen-reception')?.classList.contains('active')){
+    setTimeout(() => renderReception(), 100);
+  }
+  
   _syncAllScreens();
 }
 
