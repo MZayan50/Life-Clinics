@@ -105,7 +105,9 @@ const DB = {
     // النتيجة: الاستدعاء يظهر فورًا على نفس الجهاز/الجلسة اللي عملته (لأن الكاش
     // المحلي اتحدث)، لكنه لا يصل إلى Firestore أبداً، فأي جهاز آخر (يعتمد فقط على
     // onSnapshot) لا يرى الاستدعاء مطلقاً — حتى بعد إصلاح firestore.rules.
-    'call_queue'
+    'call_queue',
+    // 💼 ACCOUNTING LAYER (دليل تطوير الطبقة المحاسبية — المرحلة 1+)
+    'chart_of_accounts', 'journal_entries', 'accounting_periods', 'vouchers'
   ],
 
   // ── In-memory cache: Firestore data lives here ──

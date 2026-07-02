@@ -38,6 +38,7 @@ function stab(el,gid,tid){
   ALL_TABS.forEach(i=>{const e=document.getElementById(i);if(e)e.style.display='none';});
   const t=document.getElementById(tid);if(t)t.style.display='block';
   if(tid==='se-perm') setTimeout(renderUsers, 50);
+  if(tid==='se-data' && typeof renderChartOfAccounts==='function') setTimeout(renderChartOfAccounts, 50);
 }
 
 // TOAST
