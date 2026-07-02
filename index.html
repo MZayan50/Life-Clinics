@@ -931,7 +931,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   
   <!-- ✅ زر استدعاء العميل -->
   <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
-    <button class="btn btn-warning" onclick="callPatient()" style="
+    <button class="btn btn-warning" onclick="openCallPatientModal()" style="
       gap: 8px;
       font-size: 15px;
       font-weight: 700;
@@ -951,6 +951,22 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   <!-- ✅ حقول مخفية لبيانات الموعد الحالي -->
   <input type="hidden" id="dv-appt-id" value="">
   <input type="hidden" id="dv-doctor-name" value="">
+  
+  <!-- ✅ Modal لاختيار الموعد قبل الاستدعاء -->
+  <div id="modal-call-patient" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
+    <div style="background:white;border-radius:16px;padding:24px;max-width:500px;width:90%;max-height:70vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <h3 style="margin:0;color:var(--text);font-size:18px;">📢 اختر العميل للاستدعاء</h3>
+        <button onclick="document.getElementById('modal-call-patient').style.display='none'" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--text-muted);">✕</button>
+      </div>
+      
+      <div id="call-patient-list" style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;"></div>
+      
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="document.getElementById('modal-call-patient').style.display='none'" style="padding:10px 20px;background:var(--glass);border:none;border-radius:8px;cursor:pointer;color:var(--text);font-weight:600;">إلغاء</button>
+      </div>
+    </div>
+  </div>
   
   <div class="card">
     <div class="card-hdr">
