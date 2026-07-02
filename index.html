@@ -900,6 +900,9 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       <div class="card-title">👥 المرضى — مرتبون بوقت الموعد</div>
       <span class="card-sub" id="rec-count-lbl"></span>
     </div>
+    <!-- ✅ حاوية الاستدعاءات النشطة (التنبيهات) -->
+    <div id="active-calls-container" style="margin-bottom:20px;"></div>
+    
     <div id="rec-queue" style="display:flex;flex-direction:column;gap:8px;"></div>
   </div>
 </div>
@@ -925,7 +928,30 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="kpi-card kc-emerald"><div class="kpi-icon">✔</div><div class="kpi-value" id="dv-kpi-done">0</div><div class="kpi-label">أنهيت اليوم</div></div>
     <div class="kpi-card kc-gold"><div class="kpi-icon">💰</div><div class="kpi-value" id="dv-kpi-comm">0</div><div class="kpi-label">عمولتي (ج)</div></div>
   </div>
+  
+  <!-- ✅ زر استدعاء العميل -->
+  <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+    <button class="btn btn-warning" onclick="callPatient()" style="
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 9px;
+      box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+      transition: all 0.3s;
+    ">
+      📢 استدعاء العميل
+    </button>
+  </div>
+  
   <!-- Patient queue for doctor -->
+  <!-- ✅ حقول مخفية لبيانات الموعد الحالي -->
+  <input type="hidden" id="dv-appt-id" value="">
+  <input type="hidden" id="dv-doctor-name" value="">
+  
   <div class="card">
     <div class="card-hdr">
       <div class="card-title">🗂️ مرضاي اليوم — مرتبون بوقت الوصول الفعلي</div>
