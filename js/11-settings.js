@@ -694,6 +694,64 @@ async function cleanOrphanedSupplierPayments(){
   if(typeof renderSuppliers === 'function') renderSuppliers();
 }
 
+// ══════════════════════════════════════════════════════════════════
+// 🩹 إصلاح أقساط البيع السريع القديمة (Orphaned quick-sell installments)
+// ✅ FIX: قبل إصلاح saveQuickSell في 04-invoices.js، كان القسط التلقائي
+// اللي بيتعمل لما عميل ياخد منتج بالتقسيط من "البيع السريع" بيتسجل من غير
+// fromInvId. فكانت getPatientFinancialSummary / _recalcPatFinancials في
+// 00-core.js بتعتبره قسط "مستقل" غير مرتبط بفاتورة، فتجمع متبقي الفاتورة
+// + متبقي القسط مرة تانية فوق بعض — فيظهر "المتبقي" في ملف العميل مضاعفًا.
+// الإصلاح الجديد بيتعامل مع أي عملية بيع سريع جديدة صح من الأول، لكن
+// السجلات القديمة اللي اتعملت قبل الإصلاح لسه ناقصة fromInvId. الأداة دي
+// بتدور على الأقساط دي وتحاول تربطها تلقائيًا بفاتورتها (نفس العميل، نفس
+// الإجمالي، نفس المتبقي، نفس التاريخ، وفاتورة فيها منتجات) — وتسيب أي قسط
+// مش واثقة من مطابقته من غير تغيير عشان محدش يتربط بفاتورة غلط.
+// ══════════════════════════════════════════════════════════════════
+async function fixQuickSellInstallments(){
+  const installments = DB.get('installments')||[];
+  const invoices = DB.get('invoices')||[];
+
+  // أقساط بيع سريع "يتيمة": مالهاش fromInvId ولا fromPkgId، ومربوطة بمنتج
+  const candidates = installments.filter(p =>
+    !p.fromInvId && !p.fromPkgId && p.service && p.service.indexOf('منتج: ')===0
+  );
+  if(!candidates.length){ showToast('info','✅ لا توجد أقساط بيع سريع قديمة تحتاج إصلاح — كل البيانات سليمة'); return; }
+
+  const matches = [];
+  const unmatched = [];
+  candidates.forEach(inst=>{
+    const inv = invoices.find(iv =>
+      (String(iv.patId)===String(inst.patientId) || String(iv.patientId)===String(inst.patientId)) &&
+      Array.isArray(iv.products) && iv.products.length>0 &&
+      (iv.total||0)===(inst.total||0) &&
+      (iv.remaining||0)===(inst.remaining||0) &&
+      iv.date===inst.startDate
+    );
+    if(inv) matches.push({inst, inv}); else unmatched.push(inst);
+  });
+
+  if(!matches.length){
+    showToast('warning',`⚠️ فيه ${candidates.length} قسط بيع سريع قديم، لكن مقدرناش نلاقي الفاتورة المطابقة تلقائيًا — محتاجين مراجعة يدوية`);
+    return;
+  }
+
+  const msg = `تم العثور على ${matches.length} قسط بيع سريع قديم غير مربوط بفاتورته (وده سبب مضاعفة "المتبقي" في ملف العميل).`
+    + (unmatched.length ? `\n\n⚠️ ${unmatched.length} قسط تاني معندناش ثقة كافية في مطابقته تلقائيًا، هنسيبه من غير تغيير.` : '')
+    + `\n\nهل تريد ربط الـ ${matches.length} قسط بفواتيرها الآن؟`;
+  if(!confirm(msg)) return;
+
+  matches.forEach(({inst, inv}) => DB.upd('installments', inst.id, { fromInvId: inv.id }));
+
+  // إعادة حساب رصيد كل عميل متأثر فورًا عشان ملف العميل يتحدث على طول
+  const affectedPatIds = [...new Set(matches.map(m => m.inst.patientId))];
+  affectedPatIds.forEach(pid => { if(typeof _recalcPatFinancials === 'function') _recalcPatFinancials(pid); });
+
+  showToast('success', `🩹 تم إصلاح ${matches.length} قسط`, 'بيانات ملف العميل هتتحدث تلقائيًا');
+  if(typeof renderPatients === 'function') renderPatients();
+}
+
+
+
 async function clearCollection(col){
   if(!col || !_ALL_COLLECTIONS.includes(col)) return;
   const ids = (DB.get(col)||[]).map(r => r.id).filter(Boolean);
