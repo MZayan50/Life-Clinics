@@ -916,7 +916,7 @@ function renderDoctorView(){
   const nowMin=new Date().getHours()*60+new Date().getMinutes();
   container.innerHTML=appts.map((a,i)=>{
     const stCls=ASC[a.status]||'sd';
-    const canCall=['وصل','انتظار','متأخر'].includes(a.status);
+    const canCall=['مؤكد','وصل','انتظار','متأخر'].includes(a.status);
     const inConsult=a.status==='في الاستشارة';
     const isDone=a.status==='مكتمل';
     const timer=_wlTimerStr(a);
