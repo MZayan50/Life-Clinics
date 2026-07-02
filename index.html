@@ -1320,6 +1320,15 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     </div>
   </div>
   <div id="se-data" style="display:none;">
+    <div class="card"><div class="card-hdr"><div class="card-title">💼 دليل الحسابات (Chart of Accounts)</div>
+        <button class="btn btn-primary btn-sm" onclick="seedChartOfAccounts()">🌱 إنشاء دليل الحسابات</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">المرحلة 1 من الطبقة المحاسبية — إنشاء تلقائي لمرة واحدة، لا يؤثر على أي بيانات حالية.</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>الكود</th><th>اسم الحساب</th><th>النوع</th><th>الطبيعة</th></tr></thead>
+        <tbody id="coa-tbody"></tbody>
+      </table></div>
+    </div>
     <div class="card"><div class="card-hdr"><div class="card-title">💾 إدارة البيانات</div></div>
       <div style="display:flex;flex-direction:column;gap:11px;">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:13px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">استيراد بيانات (JSON)</div><div style="font-size:12px;color:var(--text-muted)">استعادة من نسخة احتياطية</div></div><button class="btn btn-ghost btn-sm" onclick="importData()">📤 استيراد</button></div>
@@ -2713,6 +2722,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <script src="js/10-reports.js"></script>
 <script src="js/11-settings.js"></script>
 <script src="js/12-financial-integration.js"></script>
+<script src="js/13-accounting.js"></script>
 <script>
   // ✅ ننتظر تحميل كل الملفات قبل استدعاء init()
   if (typeof init === 'function') {
