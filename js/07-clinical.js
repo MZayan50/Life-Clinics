@@ -642,6 +642,26 @@ function savePackage(){
         notes:`دفعة إضافية على باقة: ${data.name}`
       });
     }
+    // ✅ FIX (مشكلة "شاشة المدفوعات" — الدفع من الباقة لا يتزامن مع ملف العميل):
+    // تعديل paid هنا مباشرة من نافذة الباقة كان لا يُحدّث الفاتورة المرتبطة (pkgId)،
+    // على عكس كل مسارات الدفع الأخرى (processSmartPayment/processPatientPayment/
+    // ppayPayAll/payInstallment) التي تُزامن الفاتورة دائماً. النتيجة: فاتورة الباقة
+    // تظل بمتبقٍ قديم (remaining قديم)، وبما أن openPayFromProfile يستثني فقط فواتير
+    // الباقات "غير المكتملة السداد" (pendingPkgs)، فباقة أصبحت مسددة بالكامل هنا كانت
+    // تختفي من قائمة "الباقات المستحقة" بينما تبقى فاتورتها القديمة تظهر كمبلغ مستحق
+    // منفصل في شاشة الدفع من ملف العميل — ازدواجية/تضارب في المبلغ المطلوب فعلياً.
+    const pkgInv = DB.get('invoices').find(i => String(i.pkgId) === String(id));
+    if(pkgInv){
+      const newInvTotal = data.price || pkgInv.total || 0;
+      const newInvPaid  = Math.min(newInvTotal, data.paid || 0);
+      const newInvRem   = Math.max(0, newInvTotal - newInvPaid);
+      DB.upd('invoices', pkgInv.id, {
+        total: newInvTotal,
+        paid: newInvPaid,
+        remaining: newInvRem,
+        status: newInvRem === 0 ? 'مدفوع' : (newInvPaid > 0 ? 'جزئي' : 'معلق')
+      });
+    }
     showToast('success','✅ تم تحديث الباقة');
   } else {
     const newPkg = DB.push('packages',data);
@@ -1742,6 +1762,23 @@ function _setupCallQueueListener(){
   }, 1000); // كل ثانية
   
   console.log('✅ [Call Queue Listener] تم تفعيل مراقبة الاستدعاءات الحية');
+
+  // ✅ إعادة تشغيل صوت التنبيه كل 15 ثانية طالما فيه استدعاء نشط لم يُعالَج بعد
+  // (قبل هذا الإصلاح كان الصوت يُشغَّل مرة واحدة فقط عند renderReception الأول
+  // للاستدعاء، فلو انشغل الاستقبال ولم يلاحظه، ما كان فيه أي تنبيه صوتي لاحق)
+  if(!window._callSoundRepeater){
+    window._callSoundRepeater = setInterval(() => {
+      const receptionScreen = document.getElementById('screen-reception');
+      if(!receptionScreen?.classList.contains('active')) return;
+      try {
+        const activeCalls = (DB.get('call_queue') || []).filter(c => c.status === 'active');
+        if(activeCalls.length > 0) playCallSound();
+      } catch(e) {
+        console.warn('⚠️ [Call Sound Repeater] خطأ:', e.message);
+      }
+    }, 15000); // كل 15 ثانية
+    console.log('✅ [Call Sound Repeater] تكرار صوت التنبيه كل 15 ثانية مُفعّل');
+  }
 }
 
 // تشغيل listener عند تحميل الصفحة أو عند الانتقال لـ reception screen

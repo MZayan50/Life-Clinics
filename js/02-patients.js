@@ -698,8 +698,13 @@ function openPayFromProfile(){
   );
   // استبعاد فواتير الباقات لتجنب الاحتساب المزدوج
   // نستبعد بـ pkgId أو باسم الخدمة (للبيانات القديمة اللي pkgId فيها null)
-  const _pkgIds = new Set(pendingPkgs.map(pk => String(pk.id)));
-  const _pkgNames = new Set(pendingPkgs.map(pk => `باقة: ${pk.name}`));
+  // ✅ FIX: الاستثناء لازم يشمل كل باقات العميل (وليس فقط "المستحقة" منها)،
+  // بنفس منطق _recalcPatFinancials الموحّد في 00-core.js — وإلا فباقة أصبحت
+  // مسددة بالكامل لتوّها (فخرجت من pendingPkgs) قد تترك فاتورتها المرتبطة
+  // (لو لم تتزامن remaining فيها بعد لأي سبب) تظهر كمبلغ مستحق منفصل هنا.
+  const _allPatPkgs = DB.get('packages').filter(pk => pk.patId===id);
+  const _pkgIds = new Set(_allPatPkgs.map(pk => String(pk.id)));
+  const _pkgNames = new Set(_allPatPkgs.map(pk => `باقة: ${pk.name}`));
   const pendingInvs = DB.get('invoices').filter(i =>
     (String(i.patId)===String(id) || i.patient===pat.name) &&
     (i.remaining||0) > 0 &&
@@ -780,8 +785,10 @@ function ppayPayAll(){
   const pendingPkgs = DB.get('packages').filter(pk =>
     pk.patId===patId && ((pk.price||0)-(pk.paid||0)) > 0
   );
-  const _pkgIdsAll = new Set(pendingPkgs.map(pk => String(pk.id)));
-  const _pkgNamesAll = new Set(pendingPkgs.map(pk => `باقة: ${pk.name}`));
+  // ✅ FIX: نفس إصلاح openPayFromProfile — الاستثناء من كل باقات العميل وليس المستحقة فقط
+  const _allPatPkgsForAll = DB.get('packages').filter(pk => pk.patId===patId);
+  const _pkgIdsAll = new Set(_allPatPkgsForAll.map(pk => String(pk.id)));
+  const _pkgNamesAll = new Set(_allPatPkgsForAll.map(pk => `باقة: ${pk.name}`));
   const pendingInvs = DB.get('invoices').filter(i =>
     (String(i.patId)===String(patId) || i.patient===pat.name) &&
     (i.remaining||0) > 0 &&
