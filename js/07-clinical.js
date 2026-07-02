@@ -1571,10 +1571,13 @@ function callPatient(){
   
   showToast('success', `📢 تم استدعاء ${appt.patient}`, 'سيتم إخطار الاستقبال فوراً');
   
-  // تحديث شاشة الاستقبال فوراً
-  if(document.getElementById('screen-reception')?.classList.contains('active')){
-    setTimeout(() => renderReception(), 100);
-  }
+  // 🔄 تحديث جميع الشاشات النشطة (مزامنة حية بين المستخدمين)
+  // هذا سيحدث عند المستخدم الحالي، والمستخدمين الآخرين سيرون التحديث عبر polling
+  setTimeout(() => {
+    if(document.getElementById('screen-reception')?.classList.contains('active')){
+      renderReception();
+    }
+  }, 100);
 }
 
 // ── 3. معالجة الاستدعاء (دخول أو إلغاء) ──
@@ -1634,5 +1637,44 @@ EventBus.on('call_queue:updated', function(){
     renderReception();
   }
 });
+
+// ── 7. Firestore Real-time Polling للـ call_queue (مزامنة حية بين المستخدمين) ──
+let _lastCallQueueHash = '';
+function _setupCallQueueListener(){
+  if(window._callQueueListenerActive) return;
+  window._callQueueListenerActive = true;
+  
+  // polling: مراقبة call_queue كل ثانية للتحديثات الحية من مستخدمين آخرين
+  window._callQueuePoller = setInterval(() => {
+    const receptionScreen = document.getElementById('screen-reception');
+    if(!receptionScreen?.classList.contains('active')) return;
+    
+    try {
+      const calls = DB.get('call_queue') || [];
+      const activeCalls = calls.filter(c => c.status === 'active');
+      const callQueueHash = JSON.stringify(activeCalls);
+      
+      // إذا تغير عدد الاستدعاءات النشطة أو محتواها، قم بتحديث الشاشة
+      if(callQueueHash !== _lastCallQueueHash) {
+        _lastCallQueueHash = callQueueHash;
+        renderReception(); // تحديث فوري عند وصول استدعاء جديد
+      }
+    } catch(e) {
+      console.warn('⚠️ [Call Queue Polling] خطأ:', e.message);
+    }
+  }, 1000); // كل ثانية
+  
+  console.log('✅ [Call Queue Listener] تم تفعيل مراقبة الاستدعاءات الحية');
+}
+
+// تشغيل listener عند تحميل الصفحة أو عند الانتقال لـ reception screen
+EventBus.on('screen:changed', function(e) {
+  if(e.id === 'reception' && !window._callQueueListenerActive) {
+    _setupCallQueueListener();
+  }
+});
+
+// تشغيل أولي
+setTimeout(() => _setupCallQueueListener(), 1000);
 
 console.log('✅ [Call System] نظام الاستدعاء جاهز');
