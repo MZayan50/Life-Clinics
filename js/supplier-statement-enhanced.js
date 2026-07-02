@@ -69,7 +69,7 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>كشف حساب المورد - ${supplier.name}</title>
+  <title>كشف حساب شركة ${supplier.name}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
     
@@ -204,7 +204,7 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
     
     .kpi-cards {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(4, 1fr);
       gap: 15px;
       margin-bottom: 20px;
     }
@@ -489,7 +489,7 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
     <!-- HEADER -->
     <div class="header">
       <div class="header-left">
-        <h1>📋 كشف حساب المورد</h1>
+        <h1>📋 كشف حساب شركة ${supplier.name}</h1>
         <p style="font-weight:600">${clinicName}</p>
         <p>📞 ${clinicPhone}</p>
       </div>
@@ -501,22 +501,6 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
     
     <!-- MAIN CONTENT -->
     <div class="content">
-      <!-- SUPPLIER INFO SECTION -->
-      <div class="info-grid">
-        <div class="info-block">
-          <div class="info-label">بيانات المورد</div>
-          <div class="info-value">${supplier.name || '—'}</div>
-          <div class="info-sub">📞 ${supplier.phone || '—'}</div>
-          <div class="info-sub">📍 ${supplier.address || '—'}</div>
-        </div>
-        <div class="info-block">
-          <div class="info-label">معلومات إضافية</div>
-          <div class="info-value">${supplier.contact || '—'}</div>
-          <div class="info-sub">الرقم الضريبي: ${supplier.taxNumber || '—'}</div>
-          <div class="info-sub">البريد الإلكتروني: ${supplier.email || '—'}</div>
-        </div>
-      </div>
-      
       <!-- KPI CARDS SECTION -->
       <div class="kpi-section">
         <div class="section-title">📊 ملخص حساب المورد</div>
