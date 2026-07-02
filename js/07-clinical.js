@@ -717,7 +717,82 @@ function renderReception(){
   const now=new Date();
   const dlbl=document.getElementById('rec-date-lbl');
   if(dlbl) dlbl.textContent=now.toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  const docSel=document.getElementById('rec-doc-filter');
+  
+  // ✅ عرض الاستدعاءات النشطة أولاً
+  const activeCallsContainer = document.getElementById('active-calls-container');
+  if(activeCallsContainer){
+    const activeCalls = (DB.get('call_queue') || []).filter(c => c.status === 'active');
+    
+    if(activeCalls.length > 0){
+      activeCallsContainer.innerHTML = activeCalls.map(call => `
+        <div class="call-alert" style="
+          background: linear-gradient(135deg, #FF6B6B 0%, #FF4757 100%);
+          border: 3px solid #FF1744;
+          border-radius: 12px;
+          padding: 20px;
+          margin: 15px 0;
+          box-shadow: 0 0 20px rgba(255, 23, 68, 0.4), 0 0 40px rgba(255, 107, 107, 0.2);
+        ">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px;">
+            <div style="flex: 1;">
+              <div style="font-size: 28px; font-weight: 900; color: white; margin-bottom: 8px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
+                🔴 استدعاء من د. ${call.doctor}
+              </div>
+              <div style="font-size: 24px; color: white; font-weight: 700; margin-bottom: 5px;">
+                👤 ${call.patientName}
+              </div>
+              <div style="font-size: 14px; color: rgba(255,255,255,0.9);">
+                ⏰ ${call.time}
+              </div>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <button 
+                onclick="processCall('${call.id}', true); renderReception()"
+                style="
+                  background: linear-gradient(135deg, #00D084 0%, #00C863 100%);
+                  color: white;
+                  border: none;
+                  padding: 18px 35px;
+                  font-size: 18px;
+                  font-weight: 700;
+                  border-radius: 10px;
+                  cursor: pointer;
+                  box-shadow: 0 4px 15px rgba(0, 208, 132, 0.4);
+                  transition: all 0.3s;
+                  white-space: nowrap;
+                ">
+                ✓ دخول العميل
+              </button>
+              
+              <button 
+                onclick="processCall('${call.id}', false); renderReception()"
+                style="
+                  background: rgba(255,255,255,0.2);
+                  color: white;
+                  border: 2px solid white;
+                  padding: 10px 20px;
+                  font-size: 14px;
+                  border-radius: 8px;
+                  cursor: pointer;
+                  transition: all 0.3s;
+                ">
+                ✕ إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+      
+      // تشغيل الصوت عند ظهور استدعاء جديد
+      playCallSound();
+      
+    } else {
+      activeCallsContainer.innerHTML = '';
+    }
+  }
+  
+  // ── باقي شاشة الاستقبال العادية ──
   if(docSel && docSel.options.length<=1){
     DB.get('doctors').forEach(d=>{const o=document.createElement('option');o.value=d.name;o.textContent=d.name;docSel.appendChild(o);});
   }
@@ -1401,3 +1476,133 @@ renderPackages = function(){
   }).join('') || '<div class="card" style="text-align:center;padding:40px;color:var(--text-muted);grid-column:1/-1;">لا توجد باقات مطابقة</div>';
 };
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 📢 CALL SYSTEM — نظام الاستدعاء والتنبيهات
+// الطبيب يستدعي العميل → تنبيه فوري في شاشة الاستقبال
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── 1. تشغيل صوت التنبيه ──
+function playCallSound(){
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const now = audioContext.currentTime;
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+    
+    // تنبيه صوتي: beep عالي ومتكرر (3 مرات)
+    osc.frequency.value = 800;
+    gain.gain.setValueAtTime(0.3, now);
+    osc.start(now);
+    osc.stop(now + 0.15);
+    
+    osc.start(now + 0.25);
+    osc.stop(now + 0.4);
+    
+    osc.start(now + 0.5);
+    osc.stop(now + 0.65);
+  } catch(e) {
+    console.warn('صوت التنبيه لم يشتغل:', e);
+  }
+}
+
+// ── 2. زر الاستدعاء في شاشة الطبيب ──
+function callPatient(){
+  const apptId = document.getElementById('dv-appt-id')?.value;
+  if(!apptId) { showToast('warning', '⚠️ لا توجد استشارة مفتوحة'); return; }
+  
+  const appt = DB.get('appointments').find(a => a.id === apptId);
+  if(!appt) { showToast('error', '❌ لم يتم العثور على الموعد'); return; }
+  
+  const doctorName = document.getElementById('dv-doctor-name')?.textContent || '؟؟';
+  if(!doctorName || doctorName === '؟؟') { showToast('warning', '⚠️ تسجيل الطبيب غير واضح'); return; }
+  
+  // ✅ إنشاء استدعاء جديد
+  const call = {
+    id: genUUID(),
+    apptId: appt.id,
+    patientId: appt.patId,
+    patientName: appt.patient,
+    doctor: doctorName,
+    time: _nowTimeStr(),
+    timestamp: new Date().toISOString(),
+    status: 'active'  // active / seen / canceled
+  };
+  
+  // حفظ الاستدعاء في DB
+  if(!DB.get('call_queue')) DB.set('call_queue', []);
+  DB.push('call_queue', call);
+  
+  // تحديث حالة الموعد
+  DB.upd('appointments', apptId, { status: 'في الاستشارة' });
+  
+  showToast('success', `📢 تم استدعاء ${appt.patient}`, 'سيتم إخطار الاستقبال فوراً');
+  
+  // تحديث شاشة الاستقبال فوراً
+  if(document.getElementById('screen-reception')?.classList.contains('active')){
+    setTimeout(() => renderReception(), 100);
+  }
+}
+
+// ── 3. معالجة الاستدعاء (دخول أو إلغاء) ──
+function processCall(callId, entered){
+  const call = (DB.get('call_queue') || []).find(c => c.id === callId);
+  if(!call) return;
+  
+  const appt = DB.get('appointments').find(a => a.id === call.apptId);
+  if(!appt) return;
+  
+  if(entered){
+    // ✅ العميل دخل
+    DB.upd('call_queue', callId, { status: 'seen' });
+    DB.upd('appointments', call.apptId, { 
+      status: 'في الاستشارة',
+      checkInTime: _nowTimeStr()
+    });
+    showToast('success', `✓ ${appt.patient} دخل الاستشارة`);
+  } else {
+    // ❌ إلغاء الاستدعاء
+    DB.upd('call_queue', callId, { status: 'canceled' });
+    showToast('info', `الاستدعاء ملغى`);
+  }
+  
+  // تحديث شاشة الاستقبال فوراً
+  setTimeout(() => renderReception(), 300);
+}
+
+// ── 4. تحديث renderReception لعرض التنبيهات ──
+// (هذا يتم دمجه مع الدالة الموجودة)
+
+// ── 5. إضافة CSS للرسالة المتحركة ──
+if(!document.getElementById('call-alert-styles')){
+  const style = document.createElement('style');
+  style.id = 'call-alert-styles';
+  style.innerHTML = `
+    @keyframes pulse-call {
+      0%, 100% { box-shadow: 0 0 20px rgba(255, 23, 68, 0.4), 0 0 40px rgba(255, 107, 107, 0.2); }
+      50% { box-shadow: 0 0 30px rgba(255, 23, 68, 0.6), 0 0 60px rgba(255, 107, 107, 0.4); }
+    }
+    .call-alert {
+      animation: pulse-call 1s infinite;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// ── 6. EventBus للتحديثات الفورية ──
+EventBus.on('call_queue:created', function(){
+  if(document.getElementById('screen-reception')?.classList.contains('active')){
+    renderReception();
+  }
+});
+
+EventBus.on('call_queue:updated', function(){
+  if(document.getElementById('screen-reception')?.classList.contains('active')){
+    renderReception();
+  }
+});
+
+console.log('✅ [Call System] نظام الاستدعاء جاهز');
