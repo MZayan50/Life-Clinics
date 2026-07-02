@@ -896,7 +896,7 @@ function saveQuickSell(){
 
   // ── 1. إنشاء فاتورة بيع منتج ──
   // _noAutoInstallment=true لأننا بنعمل القسط يدوياً في الأسفل لو فيه متبقي
-  DB.push('invoices',{
+  const newInv = DB.push('invoices',{
     patId, patientId: patId,
     patient: pat?.name||'—',
     service: '',
@@ -919,6 +919,10 @@ function saveQuickSell(){
   // لا نكتبه هنا لتجنب التكرار
 
   // ── 4. قسط تلقائي لو فيه متبقي ──
+  // ✅ FIX: لازم نربط القسط بالفاتورة عبر fromInvId، وإلا getPatientFinancialSummary
+  // (و_recalcPatFinancials) في 00-core.js هتعتبره قسط "مستقل" غير مرتبط بفاتورة
+  // فتجمع متبقي الفاتورة + متبقي القسط مرتين فوق بعض، فيظهر "المتبقي" في ملف
+  // العميل مضاعفًا رغم إن لوحة الفواتير ولوحة المدفوعات كل واحدة بتعرض رقمها الصح.
   if(rem>0){
     DB.push('installments',{
       patientId: patId,
@@ -930,7 +934,8 @@ function saveQuickSell(){
       count:1,
       payments:[{num:1,dueDate:date,paid:false,paidDate:null}],
       startDate: date,
-      status:'نشط'
+      status:'نشط',
+      fromInvId: newInv.id
     });
     if(pat) DB.upd('patients', pat.id, { status:'قسط' });
   }
