@@ -177,7 +177,7 @@ function renderSuppliers(q){
       <td style="color:${owed>0?'var(--rose)':'var(--emerald)'};font-weight:700">${owed.toLocaleString()} ج</td>
       <td><span class="ast ${s.status==='نشط'?'sc':'sd'}">${s.status}</span></td>
       <td style="display:flex;gap:5px;">
-        <button class="btn btn-teal btn-xs" onclick="_openSupplierStatementModaalModal('${s.id}')">📋 حساب</button>
+        <button class="btn btn-teal btn-xs" onclick="openSupplierDetail('${s.id}')">📋 حساب</button>
         <button class="btn btn-ghost btn-xs" onclick="openSupplierModal('${s.id}')">✏️</button>
         <button class="btn btn-danger btn-xs" onclick="delSupplier('${s.id}')">🗑</button>
       </td>
@@ -234,7 +234,7 @@ function delSupplier(id){
 // ══════════════════════════════════════════
 // 📋 حساب المورد التفصيلي
 // ══════════════════════════════════════════
-function openSupplierStatementModal(supId){
+function openSupplierDetail(supId){
   const sup = DB.get('suppliers').find(s => s.id === supId);
   if(!sup) return;
 
@@ -300,7 +300,7 @@ function _renderSupplierPaymentRow(sp, editMode){
       <td><input type="text" id="sp-edit-notes-${sp.id}" value="${(sp.notes||'').replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;padding:5px;border-radius:6px;border:1px solid var(--glass-border,#ccc)"></td>
       <td style="white-space:nowrap">
         <button class="btn btn-primary btn-xs" onclick="saveSupplierPaymentEdit('${sp.id}')">✅</button>
-        <button class="btn btn-ghost btn-xs" onclick="_openSupplierStatementModaalModal('${sp.supplierId}')">❌</button>
+        <button class="btn btn-ghost btn-xs" onclick="openSupplierDetail('${sp.supplierId}')">❌</button>
       </td>
     </tr>`;
   }
@@ -363,7 +363,7 @@ function saveSupplierPaymentEdit(payId){
       - (DB.get('supplier_payments')||[]).filter(x=>x.supplierId===supId).reduce((s,x)=>s+(x.amount||0),0)) });
 
   showToast('success','✅ تم تعديل الدفعة (وتسجيل قيد تصحيح في الخزينة)');
-  openSupplierStatementModal(supId);
+  openSupplierDetail(supId);
   renderSuppliers();
 }
 
@@ -395,7 +395,7 @@ function paySupplier(){
   document.getElementById('sd-pay-amount').value = '';
   document.getElementById('sd-pay-notes').value  = '';
   showToast('success',`✅ تم تسجيل دفعة ${amount.toLocaleString()} ج للمورد ${sup.name}`);
-  openSupplierStatementModal(supId); // تحديث الـ modal
+  openSupplierDetail(supId); // تحديث الـ modal
   renderSuppliers();
 }
 
@@ -1028,8 +1028,117 @@ function calcProductProfit(productId){
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 📋 كشف حساب المورد المحسّن — نسخة محسّنة مع PDF و WhatsApp
+// 📋 كشف حساب المورد المحسّن
 // ══════════════════════════════════════════════════════════════════
-function openSupplierStatementModal(supId){\n  const sup = DB.get('suppliers').find(s => s.id === supId);\n  if(!sup) return;
+function openSupplierStatementModal(supId){
+  const sup = DB.get('suppliers').find(s => s.id === supId);
+  if(!sup) return;
 
-  const purchases = (DB.get('purchases')||[]).filter(p => p.supplierId === supId);\n  const payments  = (DB.get('supplier_payments')||[]).filter(sp => sp.supplierId === supId);\n\n  const totalBought = purchases.filter(p=>p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);\n  const totalPaid   = payments.reduce((s,sp)=>s+(sp.amount||0),0);\n  const owed = typeof calcSupplierOwed === 'function' ? calcSupplierOwed(supId) : Math.max(0, totalBought - totalPaid);\n\n  const modal = document.getElementById('supplier-statement-modal');\n  if(!modal){ showToast('error','❌ Modal غير موجود'); return; }\n\n  // ── تعديل العنوان والبيانات الأساسية ──\n  document.getElementById('stmt-title').textContent  = `كشف حساب: ${sup.name}`;\n  document.getElementById('stmt-name').textContent   = sup.name;\n  document.getElementById('stmt-phone').textContent  = sup.phone||'—';\n  document.getElementById('stmt-whatsapp').value     = sup.whatsapp||'';\n  document.getElementById('stmt-id').value           = supId;\n  document.getElementById('stmt-date').textContent   = new Date().toLocaleDateString('ar-EG');\n  \n  // ── الإجماليات ──\n  document.getElementById('stmt-total-purchases').textContent = totalBought.toLocaleString()+' ج';\n  document.getElementById('stmt-total-paid').textContent      = totalPaid.toLocaleString()+' ج';\n  document.getElementById('stmt-total-owed').textContent      = owed.toLocaleString()+' ج';\n\n  // ── جدول المشتريات بالتفصيل ──\n  const purTb = document.getElementById('stmt-purchases-tbody');\n  if(purTb){\n    purTb.innerHTML = purchases.length ? purchases.sort((a,b)=>(b.orderDate||'').localeCompare(a.orderDate||'')).map(p=>`\n      <tr>\n        <td style=\"font-size:12px;text-align:center\">${p.orderDate||'—'}</td>\n        <td style=\"font-weight:600;text-align:right\">${p.product||'—'}</td>\n        <td style=\"text-align:center\">${(p.qty||0).toFixed(1)} ${p.purchaseUnit||''}</td>\n        <td style=\"text-align:center;font-size:11px;color:var(--teal)\">${(p.totalConsumeQty||0).toFixed(1)} ${p.consumeUnit||''}</td>\n        <td style=\"text-align:center\">${(p.unitPrice||0).toLocaleString()} ج</td>\n        <td style=\"font-weight:700;text-align:left\">${(p.total||0).toLocaleString()} ج</td>\n        <td style=\"text-align:center\"><span class=\"ast ${p.status==='مستلم'?'sc':p.status==='ملغي'?'sd':'sp'}\">${p.status||'—'}</span></td>\n      </tr>`).join('')\n    : '<tr><td colspan=\"7\" style=\"text-align:center;color:var(--text-muted);padding:20px\">لا توجد مشتريات</td></tr>';\n  }\n\n  // ── جدول الدفعات بالتفصيل ──\n  const payTb = document.getElementById('stmt-payments-tbody');\n  if(payTb){\n    payTb.innerHTML = payments.length ? payments.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(sp=>`\n      <tr>\n        <td style=\"font-size:12px;text-align:center\">${sp.date||'—'}</td>\n        <td style=\"text-align:center\">${sp.method||'—'}</td>\n        <td style=\"font-weight:700;text-align:left\">${(sp.amount||0).toLocaleString()} ج</td>\n        <td style=\"font-size:11px;color:var(--text-muted);text-align:right\">${sp.notes||'—'}</td>\n      </tr>`).join('')\n    : '<tr><td colspan=\"4\" style=\"text-align:center;color:var(--text-muted);padding:20px\">لا توجد دفعات</td></tr>';\n  }\n\n  openModal('supplier-statement-modal');\n}\n\n// ── إرسال كشف الحساب عبر WhatsApp (بصيغة نصية) ──\nfunction sendStatementViaWhatsApp(){\n  const supId = document.getElementById('stmt-id')?.value;\n  const sup = DB.get('suppliers').find(s => s.id === supId);\n  if(!sup){ showToast('warning', '⚠️ بيانات المورد غير كاملة'); return; }\n  \n  let whatsappNum = (sup.whatsapp || sup.phone || '').replace(/[^0-9]/g,'');\n  if(!whatsappNum){ showToast('warning', '⚠️ رقم الواتس مطلوب'); return; }\n  if(!whatsappNum.startsWith('2')) whatsappNum = '2' + whatsappNum; // مصر\n  \n  const purchases = (DB.get('purchases')||[]).filter(p => p.supplierId === supId && p.status==='مستلم');\n  const payments  = (DB.get('supplier_payments')||[]).filter(sp => sp.supplierId === supId);\n  const totalBought = purchases.reduce((s,p)=>s+(p.total||0),0);\n  const totalPaid   = payments.reduce((s,sp)=>s+(sp.amount||0),0);\n  const owed = Math.max(0, totalBought - totalPaid);\n  \n  let msg = `*كشف حساب المورد*\\n`;\n  msg += `اسم المورد: ${sup.name}\\n`;\n  msg += `التاريخ: ${new Date().toLocaleDateString('ar-EG')}\\n`;\n  msg += `━━━━━━━━━━━━━━━━━\\n`;\n  msg += `*الملخص المالي*\\n`;\n  msg += `إجمالي المشتريات: ${totalBought.toLocaleString()} ج\\n`;\n  msg += `إجمالي الدفعات: ${totalPaid.toLocaleString()} ج\\n`;\n  msg += `المتبقي: ${owed.toLocaleString()} ج\\n`;\n  msg += `━━━━━━━━━━━━━━━━━\\n`;\n  msg += `*تفصيل آخر ${Math.min(5, purchases.length)} مشتريات*\\n`;\n  purchases.slice(-5).reverse().forEach((p,i)=>{\n    msg += `${i+1}. ${p.product||'—'} (${p.qty||0} ${p.purchaseUnit||''}): ${(p.total||0).toLocaleString()} ج\\n`;\n  });\n  \n  const whatsappUrl = `https://wa.me/${whatsappNum}?text=${encodeURIComponent(msg)}`;\n  window.open(whatsappUrl, '_blank');\n  showToast('success', '✅ تم فتح الواتس | انسخ الرسالة وأرسلها');\n}\n\n// ── إرسال طلب شراء عبر WhatsApp (نسخة محسّنة) ──\nfunction sendPurchaseOrderViaWhatsApp(){\n  const supId = document.getElementById('stmt-id')?.value;\n  const sup = DB.get('suppliers').find(s => s.id === supId);\n  if(!sup){ showToast('warning', '⚠️ بيانات المورد غير كاملة'); return; }\n  \n  let whatsappNum = (sup.whatsapp || sup.phone || '').replace(/[^0-9]/g,'');\n  if(!whatsappNum){ showToast('warning', '⚠️ رقم الواتس مطلوب'); return; }\n  if(!whatsappNum.startsWith('2')) whatsappNum = '2' + whatsappNum; // مصر\n  \n  const modal = document.getElementById('po-modal');\n  if(!modal){\n    // إنشاء modal لإدخال بيانات طلب الشراء\n    showToast('info', 'ℹ️ أولاً أضف الأصناف المطلوبة عبر صفحة الشراء المتعددة');\n    return;\n  }\n  \n  let msg = `*طلب شراء مستعجل*\\n`;\n  msg += `من: عيادات الحياة\\n`;\n  msg += `إلى: ${sup.name}\\n`;\n  msg += `التاريخ: ${new Date().toLocaleDateString('ar-EG')}\\n`;\n  msg += `━━━━━━━━━━━━━━━━━\\n`;\n  msg += `*الأصناف المطلوبة:*\\n`;\n  \n  // يمكن إضافة أصناف محددة هنا\n  const inventoryLow = (DB.get('inventory')||[]).filter(i => i.status === 'منخفض' || i.status === 'نفذ');\n  inventoryLow.forEach((item,i)=>{\n    msg += `${i+1}. ${item.name}\\n   المخزون الحالي: ${item.qty||0} ${item.consumeUnit||'وحدة'}\\n`;\n  });\n  \n  msg += `━━━━━━━━━━━━━━━━━\\n`;\n  msg += `الرجاء الرد بأسرع وقت\\n`;\n  msg += `شكراً 🙏`;\n  \n  const whatsappUrl = `https://wa.me/${whatsappNum}?text=${encodeURIComponent(msg)}`;\n  window.open(whatsappUrl, '_blank');\n  showToast('success', '✅ تم فتح الواتس | انسخ الرسالة وأرسلها');\n}\n\n// ── طباعة كشف الحساب ──\nfunction printSupplierStatement(){\n  const supId = document.getElementById('stmt-id')?.value;\n  const sup = DB.get('suppliers').find(s => s.id === supId);\n  if(!sup) return;\n\n  const purchases = (DB.get('purchases')||[]).filter(p => p.supplierId === supId);\n  const payments  = (DB.get('supplier_payments')||[]).filter(sp => sp.supplierId === supId);\n  const totalBought = purchases.filter(p=>p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);\n  const totalPaid   = payments.reduce((s,sp)=>s+(sp.amount||0),0);\n  const owed = Math.max(0, totalBought - totalPaid);\n\n  const printWin = window.open('', '_blank');\n  const html = `<!DOCTYPE html>\n<html dir=\"rtl\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>كشف حساب - ${sup.name}</title>\n  <style>\n    body { font-family: Arial, sans-serif; margin: 20px; }\n    h1 { text-align: center; margin-bottom: 10px; }\n    .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }\n    .kpi { display: flex; justify-content: space-around; margin-bottom: 20px; font-weight: bold; }\n    .kpi-item { text-align: center; }\n    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }\n    th { background: #f0f0f0; padding: 8px; text-align: right; border: 1px solid #ddd; }\n    td { padding: 8px; border: 1px solid #ddd; text-align: right; }\n    .total-row { font-weight: bold; background: #f9f9f9; }\n    .print-date { color: #999; font-size: 12px; margin-top: 20px; }\n    @media print { body { margin: 0; } }\n  </style>\n</head>\n<body>\n  <div class=\"header\">\n    <h1>كشف حساب المورد</h1>\n    <p><strong>${sup.name}</strong> | ${sup.phone||'—'}</p>\n    <p>التاريخ: ${new Date().toLocaleDateString('ar-EG')}</p>\n  </div>\n  \n  <div class=\"kpi\">\n    <div class=\"kpi-item\">\n      <div style=\"font-size: 24px; color: green;\">${totalBought.toLocaleString()}</div>\n      <div>إجمالي المشتريات</div>\n    </div>\n    <div class=\"kpi-item\">\n      <div style=\"font-size: 24px; color: blue;\">${totalPaid.toLocaleString()}</div>\n      <div>إجمالي الدفعات</div>\n    </div>\n    <div class=\"kpi-item\">\n      <div style=\"font-size: 24px; color: red;\">${owed.toLocaleString()}</div>\n      <div>المتبقي</div>\n    </div>\n  </div>\n  \n  <h2>تفصيل المشتريات</h2>\n  <table>\n    <thead>\n      <tr>\n        <th>التاريخ</th>\n        <th>المنتج</th>\n        <th>الكمية</th>\n        <th>سعر الوحدة</th>\n        <th>الإجمالي</th>\n        <th>الحالة</th>\n      </tr>\n    </thead>\n    <tbody>\n      ${purchases.sort((a,b)=>(b.orderDate||'').localeCompare(a.orderDate||'')).map(p=>`\n      <tr>\n        <td>${p.orderDate||'—'}</td>\n        <td>${p.product||'—'}</td>\n        <td>${(p.qty||0).toFixed(1)} ${p.purchaseUnit||''}</td>\n        <td>${(p.unitPrice||0).toLocaleString()} ج</td>\n        <td>${(p.total||0).toLocaleString()} ج</td>\n        <td>${p.status||'—'}</td>\n      </tr>`).join('')}\n      <tr class=\"total-row\">\n        <td colspan=\"4\">إجمالي المشتريات</td>\n        <td>${totalBought.toLocaleString()} ج</td>\n        <td></td>\n      </tr>\n    </tbody>\n  </table>\n  \n  <h2>تفصيل الدفعات</h2>\n  <table>\n    <thead>\n      <tr>\n        <th>التاريخ</th>\n        <th>طريقة الدفع</th>\n        <th>المبلغ</th>\n        <th>ملاحظات</th>\n      </tr>\n    </thead>\n    <tbody>\n      ${payments.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(sp=>`\n      <tr>\n        <td>${sp.date||'—'}</td>\n        <td>${sp.method||'—'}</td>\n        <td>${(sp.amount||0).toLocaleString()} ج</td>\n        <td>${sp.notes||'—'}</td>\n      </tr>`).join('')}\n      <tr class=\"total-row\">\n        <td colspan=\"2\">إجمالي الدفعات</td>\n        <td colspan=\"2\">${totalPaid.toLocaleString()} ج</td>\n      </tr>\n    </tbody>\n  </table>\n  \n  <p class=\"print-date\">طُبع بواسطة عيادات الحياة | ${new Date().toLocaleString('ar-EG')}</p>\n  <script>\n    window.print();\n    window.onafterprint = () => window.close();\n  </script>\n</body>\n</html>`;\n  printWin.document.write(html);\n}\n\n// ── تحويل كشف الحساب إلى PDF ──\nfunction downloadStatementAsPDF(){\n  const supId = document.getElementById('stmt-id')?.value;\n  const sup = DB.get('suppliers').find(s => s.id === supId);\n  if(!sup) return;\n\n  // تنبيه: يتطلب مكتبة jsPDF (يجب إضافتها للـ index.html)\n  if(typeof jsPDF === 'undefined'){\n    showToast('warning', '⚠️ مكتبة PDF غير محملة | استخدم الطباعة المباشرة بدلاً من ذلك');\n    printSupplierStatement();\n    return;\n  }\n\n  const purchases = (DB.get('purchases')||[]).filter(p => p.supplierId === supId);\n  const payments  = (DB.get('supplier_payments')||[]).filter(sp => sp.supplierId === supId);\n  const totalBought = purchases.filter(p=>p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);\n  const totalPaid   = payments.reduce((s,sp)=>s+(sp.amount||0),0);\n  const owed = Math.max(0, totalBought - totalPaid);\n\n  const doc = new jsPDF();\n  doc.setFontSize(16);\n  doc.text(`كشف حساب المورد: ${sup.name}`, 10, 20, { align: 'right' });\n  doc.setFontSize(10);\n  doc.text(`التاريخ: ${new Date().toLocaleDateString('ar-EG')} | الهاتف: ${sup.phone||'—'}`, 10, 30, { align: 'right' });\n  \n  let y = 45;\n  doc.setFontSize(12);\n  doc.text('الملخص المالي', 10, y, { align: 'right' }); y += 10;\n  doc.setFontSize(10);\n  doc.text(`إجمالي المشتريات: ${totalBought.toLocaleString()} ج | إجمالي الدفعات: ${totalPaid.toLocaleString()} ج | المتبقي: ${owed.toLocaleString()} ج`, 10, y, { align: 'right' });\n  y += 20;\n  \n  // جدول المشتريات\n  doc.setFontSize(11);\n  doc.text('تفصيل المشتريات', 10, y, { align: 'right' }); y += 8;\n  const purData = purchases.map(p => [\n    p.orderDate||'—',\n    p.product||'—',\n    `${(p.qty||0).toFixed(1)} ${p.purchaseUnit||}`,\n    `${(p.unitPrice||0).toLocaleString()}`,\n    `${(p.total||0).toLocaleString()}`,\n    p.status||'—'\n  ]);\n  doc.autoTable({\n    head: [['التاريخ', 'المنتج', 'الكمية', 'السعر', 'الإجمالي', 'الحالة']],\n    body: purData,\n    startY: y,\n    margin: 10,\n    didDrawPage: function(data) {}\n  });\n  \n  doc.save(`كشف-حساب-${sup.name}-${new Date().toISOString().split('T')[0]}.pdf`);\n  showToast('success', '✅ تم تحميل ملف PDF');\n}
+  const purchases = (DB.get('purchases')||[]).filter(p => p.supplierId === supId);
+  const payments  = (DB.get('supplier_payments')||[]).filter(sp => sp.supplierId === supId);
+
+  const totalBought = purchases.filter(p=>p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
+  const totalPaid   = payments.reduce((s,sp)=>s+(sp.amount||0),0);
+  const owed = typeof calcSupplierOwed === 'function' ? calcSupplierOwed(supId) : Math.max(0, totalBought - totalPaid);
+
+  const modal = document.getElementById('supplier-statement-modal');
+  if(!modal){ showToast('error','خطأ'); return; }
+
+  document.getElementById('stmt-title').textContent  = 'كشف حساب: ' + sup.name;
+  document.getElementById('stmt-name').textContent   = sup.name;
+  document.getElementById('stmt-phone').textContent  = sup.phone||'—';
+  document.getElementById('stmt-whatsapp').value     = sup.whatsapp||'';
+  document.getElementById('stmt-id').value           = supId;
+  document.getElementById('stmt-date').textContent   = new Date().toLocaleDateString('ar-EG');
+  
+  document.getElementById('stmt-total-purchases').textContent = totalBought.toLocaleString()+' ج';
+  document.getElementById('stmt-total-paid').textContent      = totalPaid.toLocaleString()+' ج';
+  document.getElementById('stmt-total-owed').textContent      = owed.toLocaleString()+' ج';
+
+  const purTb = document.getElementById('stmt-purchases-tbody');
+  if(purTb){
+    purTb.innerHTML = purchases.length ? purchases.sort((a,b)=>(b.orderDate||'').localeCompare(a.orderDate||'')).map(p=>'<tr><td style="font-size:12px;text-align:center">'+(p.orderDate||'—')+'</td><td style="font-weight:600;text-align:right">'+(p.product||'—')+'</td><td style="text-align:center">'+(p.qty||0).toFixed(1)+' '+(p.purchaseUnit||'')+'</td><td style="text-align:center;font-size:11px;color:var(--teal)">'+(p.totalConsumeQty||0).toFixed(1)+' '+(p.consumeUnit||'')+'</td><td style="text-align:center">'+(p.unitPrice||0).toLocaleString()+' ج</td><td style="font-weight:700;text-align:left">'+(p.total||0).toLocaleString()+' ج</td><td style="text-align:center"><span class="ast">'+(p.status||'—')+'</span></td></tr>').join('')
+    : '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد مشتريات</td></tr>';
+  }
+
+  const payTb = document.getElementById('stmt-payments-tbody');
+  if(payTb){
+    payTb.innerHTML = payments.length ? payments.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(sp=>'<tr><td style="font-size:12px;text-align:center">'+(sp.date||'—')+'</td><td style="text-align:center">'+(sp.method||'—')+'</td><td style="font-weight:700;text-align:left">'+(sp.amount||0).toLocaleString()+' ج</td><td style="font-size:11px;color:var(--text-muted);text-align:right">'+(sp.notes||'—')+'</td></tr>').join('')
+    : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد دفعات</td></tr>';
+  }
+
+  openModal('supplier-statement-modal');
+}
+
+function sendStatementViaWhatsApp(){
+  const supId = document.getElementById('stmt-id')?.value;
+  const sup = DB.get('suppliers').find(s => s.id === supId);
+  if(!sup){ showToast('warning', 'بيانات ناقصة'); return; }
+  
+  let whatsappNum = (sup.whatsapp || sup.phone || '').replace(/[^0-9]/g,'');
+  if(!whatsappNum){ showToast('warning', 'رقم الواتس مطلوب'); return; }
+  if(!whatsappNum.startsWith('2')) whatsappNum = '2' + whatsappNum;
+  
+  const purchases = (DB.get('purchases')||[]).filter(p => p.supplierId === supId && p.status==='مستلم');
+  const payments  = (DB.get('supplier_payments')||[]).filter(sp => sp.supplierId === supId);
+  const totalBought = purchases.reduce((s,p)=>s+(p.total||0),0);
+  const totalPaid   = payments.reduce((s,sp)=>s+(sp.amount||0),0);
+  const owed = Math.max(0, totalBought - totalPaid);
+  
+  let msg = 'كشف حساب المورد\n';
+  msg += 'اسم المورد: ' + sup.name + '\n';
+  msg += 'التاريخ: ' + new Date().toLocaleDateString('ar-EG') + '\n';
+  msg += 'اجمالي المشتريات: ' + totalBought.toLocaleString() + ' ج\n';
+  msg += 'اجمالي الدفعات: ' + totalPaid.toLocaleString() + ' ج\n';
+  msg += 'المتبقي: ' + owed.toLocaleString() + ' ج\n';
+  
+  const whatsappUrl = 'https://wa.me/' + whatsappNum + '?text=' + encodeURIComponent(msg);
+  window.open(whatsappUrl, '_blank');
+  showToast('success', 'تم فتح الواتس');
+}
+
+function sendPurchaseOrderViaWhatsApp(){
+  const supId = document.getElementById('stmt-id')?.value;
+  const sup = DB.get('suppliers').find(s => s.id === supId);
+  if(!sup){ showToast('warning', 'بيانات ناقصة'); return; }
+  
+  let whatsappNum = (sup.whatsapp || sup.phone || '').replace(/[^0-9]/g,'');
+  if(!whatsappNum){ showToast('warning', 'رقم الواتس مطلوب'); return; }
+  if(!whatsappNum.startsWith('2')) whatsappNum = '2' + whatsappNum;
+  
+  let msg = 'طلب شراء\n';
+  msg += 'الى: ' + sup.name + '\n';
+  msg += 'التاريخ: ' + new Date().toLocaleDateString('ar-EG') + '\n\n';
+  
+  const inventoryLow = (DB.get('inventory')||[]).filter(i => i.status === 'منخفض' || i.status === 'نفذ');
+  inventoryLow.forEach((item,i)=>{
+    msg += (i+1) + '. ' + item.name + '\n';
+    msg += 'المخزون: ' + (item.qty||0) + ' ' + (item.consumeUnit||'وحدة') + '\n';
+  });
+  
+  const whatsappUrl = 'https://wa.me/' + whatsappNum + '?text=' + encodeURIComponent(msg);
+  window.open(whatsappUrl, '_blank');
+  showToast('success', 'تم فتح الواتس');
+}
+
+function printSupplierStatement(){
+  const supId = document.getElementById('stmt-id')?.value;
+  const sup = DB.get('suppliers').find(s => s.id === supId);
+  if(!sup) return;
+
+  const purchases = (DB.get('purchases')||[]).filter(p => p.supplierId === supId);
+  const payments  = (DB.get('supplier_payments')||[]).filter(sp => sp.supplierId === supId);
+  const totalBought = purchases.filter(p=>p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
+  const totalPaid   = payments.reduce((s,sp)=>s+(sp.amount||0),0);
+  const owed = Math.max(0, totalBought - totalPaid);
+
+  const printWin = window.open('', '_blank');
+  const html = '<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>كشف حساب</title><style>body{font-family:Arial,sans-serif;margin:20px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #ddd;text-align:right}</style></head><body><h1>كشف حساب: ' + sup.name + '</h1><p>' + sup.phone + ' | ' + new Date().toLocaleDateString('ar-EG') + '</p><h3>الملخص: ' + totalBought.toLocaleString() + ' ج - ' + totalPaid.toLocaleString() + ' ج = ' + owed.toLocaleString() + ' ج</h3><table><tr><th>التاريخ</th><th>المنتج</th><th>الكمية</th><th>السعر</th><th>الاجمالي</th></tr>' + purchases.map(p=>'<tr><td>'+(p.orderDate||'—')+'</td><td>'+(p.product||'—')+'</td><td>'+(p.qty||0)+'</td><td>'+(p.unitPrice||0).toLocaleString()+'</td><td>'+(p.total||0).toLocaleString()+'</td></tr>').join('') + '</table></body></html>';
+  printWin.document.write(html);
+  setTimeout(() => { printWin.print(); }, 250);
+}
+
+function downloadStatementAsPDF(){
+  showToast('info', 'استخدم الطباعة من القائمة واختر حفظ كـ PDF');
+  printSupplierStatement();
+}
