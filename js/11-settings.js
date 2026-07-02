@@ -161,7 +161,11 @@ async function initFirebase(cfg){
       // بمجرد إعادة تحميل الصفحة، رغم أنها محفوظة فعلياً في القاعدة. هذا كان يُسبب:
       // مديونية موردين وهمية (تتجاهل الدفعات السابقة)، صرف رواتب دون خصم السلف الحقيقية،
       // واختفاء سجل مبيعات المنتجات وبيانات أرباح/تكاليف الجلسات بعد كل refresh.
-      'supplier_payments','advances','product_sales','session_completions'
+      'supplier_payments','advances','product_sales','session_completions',
+      // ✅ FIX (نظام الاستدعاء): كانت استدعاءات الطبيب للعميل لا تظهر في شاشة الاستقبال
+      // لأن call_queue لم تكن مضمنة في قائمة المجموعات المتزامنة. الآن تزامن حقيقي
+      // بين شاشة الطبيب والاستقبال دون تأخير.
+      'call_queue'
     ];
     COLLECTIONS.forEach(col => attachFirestoreSync(col));
 

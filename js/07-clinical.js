@@ -902,7 +902,7 @@ function renderDoctorView(){
       </div>
       <span class="ast ${stCls}" style="font-size:11px">${a.status}</span>
       <div class="wq-actions">
-        ${canCall?`<button class="btn btn-primary btn-sm" onclick="wlCallPatient('${a.id}');renderDoctorView()">📢 استدعاء</button>`:''}
+        ${canCall?`<button class="btn btn-primary btn-sm" onclick="(()=>{ document.getElementById('dv-appt-id').value='${a.id}'; document.getElementById('dv-doctor-name').value='${docName}'; callPatient(); renderDoctorView(); })()">📢 استدعاء</button>`:''}
         ${inConsult?`<button class="btn btn-sm" style="background:linear-gradient(135deg,var(--emerald),#047857);color:#fff;border:none;padding:6px 12px;border-radius:8px;font-family:Tajawal,sans-serif;font-weight:600;cursor:pointer" onclick="openConsultDoneModal('${a.id}')">✅ إنهاء</button>`:''}
         ${isDone?`<span style="font-size:11px;color:var(--emerald)">✔ مكتمل</span>`:''}
       </div>
@@ -1517,7 +1517,7 @@ function callPatient(){
   const appt = DB.get('appointments').find(a => a.id === apptId);
   if(!appt) { showToast('error', '❌ لم يتم العثور على الموعد'); return; }
   
-  const doctorName = document.getElementById('dv-doctor-name')?.textContent || '؟؟';
+  const doctorName = document.getElementById('dv-doctor-name')?.value || '؟؟';
   if(!doctorName || doctorName === '؟؟') { showToast('warning', '⚠️ تسجيل الطبيب غير واضح'); return; }
   
   // ✅ إنشاء استدعاء جديد
