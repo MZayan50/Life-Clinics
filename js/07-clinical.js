@@ -1084,6 +1084,23 @@ function calcPackageMaterialCost(serviceIds, sessionsCount){
   return costPerSession * (parseInt(sessionsCount)||1);
 }
 
+// ✅ ميزة: تحديد سعر الباقة تلقائياً = مجموع أسعار الخدمات المختارة (من شاشة
+// الخدمات والأسعار) × عدد الجلسات. يتحدّث تلقائيًا عند تغيير الخدمات المختارة
+// أو عدد الجلسات. الحقل بقى للعرض فقط (readonly)؛ أي تعديل على السعر النهائي
+// (خصم، عرض خاص...) يتم عبر حقل "خصم الباقة" الموجود بجانبه.
+function _autoCalcPkgPrice(){
+  const priceEl = document.getElementById('pkg-price');
+  if(!priceEl) return;
+  const checked = [...document.querySelectorAll('#pkg-services-checkboxes input[type=checkbox]:checked')];
+  const sessCount = parseInt(document.getElementById('pkg-sessions-count')?.value) || 1;
+  const svcs = DB.get('services') || [];
+  const pricePerSession = checked.reduce((sum, cb) => {
+    const svc = svcs.find(s => s.id === cb.value);
+    return sum + (svc?.price || 0);
+  }, 0);
+  priceEl.value = pricePerSession * sessCount;
+}
+
 // ── حساب وعرض ربح الباقة في المودال ──
 function calcPkgProfitPreview(){
   const price = parseFloat(document.getElementById('pkg-price')?.value) || 0;
@@ -1123,7 +1140,7 @@ function _fillPkgServicesCheckboxes(selectedIds){
     const mc = typeof calcServiceMaterialCost==='function' ? calcServiceMaterialCost(s.id) : 0;
     const checked = selectedIds && selectedIds.includes(s.id) ? 'checked' : '';
     return `<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:3px 0;">
-      <input type="checkbox" value="${s.id}" ${checked} onchange="_updatePkgServicesHidden();calcPkgProfitPreview()">
+      <input type="checkbox" value="${s.id}" ${checked} onchange="_updatePkgServicesHidden();_autoCalcPkgPrice();calcPkgProfitPreview()">
       <span style="font-weight:600">${s.name}</span>
       <span style="color:var(--text-muted);font-size:11px;">${s.cat} · ${(s.price||0).toLocaleString()} ج</span>
       ${mc > 0 ? `<span style="color:var(--rose);font-size:11px;">(تكلفة: ${mc.toFixed(1)} ج)</span>` : ''}
