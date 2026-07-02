@@ -638,44 +638,117 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
   
   <script>
+    // Shared: build the PDF as a Blob (used by both download + WhatsApp share)
+    // foreignObjectRendering:true delegates text layout to the browser itself
+    // instead of html2canvas's own text engine — this is what fixes broken/
+    // reversed Arabic letters (RTL shaping) in the exported PDF.
+    function generateStatementPdfBlob() {
+      const filename = 'كشف-حساب-${supplier.name}-${Date.now()}.pdf';
+      return html2pdf()
+        .set({
+          margin: 10,
+          filename: filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, foreignObjectRendering: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        })
+        .from(document.body)
+        .toPdf()
+        .output('blob')
+        .then(blob => ({ blob, filename }));
+    }
+
     // Download as PDF
     function downloadStatementPDF() {
       const btn = document.querySelector('.btn-download');
       const originalText = btn.textContent;
       btn.textContent = '⏳ جارٍ التحميل...';
       btn.disabled = true;
-      
+
       const toolbar = document.getElementById('stmt-toolbar');
       toolbar.style.display = 'none';
-      
-      html2pdf()
-        .set({
-          margin: 10,
-          filename: 'كشف-حساب-${supplier.name}-${Date.now()}.pdf',
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+
+      generateStatementPdfBlob()
+        .then(({ blob, filename }) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
         })
-        .from(document.body)
-        .save()
-        .then(() => {
+        .catch(err => {
+          console.error(err);
+          alert('⚠️ حدث خطأ أثناء إنشاء PDF');
+        })
+        .finally(() => {
           toolbar.style.display = 'flex';
           btn.textContent = originalText;
           btn.disabled = false;
         });
     }
-    
-    // Share via WhatsApp (placeholder)
+
+    // Share the actual PDF file directly through WhatsApp (or any share target)
+    // via the native share sheet. Falls back to a plain wa.me text link + PDF
+    // download when the browser/device doesn't support file sharing.
     function shareStatementViaWhatsApp() {
-      const supplier = '${supplier.name}';
+      const supplierName = '${supplier.name}';
       const phone = '${supplier.phone}'.replace(/[^0-9+]/g, '') || '';
-      const msg = encodeURIComponent('السلام عليكم\\nإليك كشف حساب المشتريات الخاص بك\\nللمزيد من المعلومات برجاء الاتصال بنا');
-      
-      if (phone && phone.length > 5) {
-        window.open('https://wa.me/' + phone + '?text=' + msg, '_blank');
-      } else {
-        alert('⚠️ لا يوجد رقم واتس صحيح للمورد');
-      }
+      const msg = 'السلام عليكم\\nإليك كشف حساب المشتريات الخاص بك\\nللمزيد من المعلومات برجاء الاتصال بنا';
+
+      const btn = document.querySelector('.btn-whatsapp');
+      const originalText = btn.textContent;
+      btn.textContent = '⏳ جارٍ التجهيز...';
+      btn.disabled = true;
+
+      const toolbar = document.getElementById('stmt-toolbar');
+      toolbar.style.display = 'none';
+
+      generateStatementPdfBlob()
+        .then(({ blob, filename }) => {
+          const file = new File([blob], filename, { type: 'application/pdf' });
+
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            // Opens the native share sheet — user taps WhatsApp and the PDF
+            // goes as a real attachment, not just a text link.
+            return navigator.share({
+              files: [file],
+              title: 'كشف حساب ' + supplierName,
+              text: msg
+            });
+          }
+
+          // Fallback (desktop / unsupported browsers): download the PDF and
+          // open a WhatsApp chat with the message pre-filled, so the user can
+          // attach the downloaded file manually.
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+
+          if (phone && phone.length > 5) {
+            window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg + '\\n(مرفق: ' + filename + ')'), '_blank');
+          } else {
+            window.open('https://wa.me/?text=' + encodeURIComponent(msg + '\\n(مرفق: ' + filename + ')'), '_blank');
+          }
+          alert('📎 تم تحميل الـ PDF — من فضلك أرفقه يدويًا في محادثة الواتس التي فُتحت');
+        })
+        .catch(err => {
+          if (err && err.name === 'AbortError') return; // user cancelled share sheet
+          console.error(err);
+          alert('⚠️ حدث خطأ أثناء تجهيز الملف للمشاركة');
+        })
+        .finally(() => {
+          toolbar.style.display = 'flex';
+          btn.textContent = originalText;
+          btn.disabled = false;
+        });
     }
   <\/script>
 </body>
