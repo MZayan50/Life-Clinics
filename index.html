@@ -2038,6 +2038,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       <div class="fgrp full"><label class="flbl">اسم المورد *</label><input class="fctl" id="sup-name" placeholder="اسم الشركة أو المورد"></div>
       <div class="fgrp"><label class="flbl">الفئة</label><select class="fctl" id="sup-cat"><option>مستحضرات بشرة</option><option>أجهزة طبية</option><option>مستلزمات ليزر</option><option>حقن وأدوية</option><option>مستلزمات عامة</option></select></div>
       <div class="fgrp"><label class="flbl">الهاتف</label><input class="fctl" id="sup-phone" placeholder="01X-XXX-XXXX"></div>
+      <div class="fgrp"><label class="flbl">🔔 رقم الواتس (لإرسال الطلبيات)</label><input class="fctl" id="sup-whatsapp" placeholder="201X-XXX-XXXX أو 01X-XXX-XXXX"></div>
       <div class="fgrp"><label class="flbl">البريد الإلكتروني</label><input class="fctl" id="sup-email" placeholder="supplier@company.com"></div>
       <div class="fgrp"><label class="flbl">المسؤول</label><input class="fctl" id="sup-contact" placeholder="اسم مندوب المبيعات"></div>
       <div class="fgrp"><label class="flbl">شروط الدفع</label><select class="fctl" id="sup-terms"><option>فوري</option><option>30 يوم</option><option>60 يوم</option><option>90 يوم</option></select></div>
@@ -2127,6 +2128,106 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="mfoot">
       <button class="btn btn-ghost" onclick="closeModal('supplier-detail-modal')">إغلاق</button>
       <button class="btn btn-primary" onclick="paySupplier()">💳 تسجيل الدفعة</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- 📋 SUPPLIER STATEMENT MODAL — ENHANCED WITH WHATSAPP & PDF          -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="supplier-statement-modal">
+  <div class="modal" style="max-width:900px;width:95%;max-height:90vh;overflow-y:auto">
+    <div class="mhdr">
+      <div class="mtitle" id="stmt-title">📋 كشف حساب المورد</div>
+      <button class="mclose" onclick="closeModal('supplier-statement-modal')">✕</button>
+    </div>
+    <div class="mbody">
+      <input type="hidden" id="stmt-id">
+      <input type="hidden" id="stmt-whatsapp">
+      
+      <!-- بيانات المورد والتاريخ -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:20px;padding:15px;background:var(--glass-bg,#f9f9f9);border-radius:8px">
+        <div>
+          <div style="font-size:13px;color:var(--text-muted)">المورد</div>
+          <div style="font-size:16px;font-weight:700" id="stmt-name">—</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:5px" id="stmt-phone">—</div>
+        </div>
+        <div style="text-align:left">
+          <div style="font-size:13px;color:var(--text-muted)">التاريخ</div>
+          <div style="font-size:14px;font-weight:600" id="stmt-date">—</div>
+        </div>
+      </div>
+      
+      <!-- الملخص المالي (KPI) -->
+      <div class="kpi-grid" style="margin-bottom:20px;gap:10px">
+        <div class="kpi-card kc-gold">
+          <div class="kpi-icon">🧾</div>
+          <div class="kpi-value" id="stmt-total-purchases">0 ج</div>
+          <div class="kpi-label">إجمالي المشتريات</div>
+        </div>
+        <div class="kpi-card kc-emerald">
+          <div class="kpi-icon">💳</div>
+          <div class="kpi-value" id="stmt-total-paid">0 ج</div>
+          <div class="kpi-label">إجمالي المدفوعات</div>
+        </div>
+        <div class="kpi-card kc-rose">
+          <div class="kpi-icon">⚠️</div>
+          <div class="kpi-value" id="stmt-total-owed">0 ج</div>
+          <div class="kpi-label">المتبقي</div>
+        </div>
+      </div>
+      
+      <!-- جدول المشتريات -->
+      <div style="margin-bottom:20px">
+        <h3 style="margin:0 0 10px 0;font-size:14px;font-weight:700">📦 تفصيل المشتريات</h3>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:var(--glass-bg,#f3f3f3)">
+                <th style="padding:8px;text-align:center;border:1px solid #ddd">التاريخ</th>
+                <th style="padding:8px;text-align:right;border:1px solid #ddd">المنتج</th>
+                <th style="padding:8px;text-align:center;border:1px solid #ddd">الكمية</th>
+                <th style="padding:8px;text-align:center;border:1px solid #ddd;color:var(--teal)">وحدات استهلاك</th>
+                <th style="padding:8px;text-align:center;border:1px solid #ddd">السعر</th>
+                <th style="padding:8px;text-align:left;border:1px solid #ddd">الإجمالي</th>
+                <th style="padding:8px;text-align:center;border:1px solid #ddd">الحالة</th>
+              </tr>
+            </thead>
+            <tbody id="stmt-purchases-tbody">
+              <tr><td colspan="7" style="text-align:center;padding:15px;color:var(--text-muted)">جاري التحميل...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- جدول الدفعات -->
+      <div style="margin-bottom:20px">
+        <h3 style="margin:0 0 10px 0;font-size:14px;font-weight:700">💰 تفصيل الدفعات</h3>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:var(--glass-bg,#f3f3f3)">
+                <th style="padding:8px;text-align:center;border:1px solid #ddd">التاريخ</th>
+                <th style="padding:8px;text-align:center;border:1px solid #ddd">طريقة الدفع</th>
+                <th style="padding:8px;text-align:left;border:1px solid #ddd">المبلغ</th>
+                <th style="padding:8px;text-align:right;border:1px solid #ddd">ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody id="stmt-payments-tbody">
+              <tr><td colspan="4" style="text-align:center;padding:15px;color:var(--text-muted)">جاري التحميل...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <!-- أزرار الإجراءات -->
+    <div class="mfoot" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeModal('supplier-statement-modal')">إغلاق</button>
+      <button class="btn btn-primary btn-sm" onclick="sendStatementViaWhatsApp()">📱 إرسال الكشف</button>
+      <button class="btn btn-secondary btn-sm" onclick="sendPurchaseOrderViaWhatsApp()">🛒 طلب شراء</button>
+      <button class="btn btn-info btn-sm" onclick="printSupplierStatement()">🖨️ طباعة</button>
+      <button class="btn btn-warning btn-sm" onclick="downloadStatementAsPDF()">📄 PDF</button>
     </div>
   </div>
 </div>
