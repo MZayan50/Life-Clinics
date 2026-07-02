@@ -99,7 +99,13 @@ const DB = {
     // ✅ FIX (مراجعة شاملة): كانت غائبة بالكامل عن هذه القائمة، فكل بيانات
     // تكلفة/ربح الجلسات (session_completions) لم تكن تُكتب إلى Firestore إطلاقاً —
     // محفوظة في الذاكرة المحلية فقط وتختفي نهائياً عند أي إعادة تحميل للصفحة.
-    'session_completions'
+    'session_completions',
+    // ✅ FIX (نظام الاستدعاء): call_queue كانت غائبة عن هذه القائمة، فـ DB.push/DB.upd
+    // كانا يحدّثان الـ cache المحلي فقط (Optimistic UI) ولا ينفذان fbSet() إطلاقاً.
+    // النتيجة: الاستدعاء يظهر فورًا على نفس الجهاز/الجلسة اللي عملته (لأن الكاش
+    // المحلي اتحدث)، لكنه لا يصل إلى Firestore أبداً، فأي جهاز آخر (يعتمد فقط على
+    // onSnapshot) لا يرى الاستدعاء مطلقاً — حتى بعد إصلاح firestore.rules.
+    'call_queue'
   ],
 
   // ── In-memory cache: Firestore data lives here ──
@@ -706,6 +712,10 @@ function _flushUIRefresh(){
     if(_pendingRefresh.has('session_completions')  && active==='sessions')   renderSessions();
     if(_pendingRefresh.has('session_completions')  && active==='packages')   renderPackages();
     if(_pendingRefresh.has('waitlist')     && active==='reception')    renderReception();
+    // ✅ FIX (نظام الاستدعاء): hint='call_queue' (القادم من attachFirestoreSync عند
+    // تغيير بعيد من جهاز آخر) لم يكن له أي شرط هنا، فكانت شاشة الاستقبال تعتمد فقط
+    // على الـ poller كل ثانية (_setupCallQueueListener) بدل التحديث الفوري.
+    if(_pendingRefresh.has('call_queue')   && active==='reception')    renderReception();
   } catch(e){ console.warn('[UI Refresh]', e); }
   _pendingRefresh.clear();
 }
