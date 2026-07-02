@@ -33,7 +33,8 @@ service cloud.firestore {
         'inventory_transactions', 'audit_log', 'transfers', 'supplier_payments',
         'product_sales', 'session_completions',
         'photos', 'installments', 'cashlog', 'settings', 'config', 'users', 'advances',
-        'call_queue'
+        'call_queue',
+        'chart_of_accounts', 'journal_entries', 'accounting_periods', 'vouchers'
       ];
     }
 
@@ -85,6 +86,41 @@ service cloud.firestore {
       allow create: if request.resource.data.keys().hasAll(['name', 'amount', 'date'])
                     && request.resource.data.amount is number
                     && request.resource.data.amount >= 0
+                    && isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // 💼 الطبقة المحاسبية (General Ledger) — دليل التطوير المحاسبي
+    // ══════════════════════════════════════════════════════════════
+
+    match /chart_of_accounts/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['code', 'name', 'type', 'normalBalance'])
+                    && isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /journal_entries/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['entryNumber', 'date', 'lines'])
+                    && isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /accounting_periods/{docId} {
+      allow read: if true;
+      allow create: if isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /vouchers/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['voucherNumber', 'type', 'amount'])
                     && isReasonableSize(request.resource.data);
       allow update: if isReasonableSize(request.resource.data);
       allow delete: if true;
