@@ -1516,24 +1516,27 @@ renderPackages = function(){
 function playCallSound(){
   try {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    // ✅ FIX: لو الـ AudioContext اتعمل suspended (سياسة الـ autoplay في المتصفح
+    // قبل أي تفاعل مباشر من المستخدم)، لازم نعمل resume() وإلا الصوت مش هيتسمع خالص
+    if(audioContext.state === 'suspended'){ audioContext.resume().catch(()=>{}); }
+
     const now = audioContext.currentTime;
-    const osc = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    
-    osc.connect(gain);
-    gain.connect(audioContext.destination);
-    
-    // تنبيه صوتي: beep عالي ومتكرر (3 مرات)
-    osc.frequency.value = 800;
-    gain.gain.setValueAtTime(0.3, now);
-    osc.start(now);
-    osc.stop(now + 0.15);
-    
-    osc.start(now + 0.25);
-    osc.stop(now + 0.4);
-    
-    osc.start(now + 0.5);
-    osc.stop(now + 0.65);
+
+    // ✅ FIX: كل beep لازم يكون على oscillator منفصل — الـ Web Audio API
+    // بيمنع استدعاء start() أكتر من مرة على نفس الـ oscillator (بيرمي
+    // InvalidStateError من ثاني استدعاء)، فكان عمليًا بيطلع بيب واحد قصير
+    // بس من أصل 3، وأحيانًا حتى ده مش واضح.
+    const beepTimes = [now, now + 0.25, now + 0.5];
+    beepTimes.forEach(t => {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.frequency.value = 800;
+      gain.gain.setValueAtTime(0.3, t);
+      osc.start(t);
+      osc.stop(t + 0.15);
+    });
   } catch(e) {
     console.warn('صوت التنبيه لم يشتغل:', e);
   }
