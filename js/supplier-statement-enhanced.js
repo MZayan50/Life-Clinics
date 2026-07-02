@@ -471,7 +471,24 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
       }
       
       .kpi-cards {
-        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      
+      .kpi-card {
+        padding: 10px 6px;
+      }
+      
+      .kpi-icon {
+        font-size: 18px;
+        margin-bottom: 4px;
+      }
+      
+      .kpi-value {
+        font-size: 15px;
+      }
+      
+      .kpi-label {
+        font-size: 9px;
       }
       
       table {
