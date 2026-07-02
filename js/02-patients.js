@@ -241,6 +241,13 @@ function renderPatHistory(id){
   const invs  = DB.get('invoices').filter(i => String(i.patId)===String(id) || (i.patId===undefined && i.patient===p.name));
   const pkgs  = DB.get('packages').filter(pk => String(pk.patId)===String(id));
 
+  // ✅ FIX: استبعاد الفواتير المغطاة بباقة (total=0, method='باقة') من السجل —
+  // كانت تظهر كسطر "فاتورة" منفصل رغم أن نفس الجلسة أصلاً موثّقة كسطر "موعد"،
+  // فتظهر كل جلسة من باقة مرتين في السجل (مرة كموعد ومرة كفاتورة 0 ج).
+  // نفس الاستبعاد المطبَّق بالفعل في renderPatAccount (تاب "حساب العميل").
+  const _pkgIdsSet = new Set(pkgs.map(pk => String(pk.id)));
+  const invsForHistory = invs.filter(i => !i.pkgId || !_pkgIdsSet.has(String(i.pkgId)));
+
   const items = [];
   appts.forEach(a => items.push({
     _date: a.date||'', _time: a.time||'',
@@ -249,7 +256,7 @@ function renderPatHistory(id){
     _sub: `${a.status||'—'}${a.branch?' · '+a.branch:''}`,
     _color: a.status==='مكتمل'?'var(--emerald)':a.status==='ملغي'||a.status==='لم يحضر'?'var(--rose)':'var(--teal)'
   }));
-  invs.forEach(i => items.push({
+  invsForHistory.forEach(i => items.push({
     _date: i.date||'', _time: '',
     _icon: '🧾',
     _title: `فاتورة — ${i.service||'—'}`,
