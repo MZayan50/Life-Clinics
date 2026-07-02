@@ -177,7 +177,7 @@ function renderSuppliers(q){
       <td style="color:${owed>0?'var(--rose)':'var(--emerald)'};font-weight:700">${owed.toLocaleString()} ج</td>
       <td><span class="ast ${s.status==='نشط'?'sc':'sd'}">${s.status}</span></td>
       <td style="display:flex;gap:5px;">
-        <button class="btn btn-teal btn-xs" onclick="openSupplierDetail('${s.id}')">📋 حساب</button>
+        <button class="btn btn-teal btn-xs" onclick="openSupplierStatementModal('${s.id}')">📋 كشف حساب</button>
         <button class="btn btn-ghost btn-xs" onclick="openSupplierModal('${s.id}')">✏️</button>
         <button class="btn btn-danger btn-xs" onclick="delSupplier('${s.id}')">🗑</button>
       </td>
