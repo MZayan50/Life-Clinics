@@ -9,12 +9,12 @@
 //   ✅ إيراد الفواتير (فواتير عادية + فواتير باقات + فواتير من الشاشة الطبية —
 //      كلها بتعدّي على invoices:created فبتتغطى تلقائيًا مهما كان مصدرها)
 //   ✅ تحصيل دفعات الفواتير (سواء من شاشة الفواتير أو التعديل المباشر)
+//   ✅ تحصيل دفعات الباقات المباشرة (من ملف العميل أو من شاشة تعديل الباقة)
 //   ✅ المصروفات
 //   ✅ استلام المشتريات من المورد (وقت الاستلام الفعلي مش وقت إنشاء الطلب)
 //   ✅ سداد المورد
 //
 // ⚠️ خارج النطاق دلوقتي (يحتاج مرحلة مخصصة لاحقًا لأنه أعقد مما افترضه الدليل الأصلي):
-//   ❌ دفعة إضافية على باقة مفتوحة من شاشة تعديل الباقة (cashlog source: "باقة — X")
 //   ❌ أي حركة كاش من شاشة الجلسات (07-clinical.js) غير مرتبطة بفاتورة
 //   ❌ السلف والرواتب (09-hr.js)
 // هذه الحالات بتتسجل في cashlog زي العادة (مفيش أي تغيير في سلوك النظام الحالي)
@@ -77,21 +77,48 @@ EventBus.on('expenses:created', async (exp)=>{
 // ملاحظة: النظام الحالي بيسجّل الدفعة كـ حركة في cashlog مباشرة (مش collection
 // مستقلة)، وكل مسارات دفع الفواتير بتستخدم نفس نمط الاسم بالظبط:
 // "دفعة فاتورة — <اسم العميل>" — الفلترة بادئة دقيقة (مش .includes) عشان منمنعش
-// اختلاطها مع دفعات الباقات المباشرة ("باقة — X" / "دفعة باقة — X") اللي لسه
-// خارج نطاق هذه المرحلة.
+// اختلاطها مع دفعات الباقات المباشرة ("باقة — X" / "دفعة باقة — X") اللي كانت
+// خارج نطاق المرحلة دي — دلوقتي بقى ليها hook مستقل تحت (رقم 3ب).
 EventBus.on('cashlog:created', async (c)=>{
   if(c.type==='وارد' && (c.source||'').startsWith('دفعة فاتورة —')){
+    const cashAccount = (c.method==='فيزا') ? '1120' : '1110';
     await postJournalEntry({
       date: c.date || new Date().toISOString().split('T')[0],
       description: `تحصيل: ${c.notes||c.source}`,
       sourceType: 'payment',
       sourceId: c.refId,
       lines: [
-        {accountCode:'1110', debit:c.amount||0, credit:0, description:'تحصيل نقدي'},
+        {accountCode:cashAccount, debit:c.amount||0, credit:0, description:'تحصيل نقدي'},
         {accountCode:'1130', debit:0, credit:c.amount||0, description:'من ذمم العميل'}
       ]
     });
   }
+});
+
+// ── 3ب. تحصيل دفعة مباشرة على باقة (من ملف العميل أو من شاشة تعديل الباقة) ──
+// ✅ إغلاق فجوة كانت موثّقة في الدليل كـ "خارج النطاق": الدفع على الباقة بيحصل
+// بمسارين مختلفين وكل واحد بيسجّل مصدر cashlog بصيغة مختلفة:
+//   - processPatientPayment (02-patients.js)  → "دفعة باقة — <اسم العميل>"
+//   - savePackage/تعديل الباقة (07-clinical.js) → "باقة — <اسم العميل>"
+// المسارين بيقللوا من متبقي الباقة فعليًا وبيحصّلوا كاش حقيقي، لكن من غير القيد
+// ده كان 1130 (ذمم العملاء) بيفضل واقف على القيمة الأصلية للأبد، والخزينة (1110)
+// متعرفش إنها استلمت الفلوس فعليًا — بالظبط زي ما ظهر في اختبار "دفعة باقة" الأخير.
+EventBus.on('cashlog:created', async (c)=>{
+  if(c.type!=='وارد') return;
+  const src = c.source||'';
+  const isPkgPayment = src.startsWith('دفعة باقة —') || src.startsWith('باقة —');
+  if(!isPkgPayment) return;
+  const cashAccount = (c.method==='فيزا') ? '1120' : '1110';
+  await postJournalEntry({
+    date: c.date || new Date().toISOString().split('T')[0],
+    description: `تحصيل على باقة: ${c.notes||c.source}`,
+    sourceType: 'payment',
+    sourceId: c.refId || null,
+    lines: [
+      {accountCode:cashAccount, debit:c.amount||0, credit:0, description:'تحصيل نقدي — باقة'},
+      {accountCode:'1130', debit:0, credit:c.amount||0, description:'من ذمم العميل — باقة'}
+    ]
+  });
 });
 
 // ── 4. استلام مشتريات من مورد (وقت الاستلام الفعلي — status='مستلم') ──
