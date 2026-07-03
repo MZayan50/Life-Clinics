@@ -1965,6 +1965,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="tab active" onclick="stab(this,'acc-tabs','acc-pl')">الأرباح والخسائر</div>
     <div class="tab" onclick="stab(this,'acc-tabs','acc-bs')">الميزانية العمومية</div>
     <div class="tab" onclick="stab(this,'acc-tabs','acc-cf')">التدفق النقدي</div>
+    <div class="tab" onclick="stab(this,'acc-tabs','acc-tb')">⚖️ ميزان المراجعة</div>
   </div>
   <div id="acc-pl">
     <div class="g2c" style="gap:16px;margin-bottom:16px;">
@@ -2022,6 +2023,35 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
         <thead><tr><th>الشهر</th><th>الوارد</th><th>الصادر</th><th>الصافي</th><th>الرصيد التراكمي</th></tr></thead>
         <tbody id="cf-tbody"></tbody>
       </table></div>
+    </div>
+  </div>
+  <div id="acc-tb" style="display:none;">
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-hdr">
+        <div class="card-title">⚖️ ميزان المراجعة (Trial Balance)</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="date" class="selbox" id="tb-asof-date" onchange="renderTrialBalance()">
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('tb-asof-date').value='';renderTrialBalance()">كل التاريخ</button>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);padding:0 4px 10px;">
+        مجموع أرصدة كل حساب من دليل الحسابات مبنيّ على القيود المرحّلة في دفتر اليومية فقط (المرحلة 3 وما بعدها). الفواتير/المصروفات القديمة من قبل تفعيل الطبقة المحاسبية لن تظهر هنا لحد ما يتم ترحيلها بأثر رجعي (Backfill).
+      </p>
+      <div id="tb-balance-status" style="margin-bottom:10px;"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>الكود</th><th>اسم الحساب</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead>
+          <tbody id="tb-tbody"></tbody>
+          <tfoot>
+            <tr style="font-weight:800;border-top:2px solid var(--glass-border);">
+              <td colspan="2">الإجمالي</td>
+              <td id="tb-total-debit">0 ج</td>
+              <td id="tb-total-credit">0 ج</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -2719,7 +2749,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="js/00-core.js"></script>
-<script src="js/01-app.js"></script>
+<script src="js/01-app.js?v=2"></script>
 <script src="js/02-patients.js"></script>
 <script src="js/03-appointments.js"></script>
 <script src="js/04-invoices.js"></script>
@@ -2731,7 +2761,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <script src="js/10-reports.js"></script>
 <script src="js/11-settings.js"></script>
 <script src="js/12-financial-integration.js"></script>
-<script src="js/13-accounting.js?v=3"></script>
+<script src="js/13-accounting.js?v=4"></script>
 <script src="js/14-accounting-hooks.js?v=3"></script>
 <script>
   // ✅ ننتظر تحميل كل الملفات قبل استدعاء init()
