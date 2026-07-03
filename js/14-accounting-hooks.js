@@ -319,9 +319,19 @@ EventBus.on('cashlog:created', async (c)=>{
 EventBus.on('installments:created', async (plan)=>{
   if(!plan || !plan.fromPkgId) return; // مش خطة جايه من باقة أصلًا
 
+  // ⚠️ إصلاح: مينفعش نتحقق بمجرد "فيه فاتورة بنفس pkgId" لأن شاشة الطبيب
+  // (finalizeConsultation في 07-clinical.js) بتعمل فاتورة بـ total=0/paid=0/remaining=0
+  // لكل جلسة "مغطاة بالباقة" — دي فاتورة استهلاك مش فاتورة بيع، ومالهاش أي قيد
+  // في hook رقم 1 (لأنه بيرجع فورًا لو total<=0). لو اعتمدنا على وجودها بس،
+  // هنفوّت تسجيل ذمم/إيراد الباقة الحقيقية لأي باقة دخلت الأقساط عن طريق المزامنة
+  // وكان ليها جلسات مستهلكة قبل أي فاتورة بيع حقيقية — وده بالظبط اللي بيسيب 1130
+  // من غير مدين يقابل دائن التحصيل لاحقًا فيدخل رصيد سالب وهمي.
+  // الحل: فاتورة "حقيقية" للباقة هي اللي قيمتها (مدفوع+متبقي) أكبر من صفر بس.
   const invoices = DB.get('invoices') || [];
-  const hasInvoice = invoices.some(i => String(i.pkgId) === String(plan.fromPkgId));
-  if(hasInvoice) return; // الباقة دخلت من savePackage() العادي وعندها فاتورة — مغطاة بالفعل بـ hook رقم 1
+  const hasRealInvoice = invoices.some(i =>
+    String(i.pkgId) === String(plan.fromPkgId) && ((i.paid||0) + (i.remaining||0)) > 0
+  );
+  if(hasRealInvoice) return; // الباقة دخلت من savePackage() العادي وعندها فاتورة بيع حقيقية — مغطاة بالفعل بـ hook رقم 1
 
   const journal = DB.get('journal_entries') || [];
   const alreadyPosted = journal.some(e => e.sourceType === 'package' && String(e.sourceId) === String(plan.fromPkgId));
