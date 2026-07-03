@@ -1338,6 +1338,13 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
         <tbody id="je-tbody"></tbody>
       </table></div>
     </div>
+    <div class="card"><div class="card-hdr"><div class="card-title">🔄 الترحيل التاريخي (Backfill)</div>
+        <button class="btn btn-primary btn-sm" onclick="runAccountingBackfill()">🔄 تشغيل الترحيل</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+        خطوة تمهيدية قبل المرحلة 5 — بيعمل قيود بأثر رجعي لكل الفواتير/المصروفات/دفعات التحصيل/المشتريات المستلمة/سداد الموردين اللي لسه مالهاش قيد، عشان ميزان المراجعة يعكس تاريخ العيادة الحقيقي كامل. آمن للتشغيل أكتر من مرة — أي سجل اتغطى بالفعل هيتخطّى تلقائيًا.
+      </div>
+    </div>
     <div class="card"><div class="card-hdr"><div class="card-title">💾 إدارة البيانات</div></div>
       <div style="display:flex;flex-direction:column;gap:11px;">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:13px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">استيراد بيانات (JSON)</div><div style="font-size:12px;color:var(--text-muted)">استعادة من نسخة احتياطية</div></div><button class="btn btn-ghost btn-sm" onclick="importData()">📤 استيراد</button></div>
@@ -2035,7 +2042,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
         </div>
       </div>
       <p style="font-size:12px;color:var(--text-muted);padding:0 4px 10px;">
-        مجموع أرصدة كل حساب من دليل الحسابات مبنيّ على القيود المرحّلة في دفتر اليومية فقط (المرحلة 3 وما بعدها). الفواتير/المصروفات القديمة من قبل تفعيل الطبقة المحاسبية لن تظهر هنا لحد ما يتم ترحيلها بأثر رجعي (Backfill).
+        مجموع أرصدة كل حساب من دليل الحسابات مبنيّ على القيود المرحّلة في دفتر اليومية فقط. الفواتير/المصروفات القديمة من قبل تفعيل الطبقة المحاسبية تحتاج تشغيل "الترحيل التاريخي" مرة واحدة من الإعدادات ← البيانات عشان تظهر هنا.
       </p>
       <div id="tb-balance-status" style="margin-bottom:10px;"></div>
       <div class="table-wrap">
@@ -2763,6 +2770,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <script src="js/12-financial-integration.js"></script>
 <script src="js/13-accounting.js?v=5"></script>
 <script src="js/14-accounting-hooks.js?v=3"></script>
+<script src="js/15-accounting-backfill.js?v=1"></script>
 <script>
   // ✅ ننتظر تحميل كل الملفات قبل استدعاء init()
   if (typeof init === 'function') {
