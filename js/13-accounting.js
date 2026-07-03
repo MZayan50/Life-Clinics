@@ -116,6 +116,17 @@ async function reverseJournalEntry(entryId, reason){
 
   if(reversal){
     DB.upd('journal_entries', original.id, {status:'reversed', reversedBy: reversal.entryNumber});
+
+    // 🐛 FIX (اكتُشف أثناء اختبار المرحلة 9): عكس القيد كان بيسيب أي سند قبض/صرف
+    // مرتبط بيه (createVoucher في المرحلة 6) "زي ما هو" — يفضل ظاهر في شاشة
+    // السندات وكأنه سليم رغم إن العملية اتلغت فعليًا (مثلاً حذف مصروف اتصرف
+    // له سند صرف قبل كده). بنبطّله (status:'voided') بدل ما نمسحه — نفس مبدأ
+    // "عكس/إبطال مش حذف" المتبع في كل مكان تاني بالنظام.
+    const linkedVoucher = (DB.get('vouchers')||[])
+      .find(v => String(v.linkedEntryId)===String(original.id) && v.status!=='voided');
+    if(linkedVoucher){
+      DB.upd('vouchers', linkedVoucher.id, {status:'voided', voidReason:reason, voidedAt:_now()});
+    }
   }
   return reversal;
 }
@@ -167,9 +178,15 @@ function renderJournalEntries(){
 // ══════════════════════════════════════════
 
 // ── حساب ميزان المراجعة الكامل لغاية تاريخ معيّن (أو لكل التاريخ لو من غير تاريخ) ──
+// 🐛 FIX (اكتُشف أثناء اختبار المرحلة 9): كانت بتستبعد أي قيد status='reversed'
+// من الحساب بالكامل. ده غلط محاسبيًا — القيد الأصلي المعكوس لسه واقعة مالية
+// حقيقية حصلت فعلاً ولازم تتحسب، وقيد العكس (سطر مقابل بنفس القيمة معكوسة)
+// هو اللي بيصفّر أثرها في الميزان. استبعاد الأصلي وسيبان بس قيد العكس كان بيدي
+// أثر أحادي الجانب (مثلاً دائن 3000 من غير مدين مقابل) بدل ما يتصفر تمامًا.
+// status هنا للعرض فقط (تاج "معكوس" في دفتر اليومية) — مش معيار فلترة للميزان.
 function calcTrialBalance(asOfDate){
   const entries = (DB.get('journal_entries')||[])
-    .filter(e=>e.status==='posted' && (!asOfDate || e.date<=asOfDate));
+    .filter(e=>(!asOfDate || e.date<=asOfDate));
   const accounts = DB.get('chart_of_accounts')||[];
 
   const balances = {}; // code -> {debit, credit}
@@ -269,7 +286,7 @@ async function createVoucher({type, date, amount, linkedInvoiceId, linkedEntryId
     voucherNumber, type, date: date || new Date().toISOString().split('T')[0],
     amount, linkedInvoiceId: linkedInvoiceId || null, linkedEntryId: linkedEntryId || null,
     paidTo_or_receivedFrom: paidTo_or_receivedFrom || '', method: method || 'كاش',
-    notes: notes || ''
+    notes: notes || '', status: 'active'
   });
 }
 
@@ -283,18 +300,46 @@ function renderVouchers(){
   vouchers.sort((a,b)=>(b.voucherNumber||'').localeCompare(a.voucherNumber||''));
 
   tb.innerHTML = vouchers.map(v=>{
+    const isVoided = v.status==='voided';
     const typeTag = v.type==='receipt'
       ? `<span class="tag tg-green">قبض</span>`
       : `<span class="tag" style="background:rgba(244,63,94,.09);border-color:rgba(244,63,94,.24);color:var(--rose);">صرف</span>`;
-    return `<tr>
+    const voidedTag = isVoided ? `<span class="tag tg-rose" style="margin-inline-start:4px;" title="${v.voidReason||''}">ملغى</span>` : '';
+    const rowStyle = isVoided ? 'style="opacity:.55;"' : '';
+    const amountStyle = isVoided
+      ? 'text-decoration:line-through;color:var(--text-muted);font-weight:700'
+      : `font-weight:700;color:${v.type==='receipt'?'var(--emerald)':'var(--rose)'}`;
+    return `<tr ${rowStyle}>
       <td style="font-weight:700;font-family:monospace;font-size:12px">${v.voucherNumber}</td>
-      <td>${typeTag}</td>
+      <td>${typeTag}${voidedTag}</td>
       <td style="font-size:12px">${v.date}</td>
       <td style="font-size:13px;font-weight:600">${v.paidTo_or_receivedFrom||'—'}</td>
-      <td style="font-weight:700;color:${v.type==='receipt'?'var(--emerald)':'var(--rose)'}">${(v.amount||0).toLocaleString()} ج</td>
+      <td style="${amountStyle}">${(v.amount||0).toLocaleString()} ج</td>
       <td style="font-size:12px;color:var(--text-muted)">${v.method||''}</td>
     </tr>`;
   }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد سندات بعد</td></tr>`;
+}
+
+// ── دالة صيانة لمرة واحدة (تُشغَّل يدويًا من الـ Console) ──
+// السندات اللي اتعملت *قبل* إضافة إبطال السند التلقائي في reverseJournalEntry()
+// فوق فضلت 'active' رغم إن قيدها المرتبط بقى 'reversed' من زمان. الدالة دي
+// بتراجع كل السندات وتبطّل أي واحد فيها مرتبط بقيد معكوس. آمنة تتكرر (idempotent).
+async function repairVoidedVouchers(){
+  const reversedIds = new Set(
+    (DB.get('journal_entries')||[]).filter(e=>e.status==='reversed').map(e=>String(e.id))
+  );
+  let fixed = 0;
+  (DB.get('vouchers')||[]).forEach(v=>{
+    if(v.status==='voided') return;
+    if(v.linkedEntryId && reversedIds.has(String(v.linkedEntryId))){
+      DB.upd('vouchers', v.id, {status:'voided', voidReason:'إصلاح تلقائي — القيد المرتبط كان معكوس بالفعل', voidedAt:_now()});
+      fixed++;
+    }
+  });
+  showToast(fixed ? 'success' : 'info',
+    fixed ? `✅ تم إبطال ${fixed} سند قديم مرتبط بقيود معكوسة` : 'ℹ️ مفيش سندات محتاجة إصلاح');
+  if(typeof renderVouchers==='function') renderVouchers();
+  return fixed;
 }
 
 EventBus.on('db:changed', (e)=>{
@@ -397,6 +442,70 @@ async function testJournalEntryEngine(){
     showToast('info', '👍 تمام — النظام رفض القيد الغير متوازن زي ما هو متوقع');
   } else {
     showToast('error', '⚠️ خطأ خطير: النظام قبل قيد غير متوازن! راجع المطور فورًا');
+  }
+
+  renderJournalEntries();
+}
+
+// ══════════════════════════════════════════
+// 🧪 اختبار المرحلة 9 — Soft Delete + عكس القيد المحاسبي
+// ينشئ مصروف تجريبي → يتأكد إن قيده اتسجل → يحذفه (Soft Delete) →
+// يتأكد إن القيد الأصلي بقى 'reversed' وإن فيه قيد عكسي جديد اتسجل →
+// يتأكد إن المصروف مختفي من DB.getActive('expenses') لكن موجود فعليًا
+// (isDeleted:true) في DB.get('expenses') الخام.
+// ══════════════════════════════════════════
+async function testExpenseReversalCycle(){
+  const testAmount = 77;
+  const testExp = DB.push('expenses', {
+    name: '🧪 مصروف اختبار — المرحلة 9',
+    type: 'مصروفات متنوعة',
+    amount: testAmount,
+    branch: '',
+    date: new Date().toISOString().split('T')[0],
+    notes: 'اختبار تلقائي — يُترك isDeleted:true بعد الاختبار (مخفي من كل الشاشات)'
+  });
+
+  // استنى الـ hook غير المتزامن (EventBus.on('expenses:created', async...)) يخلّص
+  await new Promise(r=>setTimeout(r,150));
+
+  const originalEntry = (DB.get('journal_entries')||[])
+    .find(je=>je.sourceType==='expense' && String(je.sourceId)===String(testExp.id));
+
+  if(!originalEntry){
+    showToast('error','❌ فشل: لم يتم إنشاء قيد للمصروف التجريبي — راجع hook رقم 2 في 14-accounting-hooks.js');
+    return;
+  }
+  if(originalEntry.status!=='posted'){
+    showToast('error','❌ فشل: القيد الأصلي مش posted — راجع المطور');
+    return;
+  }
+
+  // ── الحذف الفعلي (Soft Delete) ──
+  DB.softDel('expenses', testExp.id);
+  await new Promise(r=>setTimeout(r,150));
+
+  const reloadedOriginal = (DB.get('journal_entries')||[]).find(je=>je.id===originalEntry.id);
+  const reversalEntry = (DB.get('journal_entries')||[])
+    .find(je=>je.sourceType==='reversal' && String(je.sourceId)===String(originalEntry.id));
+
+  const stillInActive = DB.getActive('expenses').some(e=>e.id===testExp.id);
+  const rawRecord = (DB.get('expenses')||[]).find(e=>e.id===testExp.id);
+
+  const checks = [
+    {label:'القيد الأصلي اتعكس (status=reversed)', ok: reloadedOriginal?.status==='reversed'},
+    {label:'اتسجل قيد عكسي جديد ومتوازن',           ok: !!reversalEntry},
+    {label:'المصروف مختفي من DB.getActive',          ok: !stillInActive},
+    {label:'السجل الخام لسه موجود (isDeleted:true)',  ok: rawRecord?.isDeleted===true},
+  ];
+
+  const allPass = checks.every(c=>c.ok);
+  console.log('[اختبار المرحلة 9]', checks, {testExp, originalEntry, reloadedOriginal, reversalEntry});
+
+  if(allPass){
+    showToast('success','✅ اختبار المرحلة 9 نجح بالكامل', checks.map(c=>'✓ '+c.label).join(' | '));
+  } else {
+    showToast('error','❌ اختبار المرحلة 9 فشل جزئيًا — افتح الـ Console للتفاصيل',
+      checks.filter(c=>!c.ok).map(c=>'✗ '+c.label).join(' | '));
   }
 
   renderJournalEntries();
