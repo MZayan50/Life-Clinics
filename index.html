@@ -1345,6 +1345,21 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
         خطوة تمهيدية قبل المرحلة 5 — بيعمل قيود بأثر رجعي لكل الفواتير/المصروفات/دفعات التحصيل/المشتريات المستلمة/سداد الموردين اللي لسه مالهاش قيد، عشان ميزان المراجعة يعكس تاريخ العيادة الحقيقي كامل. آمن للتشغيل أكتر من مرة — أي سجل اتغطى بالفعل هيتخطّى تلقائيًا.
       </div>
     </div>
+    <div class="card"><div class="card-hdr"><div class="card-title">🧾 سندات القبض والصرف</div>
+        <select id="vch-type-filter" class="selbox" onchange="renderVouchers()" style="max-width:130px;">
+          <option value="">الكل</option>
+          <option value="receipt">قبض فقط</option>
+          <option value="payment">صرف فقط</option>
+        </select>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+        المرحلة 6 — سند تلقائي لكل حركة كاش فعلية داخل/خارج (تحصيل فواتير/باقات/أقساط/جلسات، سداد موردين، مصروفات...). بيتولد أوتوماتيك مع كل قيد، ومفيش داعي لإدخال يدوي.
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>رقم السند</th><th>النوع</th><th>التاريخ</th><th>لصالح/من</th><th>المبلغ</th><th>طريقة الدفع</th></tr></thead>
+        <tbody id="vch-tbody"></tbody>
+      </table></div>
+    </div>
     <div class="card"><div class="card-hdr"><div class="card-title">💾 إدارة البيانات</div></div>
       <div style="display:flex;flex-direction:column;gap:11px;">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:13px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">استيراد بيانات (JSON)</div><div style="font-size:12px;color:var(--text-muted)">استعادة من نسخة احتياطية</div></div><button class="btn btn-ghost btn-sm" onclick="importData()">📤 استيراد</button></div>
