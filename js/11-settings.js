@@ -614,7 +614,13 @@ const _ALL_COLLECTIONS = [
   'inventory','inventory_transactions','purchases','purchase_items',
   'expenses','suppliers','supplier_payments','leads','services','doctors','staff',
   'branches','rooms','equipment','campaigns','waitlist',
-  'visits','audit_log','transfers','advances','product_sales','session_completions'
+  'visits','audit_log','transfers','advances','product_sales','session_completions',
+  // ✅ FIX (ميزان المراجعة بيطلع مضاعف/غلط بعد "حذف كل البيانات"):
+  // القائمة دي ماكنتش شايلة مجموعات الطبقة المحاسبية (المرحلة 0 من دليل التطوير)،
+  // فكانت journal_entries/vouchers القديمة فاضلة في Firestore رغم حذف
+  // invoices/cashlog/packages، فالقيود القديمة بتتجمع فوق القيود الجديدة
+  // وتضاعف أرصدة زي إيراد الباقات وذمم العملاء في ميزان المراجعة.
+  'chart_of_accounts','journal_entries','accounting_periods','vouchers'
 ];
 
 async function clearAll(){
