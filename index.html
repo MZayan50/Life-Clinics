@@ -1350,6 +1350,20 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
         خطوة تمهيدية قبل المرحلة 5 — بيعمل قيود بأثر رجعي لكل الفواتير/المصروفات/دفعات التحصيل/المشتريات المستلمة/سداد الموردين اللي لسه مالهاش قيد، عشان ميزان المراجعة يعكس تاريخ العيادة الحقيقي كامل. آمن للتشغيل أكتر من مرة — أي سجل اتغطى بالفعل هيتخطّى تلقائيًا.
       </div>
     </div>
+    <div class="card"><div class="card-hdr"><div class="card-title">🔍 تشخيص حركة خزينة غريبة</div></div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+        بيعرض كل حركات الخزينة (وارد/صادر) في شهر معيّن بالتفصيل — المصدر، العميل، المبلغ — عشان تعرف مصدر أي رقم غريب ظاهر في التدفق النقدي.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <input id="cleanup-diag-month" type="month" class="inp" value="2026-07" style="min-width:140px;">
+        <select id="cleanup-diag-type" class="selbox" style="min-width:100px;">
+          <option value="صادر">صادر</option>
+          <option value="وارد">وارد</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="inspectCashlogMonthUI()">🔍 عرض التفاصيل</button>
+      </div>
+      <div id="cleanup-diag-results"></div>
+    </div>
     <div class="card"><div class="card-hdr"><div class="card-title">🧹 تنظيف بيانات عميل اختبار</div></div>
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
         بيمسح المريض المكتوب اسمه نهائيًا مع كل ما يرتبط بيه (فواتير، باقات، أقساط، مواعيد، جلسات، قيود محاسبية، سندات، حركات خزينة، صور). حذف حقيقي غير قابل للتراجع — استخدمه فقط لمسح بيانات اختبار.
