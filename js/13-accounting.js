@@ -159,6 +159,77 @@ function renderJournalEntries(){
   }).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد قيود بعد — اضغط "تشغيل اختبار القيود"</td></tr>`;
 }
 
+// ══════════════════════════════════════════
+// ⚖️ TRIAL BALANCE — ميزان المراجعة
+// المرحلة 4 من دليل تطوير الطبقة المحاسبية
+// ⚠️ قراءة فقط من journal_entries — لا تلمس أي بيانات ولا تعدّل P&L/Balance Sheet
+//    الحاليين (دول لسه بيقروا من cashlog زي ما هما لحد المرحلة 5)
+// ══════════════════════════════════════════
+
+// ── حساب ميزان المراجعة الكامل لغاية تاريخ معيّن (أو لكل التاريخ لو من غير تاريخ) ──
+function calcTrialBalance(asOfDate){
+  const entries = (DB.get('journal_entries')||[])
+    .filter(e=>e.status==='posted' && (!asOfDate || e.date<=asOfDate));
+  const accounts = DB.get('chart_of_accounts')||[];
+
+  const balances = {}; // code -> {debit, credit}
+  entries.forEach(e=>{
+    (e.lines||[]).forEach(l=>{
+      if(!balances[l.accountCode]) balances[l.accountCode]={debit:0,credit:0};
+      balances[l.accountCode].debit  += (l.debit||0);
+      balances[l.accountCode].credit += (l.credit||0);
+    });
+  });
+
+  const rows = accounts.map(a=>{
+    const b = balances[a.code] || {debit:0,credit:0};
+    const net = a.normalBalance==='debit' ? (b.debit-b.credit) : (b.credit-b.debit);
+    return {code:a.code, name:a.name, type:a.type, normalBalance:a.normalBalance, debit:b.debit, credit:b.credit, balance:net};
+  }).filter(r=>r.debit || r.credit); // اخفِ الحسابات اللي مالهاش أي حركة خالص
+
+  rows.sort((a,b)=>a.code.localeCompare(b.code));
+
+  const totalDebit  = rows.reduce((s,r)=>s+r.debit,0);
+  const totalCredit = rows.reduce((s,r)=>s+r.credit,0);
+
+  return {rows, totalDebit, totalCredit, isBalanced: Math.abs(totalDebit-totalCredit)<0.01, entriesCount: entries.length};
+}
+
+// ── عرض ميزان المراجعة في شاشة "الحسابات" (تبويب جديد) ──
+function renderTrialBalance(){
+  const tb = document.getElementById('tb-tbody');
+  if(!tb) return;
+
+  const dateEl = document.getElementById('tb-asof-date');
+  const asOfDate = dateEl?.value || '';
+  const result = calcTrialBalance(asOfDate || null);
+
+  const typeLabels = {asset:'أصول', liability:'التزامات', equity:'حقوق ملكية', revenue:'إيرادات', expense:'مصروفات'};
+
+  if(!result.rows.length){
+    tb.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد قيود مرحّلة بعد — راجع دفتر اليومية في الإعدادات</td></tr>`;
+  } else {
+    tb.innerHTML = result.rows.map(r=>`<tr>
+        <td style="font-weight:700;font-family:monospace">${r.code}</td>
+        <td style="font-weight:600">${r.name}<div style="font-size:10.5px;color:var(--text-muted)">${typeLabels[r.type]||r.type}</div></td>
+        <td style="color:var(--emerald)">${r.debit ? r.debit.toLocaleString()+' ج' : '—'}</td>
+        <td style="color:var(--rose)">${r.credit ? r.credit.toLocaleString()+' ج' : '—'}</td>
+        <td style="font-weight:800">${r.balance.toLocaleString()} ج</td>
+      </tr>`).join('');
+  }
+
+  const totalDebitEl  = document.getElementById('tb-total-debit');
+  const totalCreditEl = document.getElementById('tb-total-credit');
+  const statusEl      = document.getElementById('tb-balance-status');
+  if(totalDebitEl)  totalDebitEl.textContent  = result.totalDebit.toLocaleString()+' ج';
+  if(totalCreditEl) totalCreditEl.textContent = result.totalCredit.toLocaleString()+' ج';
+  if(statusEl){
+    statusEl.innerHTML = result.isBalanced
+      ? `<span class="tag tg-teal">✅ الميزان متوازن</span>`
+      : `<span class="tag tg-rose">❌ غير متوازن — فرق ${Math.abs(result.totalDebit-result.totalCredit).toLocaleString()} ج — راجع المطور فورًا</span>`;
+  }
+}
+
 // ── اختبار محرك القيود — يعمل قيد صحيح متوازن + يحاول قيد خاطئ غير متوازن للتأكد إنه بيترفض ──
 async function testJournalEntryEngine(){
   // 1) قيد صحيح ومتوازن — المفروض ينجح

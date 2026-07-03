@@ -31,7 +31,7 @@ function fillPatDropdowns(){
 }
 
 // TABS
-const ALL_TABS=['t-med','t-ses','t-inv','t-ph','t-hist','se-gen','se-fb','se-perm','se-notif','se-data','acc-pl','acc-bs','acc-cf'];
+const ALL_TABS=['t-med','t-ses','t-inv','t-ph','t-hist','se-gen','se-fb','se-perm','se-notif','se-data','acc-pl','acc-bs','acc-cf','acc-tb'];
 function stab(el,gid,tid){
   document.getElementById(gid)?.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
@@ -41,6 +41,9 @@ function stab(el,gid,tid){
   if(tid==='se-data' && typeof renderChartOfAccounts==='function'){
     setTimeout(renderChartOfAccounts, 50);
     setTimeout(renderJournalEntries, 50);
+  }
+  if(tid==='acc-tb' && typeof renderTrialBalance==='function'){
+    setTimeout(renderTrialBalance, 50);
   }
 }
 
