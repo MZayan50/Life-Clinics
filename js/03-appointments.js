@@ -74,6 +74,12 @@ function delAppt(id){
   }
   if(!confirm(warnMsg)) return;
 
+  // ✅ FIX (نفس مشكلة delPat): DB.del كانت fire-and-forget، فتوست النجاح كان
+  // بيظهر قبل ما حذف الفاتورة/الموعد يوصل فعليًا لـ Firestore. لو المستخدم
+  // قفل التاب فور ظهور التوست، ممكن الفاتورة أو الموعد يرجعوا تاني بعد ريفريش.
+  // الحل: نجمع الـ promises ونستنى Promise.all قبل توست النجاح النهائي.
+  const _delPromises = [];
+
   if(linkedInv){
     // إرجاع جلسة الباقة لو الفاتورة كانت مغطاة بباقة
     if(linkedInv.pkgId){
@@ -100,14 +106,21 @@ function delAppt(id){
       });
     });
     // حذف الفاتورة نفسها وإعادة حساب رصيد العميل (DB.del لا يُطلق إعادة حساب تلقائياً)
-    DB.del('invoices', linkedInv.id);
+    _delPromises.push(DB.del('invoices', linkedInv.id));
     if(typeof _recalcPatFinancials === 'function' && (a.patId || linkedInv.patId)) {
       _recalcPatFinancials(a.patId || linkedInv.patId);
     }
   }
 
-  DB.del('appointments', id);
-  showToast('success', linkedInv ? '✅ تم حذف الموعد والفاتورة المرتبطة' : '✅ تم حذف الموعد');
+  _delPromises.push(DB.del('appointments', id));
+
+  showToast('info', '⏳ جارٍ الحذف...');
+  Promise.all(_delPromises).then(()=>{
+    showToast('success', linkedInv ? '✅ تم حذف الموعد والفاتورة المرتبطة — آمن تقفل الصفحة دلوقتي' : '✅ تم حذف الموعد — آمن تقفل الصفحة دلوقتي');
+  }).catch(err=>{
+    console.error('[delAppt] فشل حذف بعض السجلات:', err);
+    showToast('error', '⚠️ فيه سجلات محتمل ماتحذفتش', 'افتح الصفحة وحاول تاني قبل ما تقفل المتصفح');
+  });
   // لا داعي لاستدعاءات render — EventBus يتولى ذلك
 }
 

@@ -625,10 +625,23 @@ function delPurchase(id){
     if(isReceived && typeof reverseInventoryForPurchase === 'function'){
       reverseInventoryForPurchase(id);
     }
+    // ✅ FIX (نفس مشكلة delPat): DB.del كانت fire-and-forget، فتوست النجاح
+    // كان بيظهر قبل ما حذف الأصناف/الطلبية يوصل فعليًا لـ Firestore. لو
+    // المستخدم قفل التاب فور ظهور التوست، ممكن سجلات ترجع تاني بعد ريفريش.
+    const _delPromises = [];
     // حذف أصناف الطلب المرتبطة بدل تركها يتيمة في purchase_items
-    (DB.get('purchase_items')||[]).filter(i => i.purchaseId === id).forEach(i => DB.del('purchase_items', i.id));
-    DB.del('purchases', id);
-    showToast('info', isReceived ? '🗑 تم الحذف وتحديث المخزون' : '🗑 تم الحذف');
+    (DB.get('purchase_items')||[]).filter(i => i.purchaseId === id).forEach(i => {
+      _delPromises.push(DB.del('purchase_items', i.id));
+    });
+    _delPromises.push(DB.del('purchases', id));
+
+    showToast('info', '⏳ جارٍ الحذف...');
+    Promise.all(_delPromises).then(()=>{
+      showToast('success', (isReceived ? '🗑 تم الحذف وتحديث المخزون' : '🗑 تم الحذف') + ' — آمن تقفل الصفحة دلوقتي');
+    }).catch(err=>{
+      console.error('[delPurchase] فشل حذف بعض السجلات:', err);
+      showToast('error', '⚠️ فيه سجلات محتمل ماتحذفتش', 'افتح الصفحة وحاول تاني قبل ما تقفل المتصفح');
+    });
   }
 }
 

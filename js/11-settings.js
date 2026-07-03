@@ -695,8 +695,17 @@ async function cleanOrphanedSupplierPayments(){
   if(!orphaned.length){ showToast('info','✅ لا توجد دفعات يتيمة — كل البيانات سليمة'); return; }
   const totalOrphaned = orphaned.reduce((s,sp)=>s+(sp.amount||0),0);
   if(!confirm(`تم العثور على ${orphaned.length} دفعة مورد مرتبطة بموردين محذوفين، بإجمالي ${totalOrphaned.toLocaleString()} ج.\n\nهذا هو سبب ظهور رقم "إجمالي المدفوعات" أكبر من الصحيح. هل تريد حذف هذه الدفعات اليتيمة فقط (دفعات الموردين الحاليين لن تتأثر)؟`)) return;
-  orphaned.forEach(sp => DB.del('supplier_payments', sp.id));
-  showToast('success', `🧹 تم حذف ${orphaned.length} دفعة يتيمة بإجمالي ${totalOrphaned.toLocaleString()} ج`);
+  // ✅ FIX (نفس مشكلة delPat): forEach كانت بتطلق كل طلبات الحذف من غير
+  // انتظار، فتوست النجاح كان بيظهر قبل ما يتأكد وصولها لـ Firestore. لو
+  // المستخدم قفل التاب فور ظهور التوست، بعض الدفعات ممكن ترجع تاني.
+  const _delPromises = orphaned.map(sp => DB.del('supplier_payments', sp.id));
+  showToast('info', '⏳ جارٍ الحذف...');
+  await Promise.all(_delPromises).then(()=>{
+    showToast('success', `🧹 تم حذف ${orphaned.length} دفعة يتيمة بإجمالي ${totalOrphaned.toLocaleString()} ج — آمن تقفل الصفحة دلوقتي`);
+  }).catch(err=>{
+    console.error('[cleanOrphanedSupplierPayments] فشل حذف بعض السجلات:', err);
+    showToast('error', '⚠️ فيه سجلات محتمل ماتحذفتش', 'افتح الصفحة وحاول تاني قبل ما تقفل المتصفح');
+  });
   if(typeof renderSuppliers === 'function') renderSuppliers();
 }
 
