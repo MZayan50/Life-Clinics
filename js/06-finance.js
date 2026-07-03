@@ -362,8 +362,17 @@ function renderAccounts(){
 
   document.getElementById('acc-period-lbl').textContent=new Date().toLocaleDateString('ar-EG',{month:'long',year:'numeric'});
 
-  // P&L
-  // deduplication للـ cashlog قبل أي حسابات
+  // ══════════════════════════════════════════
+  // ✅ المرحلة 5 من دليل تطوير الطبقة المحاسبية: P&L / Balance Sheet بقوا
+  // بيتحسبوا من journal_entries (عبر calcTrialBalance) بدل cashlog مباشرة —
+  // بعد التأكد إن كل حركة مالية حقيقية (فواتير، باقات، أقساط، جلسات، بيع
+  // منتجات، مشتريات، موردين) بقالها قيد محاسبي مقابل (راجع 14-accounting-hooks.js
+  // و15-accounting-backfill.js). لسه محتفظين بـ cashlog لجدول Cash Flow الشهري
+  // تحت بس (الدليل مش بيطلب نقله)، ولتفصيل الإيراد/المصروف حسب النوع (breakdown).
+  // ══════════════════════════════════════════
+  const tb = typeof calcTrialBalance==='function' ? calcTrialBalance(null) : null;
+
+  // deduplication للـ cashlog قبل أي حسابات (لسه مستخدمة في الـ breakdown وCash Flow تحت)
   const _rawCashlog=DB.get('cashlog')||[];
   const _seenRefsT=new Map();
   _rawCashlog.forEach(c=>{
@@ -375,15 +384,22 @@ function renderAccounts(){
     }
   });
   const cashlog=[..._seenRefsT.values()];
-  // مصدر الإيراد: cashlog:وارد فقط (موحَّد مع الداشبورد والخزينة)
-  const totalRevenue=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
-  // ✅ المصروفات الفعلية = cashlog:صادر (يُحذف منه عند حذف المصروف تلقائياً)
-  // expenses لا تزال تُستخدم لتفاصيل التصنيف فقط (Expense breakdown)
-  const totalExpense=cashlog.filter(c=>c.type==='صادر').reduce((s,c)=>s+(c.amount||0),0);
+
+  // P&L — من ميزان المراجعة (تجميع كل حسابات الإيراد/المصروف)
+  let totalRevenue, totalExpense;
+  if(tb && tb.rows.length){
+    totalRevenue = tb.rows.filter(r=>r.type==='revenue').reduce((s,r)=>s+r.balance,0);
+    totalExpense = tb.rows.filter(r=>r.type==='expense').reduce((s,r)=>s+r.balance,0);
+  } else {
+    // ⚠️ Fallback: لسه مفيش قيود محاسبية مرحّلة (قبل seedChartOfAccounts/تشغيل
+    // الترحيل التاريخي) — نرجع للحساب القديم من cashlog عشان الشاشة متفضلش فاضية
+    totalRevenue=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
+    totalExpense=cashlog.filter(c=>c.type==='صادر').reduce((s,c)=>s+(c.amount||0),0);
+  }
   const netProfit=totalRevenue-totalExpense;
   const margin=totalRevenue?Math.round(netProfit/totalRevenue*100):0;
 
-  // Revenue breakdown — من cashlog:وارد مجمَّع بالخدمة
+  // Revenue breakdown — من cashlog:وارد مجمَّع بالخدمة (تفصيل عرضي فقط، مش من الميزان)
   const revByService={};
   cashlog.filter(c=>c.type==='وارد').forEach(c=>{
     const k=c.service||c.source||'إيراد';
@@ -404,42 +420,38 @@ function renderAccounts(){
   if(npEl){npEl.textContent=(netProfit>=0?'+':'')+netProfit.toLocaleString()+' ج';npEl.style.color=netProfit>=0?'var(--emerald)':'var(--rose)';}
   txt('acc-margin',margin+'%');
 
-  // Balance Sheet
-  // ✅ FIX: قيمة المخزون الآن بسعر التكلفة عبر الدالة الموحَّدة (كانت بسعر البيع سابقاً)
-  const invValue=typeof calcInventoryCostValue==='function' ? calcInventoryCostValue()
-    : DB.get('inventory').reduce((s,i)=>s+(i.qty*(i.costPerConsumeUnit||i.costPrice||i.lastPurchasePrice||0)),0);
-  // ✅ FIX (ذمم مدينة لا تتحدث بعد التحصيل): كان هذا يجمع remaining من جدول
-  // installments فقط، فيتجاهل تمامًا ديون الفواتير العادية غير المرتبطة بخطة
-  // أقساط (invoices.remaining) — وهي غالب حالات "المديونية" على العميل. أي
-  // تحصيل لدين من فاتورة عادية كان بلا أثر على هذا الرقم لأنه أصلًا لم يكن
-  // محسوبًا فيه. الآن نستخدم patients.balance، المصدر الموحَّد الذي يحدّثه
-  // _recalcPatFinancials فورًا مع كل تغيير في الفواتير/الباقات/الأقساط
-  // (فواتير + باقات + أقساط مستقلة − دفعات مقدمة)، بنفس منطق شاشة العميل.
-  const receivables=(DB.get('patients')||[]).reduce((s,p)=>s+Math.max(0,p.balance||0),0);
-  // ✅ FIX (مراجعة الموردين/المالية): كان هذا يجمع حقل suppliers.owed المخزَّن،
-  // وهو لا يتحدث تلقائياً عند حذف/تعديل طلب شراء أو عند كتابة قيمة يدوية في
-  // نموذج المورد، فيختلف عن الرقم الصحيح الظاهر في شاشة الموردين نفسها.
-  // الآن نستخدم نفس الدالة الموحَّدة (calcAllSuppliersOwed) في كل مكان.
-  const suppliersOwed = typeof calcAllSuppliersOwed === 'function'
-    ? calcAllSuppliersOwed()
-    : (DB.get('suppliers')||[]).reduce((s,x)=>s+(x.owed||0),0);
-  // الكاش = وارد ناقص صادر من cashlog (المصدر الوحيد الصحيح بعد الحذف)
-  const cashBalance=Math.max(0,totalRevenue-totalExpense);
+  // Balance Sheet — من ميزان المراجعة مباشرة (1110+1120 كاش، 1130 ذمم، 1140 مخزون، 2100 موردين)
+  const balOf = code => tb ? (tb.rows.find(r=>r.code===code)?.balance||0) : 0;
+  let cashBalance, receivables, invValue, suppliersOwed;
+  if(tb && tb.rows.length){
+    cashBalance   = balOf('1110') + balOf('1120');
+    receivables   = balOf('1130');
+    invValue      = balOf('1140');
+    suppliersOwed = balOf('2100');
+  } else {
+    // ⚠️ نفس الـ Fallback بالأعلى — قبل وجود قيود مرحّلة
+    invValue=typeof calcInventoryCostValue==='function' ? calcInventoryCostValue()
+      : DB.get('inventory').reduce((s,i)=>s+(i.qty*(i.costPerConsumeUnit||i.costPrice||i.lastPurchasePrice||0)),0);
+    receivables=(DB.get('patients')||[]).reduce((s,p)=>s+Math.max(0,p.balance||0),0);
+    suppliersOwed = typeof calcAllSuppliersOwed === 'function'
+      ? calcAllSuppliersOwed()
+      : (DB.get('suppliers')||[]).reduce((s,x)=>s+(x.owed||0),0);
+    cashBalance=Math.max(0,totalRevenue-totalExpense);
+  }
   txt('bs-cash',cashBalance.toLocaleString()+' ج');
   txt('bs-inventory',invValue.toLocaleString()+' ج');
   txt('bs-receivables',receivables.toLocaleString()+' ج');
   txt('bs-total-assets',(cashBalance+invValue+receivables).toLocaleString()+' ج');
   txt('bs-suppliers',suppliersOwed.toLocaleString()+' ج');
-  // bs-salaries = رواتب مصروفة فعلاً من cashlog:صادر مصدره "رواتب" — رقم عرضي فقط
-  const paidSalaries=cashlog.filter(c=>c.type==='صادر'&&(c.notes||'').includes('راتب')).reduce((s,c)=>s+(c.amount||0),0);
+  // bs-salaries = رواتب مصروفة فعلاً (حساب 5300) — رقم عرضي فقط
+  const paidSalaries = tb ? balOf('5300') : cashlog.filter(c=>c.type==='صادر'&&(c.notes||'').includes('راتب')).reduce((s,c)=>s+(c.amount||0),0);
   txt('bs-salaries',paidSalaries.toLocaleString()+' ج');
-  // ✅ FIX: الرواتب المدفوعة فعلياً جزء من cashlog:صادر، وبالتالي مخصومة بالفعل
-  // ضمن totalExpense عند حساب cashBalance أعلاه. طرح paidSalaries مرة أخرى هنا
-  // كان يخصم الرواتب مرتين من حقوق الملكية. المعادلة الصحيحة: الأصول - التزامات الموردين فقط.
+  // ✅ الرواتب المدفوعة فعلياً جزء من إجمالي المصروفات بالفعل — طرحها هنا تاني
+  // كان يخصمها مرتين من حقوق الملكية. المعادلة الصحيحة: الأصول - التزامات الموردين فقط.
   txt('bs-equity',(cashBalance+invValue+receivables-suppliersOwed).toLocaleString()+' ج');
 
 
-  // Cash flow table — الصادر من cashlog:صادر بالشهر
+  // Cash flow table — لسه من cashlog:صادر/وارد بالشهر (الدليل ما بيطلبش نقلها في المرحلة 5)
   const cfTb=document.getElementById('cf-tbody');if(!cfTb)return;
   const MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
   const year=new Date().getFullYear();

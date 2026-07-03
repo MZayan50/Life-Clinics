@@ -3,13 +3,13 @@
 // خطوة تمهيدية قبل المرحلة 5 من دليل تطوير الطبقة المحاسبية
 // ⚠️ سكريبت مرة واحدة تحت إشراف المستخدم — بيشتغل فقط لما تضغط الزرار يدويًا،
 //    مفيش أي تشغيل تلقائي أو عند تحميل الصفحة.
-// بيغطي بالظبط نفس نطاق المرحلة 3 (لا أكتر ولا أقل) عشان أرقام الماضي تتطابق
-// مع اللي هيتسجل تلقائيًا من دلوقتي فصاعدًا:
+// النطاق (بعد إغلاق فجوة التغطية الإضافية في 14-accounting-hooks.js):
 //   ✅ إيراد الفواتير (عادية + باقات + من الشاشة الطبية)
 //   ✅ المصروفات
-//   ✅ تحصيل دفعات الفواتير
+//   ✅ تحصيل دفعات الفواتير والباقات
 //   ✅ استلام المشتريات (status = مستلم فقط)
-//   ✅ سداد الموردين
+//   ✅ سداد الموردين + تصحيحات الدفعات
+//   ✅ إيراد الجلسات المباشرة، بيع المنتجات المباشر، تحصيل الأقساط، تسوية الباقات
 // آمن للتشغيل أكتر من مرة: أي سجل اتغطى بقيد قبل كده (سواء من الـ Hook الحي
 // أو من تشغيل سابق لنفس السكريبت) بيتخطّى تلقائيًا، فمفيش تكرار في القيود.
 // يتحمّل بعد 14-accounting-hooks.js (بيعيد استخدام _revenueAccountFor
@@ -18,7 +18,7 @@
 
 async function runAccountingBackfill(){
   if(!confirm(
-    'هيتم إنشاء قيود محاسبية بأثر رجعي لكل الفواتير/المصروفات/المشتريات المستلمة/سداد الموردين اللي لسه مالهاش قيد.\n\n' +
+    'هيتم إنشاء قيود محاسبية بأثر رجعي لكل الفواتير/المصروفات/المشتريات المستلمة/سداد الموردين/الجلسات/بيع المنتجات/الأقساط/تسوية الباقات اللي لسه مالهاش قيد.\n\n' +
     'العملية آمنة وتقدر تشغّلها أكتر من مرة براحتك — أي سجل اتغطى قبل كده (تلقائيًا أو من تشغيل سابق) هيتخطّى ومش هيتكرر.\n\n' +
     'تكمل؟'
   )) return;
@@ -138,6 +138,160 @@ async function runAccountingBackfill(){
           {accountCode:'2100', debit:sp.amount||0, credit:0, description:'سداد ذمم مورد'},
           {accountCode:'1110', debit:0, credit:sp.amount||0, description:'من الخزينة'}
         ]
+      });
+    }});
+  });
+
+  // ══════════════════════════════════════════
+  // 🔗 توسعة الترحيل — نفس النطاق الإضافي اللي اتغطى بـ hooks حية جديدة في
+  // 14-accounting-hooks.js (راجع تعليق "إغلاق فجوة تغطية إضافية" هناك).
+  // بنستخدم نفس أسلوب dedup بالتاريخ+المبلغ المستخدم في القسم 3 فوق (مش
+  // sourceId لوحده) لأن مصادر زي القسط/الجلسة ممكن تتكرر لنفس sourceId
+  // (أكتر من دفعة/جلسة لنفس الخطة).
+  // ══════════════════════════════════════════
+  const coveredByAmount = (sourceType, sourceId, date, amount, cashCode) =>
+    journal.some(e =>
+      e.sourceType === sourceType &&
+      String(e.sourceId) === String(sourceId) &&
+      e.date === date &&
+      (e.lines||[]).some(l => l.accountCode===cashCode && Math.abs((l.debit||0) - amount) < 0.01)
+    );
+
+  // ── 6. تحصيل دفعات الباقات (دفعة باقة — / باقة —) ──
+  (DB.get('cashlog')||[]).forEach(c=>{
+    if(c.type !== 'وارد') return;
+    const src = c.source||'';
+    if(!(src.startsWith('دفعة باقة —') || src.startsWith('باقة —'))) return;
+    const amount = c.amount || 0;
+    if(amount <= 0) return;
+    const cashCode = (c.method==='فيزا') ? '1120' : '1110';
+    if(coveredByAmount('payment', c.refId, c.date, amount, cashCode)) return;
+
+    tasks.push({date: c.date || '0000-00-00', run: async ()=>{
+      return postJournalEntry({
+        date: c.date || new Date().toISOString().split('T')[0],
+        description: `[ترحيل] تحصيل على باقة: ${c.notes||c.source}`,
+        sourceType: 'payment', sourceId: c.refId || null,
+        lines: [
+          {accountCode:cashCode, debit:amount, credit:0, description:'تحصيل نقدي — باقة'},
+          {accountCode:'1130', debit:0, credit:amount, description:'من ذمم العميل — باقة'}
+        ]
+      });
+    }});
+  });
+
+  // ── 7. إيراد جلسة مباشرة ──
+  (DB.get('cashlog')||[]).forEach(c=>{
+    if(c.type !== 'وارد' || !(c.source||'').startsWith('جلسة —')) return;
+    const amount = c.amount || 0;
+    if(amount <= 0) return;
+    const cashCode = (c.method==='فيزا') ? '1120' : '1110';
+    const sid = c.sessionPlanId || c.refId || null;
+    if(coveredByAmount('session', sid, c.date, amount, cashCode)) return;
+
+    tasks.push({date: c.date || '0000-00-00', run: async ()=>{
+      return postJournalEntry({
+        date: c.date || new Date().toISOString().split('T')[0],
+        description: `[ترحيل] إيراد جلسة: ${c.notes||c.source}`,
+        sourceType: 'session', sourceId: sid,
+        lines: [
+          {accountCode:cashCode, debit:amount, credit:0, description:'تحصيل نقدي — جلسة'},
+          {accountCode:'4100', debit:0, credit:amount, description:'إيراد خدمات — جلسة'}
+        ]
+      });
+    }});
+  });
+
+  // ── 8. بيع منتج مباشر ──
+  (DB.get('cashlog')||[]).forEach(c=>{
+    if(c.type !== 'وارد' || !(c.source||'').startsWith('بيع منتج —')) return;
+    const amount = c.amount || 0;
+    if(amount <= 0) return;
+    const cashCode = (c.method==='فيزا') ? '1120' : '1110';
+    if(coveredByAmount('product_sale', c.refId, c.date, amount, cashCode)) return;
+
+    tasks.push({date: c.date || '0000-00-00', run: async ()=>{
+      return postJournalEntry({
+        date: c.date || new Date().toISOString().split('T')[0],
+        description: `[ترحيل] إيراد بيع منتج: ${c.notes||c.source}`,
+        sourceType: 'product_sale', sourceId: c.refId || null,
+        lines: [
+          {accountCode:cashCode, debit:amount, credit:0, description:'تحصيل نقدي — بيع منتج'},
+          {accountCode:'4200', debit:0, credit:amount, description:'إيراد بيع منتجات'}
+        ]
+      });
+    }});
+  });
+
+  // ── 9. تحصيل أقساط ──
+  (DB.get('cashlog')||[]).forEach(c=>{
+    if(c.type !== 'وارد' || !(c.source||'').startsWith('دفعة قسط #')) return;
+    const amount = c.amount || 0;
+    if(amount <= 0) return;
+    const cashCode = (c.method==='فيزا') ? '1120' : '1110';
+    if(coveredByAmount('installment', c.refId, c.date, amount, cashCode)) return;
+
+    const plan = (DB.get('installments')||[]).find(p=>p.id===c.refId);
+    const isLinkedToInvoiceOrPkg = !!(plan && (plan.fromInvId || plan.fromPkgId));
+    const creditAccount = isLinkedToInvoiceOrPkg ? '1130' : '4100';
+    const creditDesc    = isLinkedToInvoiceOrPkg ? 'من ذمم العميل — قسط' : 'إيراد قسط مستقل';
+
+    tasks.push({date: c.date || '0000-00-00', run: async ()=>{
+      return postJournalEntry({
+        date: c.date || new Date().toISOString().split('T')[0],
+        description: `[ترحيل] تحصيل قسط: ${c.notes||c.source}`,
+        sourceType: 'installment', sourceId: c.refId || null,
+        lines: [
+          {accountCode:cashCode, debit:amount, credit:0, description:'تحصيل نقدي — قسط'},
+          {accountCode:creditAccount, debit:0, credit:amount, description:creditDesc}
+        ]
+      });
+    }});
+  });
+
+  // ── 10. تسوية باقة كاملة ──
+  (DB.get('cashlog')||[]).forEach(c=>{
+    if(c.type !== 'وارد' || !(c.source||'').startsWith('تسوية باقة —')) return;
+    const amount = c.amount || 0;
+    if(amount <= 0) return;
+    const cashCode = (c.method==='فيزا') ? '1120' : '1110';
+    if(coveredByAmount('package_settlement', c.refId, c.date, amount, cashCode)) return;
+
+    tasks.push({date: c.date || '0000-00-00', run: async ()=>{
+      return postJournalEntry({
+        date: c.date || new Date().toISOString().split('T')[0],
+        description: `[ترحيل] تسوية باقة: ${c.notes||c.source}`,
+        sourceType: 'package_settlement', sourceId: c.refId || null,
+        lines: [
+          {accountCode:cashCode, debit:amount, credit:0, description:'تحصيل نقدي — تسوية باقة'},
+          {accountCode:'1130', debit:0, credit:amount, description:'من ذمم العميل — تسوية باقة'}
+        ]
+      });
+    }});
+  });
+
+  // ── 11. تصحيحات دفعات الموردين ──
+  (DB.get('cashlog')||[]).forEach(c=>{
+    if(!(c.source||'').startsWith('تصحيح دفعة مورد —')) return;
+    const amount = c.amount || 0;
+    if(amount <= 0) return;
+    if(coveredByAmount('supplier_payment_correction', c.refId, c.date, amount, c.type==='صادر'?'1110':'2100')) return;
+
+    const isIncrease = c.type === 'صادر';
+    tasks.push({date: c.date || '0000-00-00', run: async ()=>{
+      return postJournalEntry({
+        date: c.date || new Date().toISOString().split('T')[0],
+        description: `[ترحيل] تصحيح سداد مورد: ${c.notes||c.source}`,
+        sourceType: 'supplier_payment_correction', sourceId: c.refId || null,
+        lines: isIncrease
+          ? [
+              {accountCode:'2100', debit:amount, credit:0, description:'سداد إضافي — تصحيح'},
+              {accountCode:'1110', debit:0, credit:amount, description:'من الخزينة'}
+            ]
+          : [
+              {accountCode:'1110', debit:amount, credit:0, description:'استرجاع للخزينة — تصحيح'},
+              {accountCode:'2100', debit:0, credit:amount, description:'رجوع لذمم مورد'}
+            ]
       });
     }});
   });

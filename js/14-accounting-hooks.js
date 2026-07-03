@@ -161,3 +161,142 @@ EventBus.on('supplier_payments:created', async (sp)=>{
     ]
   });
 });
+
+// ══════════════════════════════════════════
+// 🔗 إغلاق فجوة تغطية إضافية — ما بعد المراجعة الشاملة قبل المرحلة 5
+// ✅ راجعنا كل نقطة تكتب مباشرة في cashlog في المشروع (18 موقع) قبل نقل
+// renderAccounts() لمصدر journal_entries. الرواتب/السلف (09-hr.js) اتضح إنها
+// مغطاة بالفعل لأنها بتعدي على expenses:created (hook #2 فوق). لكن لقينا 5
+// حركات مالية حقيقية بتتسجل في cashlog من غير أي قيد محاسبي مقابل — لو نقلنا
+// P&L/Balance Sheet لـ journal_entries من غير تغطيتها، الإيراد/المصروف هيظهر
+// أقل من الحقيقي. الحركات دي:
+//   ✅ إيراد جلسة مباشرة (غير مرتبطة بباقة) — source: "جلسة — X"
+//   ✅ بيع منتج مباشر (خارج الفواتير) — source: "بيع منتج — X"
+//   ✅ تحصيل قسط — source: "دفعة قسط #N — X"
+//   ✅ تسوية باقة كاملة — source: "تسوية باقة — X"
+//   ✅ تصحيح دفعة مورد — source: "تصحيح دفعة مورد — X"
+// ملاحظة: أي مصدر cashlog يبدأ بـ "إلغاء (حذف" (قيود عكسية من delPat/delAppt
+// عند حذف عميل/موعد) بيتجاهله كل الفلاتر دي عمدًا (مفيش startsWith بيطابقها)
+// عشان منعملش قيد جديد لحدث هو أصلًا عكس لحدث تاني — التغطية الصحيحة لحذف
+// الفاتورة نفسها موجودة تحت في hook "عكس قيد الفاتورة عند حذفها".
+// ══════════════════════════════════════════
+
+// ── 6. إيراد جلسة مباشرة (لما تكتمل جلسة مش مرتبطة بباقة نشطة) ──
+EventBus.on('cashlog:created', async (c)=>{
+  if(c.type==='وارد' && (c.source||'').startsWith('جلسة —')){
+    const cashAccount = (c.method==='فيزا') ? '1120' : '1110';
+    await postJournalEntry({
+      date: c.date || new Date().toISOString().split('T')[0],
+      description: `إيراد جلسة: ${c.notes||c.source}`,
+      sourceType: 'session',
+      sourceId: c.sessionPlanId || c.refId || null,
+      lines: [
+        {accountCode:cashAccount, debit:c.amount||0, credit:0, description:'تحصيل نقدي — جلسة'},
+        {accountCode:'4100', debit:0, credit:c.amount||0, description:'إيراد خدمات — جلسة'}
+      ]
+    });
+  }
+});
+
+// ── 7. بيع منتج مباشر (شاشة المخزون — بيع مستقل عن الفواتير) ──
+EventBus.on('cashlog:created', async (c)=>{
+  if(c.type==='وارد' && (c.source||'').startsWith('بيع منتج —')){
+    const cashAccount = (c.method==='فيزا') ? '1120' : '1110';
+    await postJournalEntry({
+      date: c.date || new Date().toISOString().split('T')[0],
+      description: `إيراد بيع منتج: ${c.notes||c.source}`,
+      sourceType: 'product_sale',
+      sourceId: c.refId || null,
+      lines: [
+        {accountCode:cashAccount, debit:c.amount||0, credit:0, description:'تحصيل نقدي — بيع منتج'},
+        {accountCode:'4200', debit:0, credit:c.amount||0, description:'إيراد بيع منتجات'}
+      ]
+    });
+  }
+});
+
+// ── 8. تحصيل قسط ──
+// ✅ الأقساط نوعين: (أ) مرتبطة بفاتورة/باقة أصلية (fromInvId/fromPkgId) — الذمم
+// اتسجلت بالفعل في 1130 وقت إنشاء الفاتورة/الباقة، فالتحصيل هنا لازم يقفل نفس
+// الحساب (دائن 1130). (ب) خطة قسط مستقلة تمامًا (بدون فاتورة، من saveInstallment
+// في 06-finance.js) — الذمم دي لم تُسجَّل في 1130 من الأساس، فالتحصيل هنا هو
+// أول ظهور للإيراد فعليًا، فلازم يُقفَل على حساب الإيراد (4100) مباشرة بدل 1130
+// (وإلا هيدخل 1130 في رصيد سالب وهمي).
+EventBus.on('cashlog:created', async (c)=>{
+  if(c.type==='وارد' && (c.source||'').startsWith('دفعة قسط #')){
+    const plan = (DB.get('installments')||[]).find(p=>p.id===c.refId);
+    const isLinkedToInvoiceOrPkg = !!(plan && (plan.fromInvId || plan.fromPkgId));
+    const cashAccount   = (c.method==='فيزا') ? '1120' : '1110';
+    const creditAccount = isLinkedToInvoiceOrPkg ? '1130' : '4100';
+    const creditDesc    = isLinkedToInvoiceOrPkg ? 'من ذمم العميل — قسط' : 'إيراد قسط مستقل';
+    await postJournalEntry({
+      date: c.date || new Date().toISOString().split('T')[0],
+      description: `تحصيل قسط: ${c.notes||c.source}`,
+      sourceType: 'installment',
+      sourceId: c.refId || null,
+      lines: [
+        {accountCode:cashAccount, debit:c.amount||0, credit:0, description:'تحصيل نقدي — قسط'},
+        {accountCode:creditAccount, debit:0, credit:c.amount||0, description:creditDesc}
+      ]
+    });
+  }
+});
+
+// ── 9. تسوية باقة كاملة (سداد كل المتبقي دفعة واحدة من ملف العميل) ──
+EventBus.on('cashlog:created', async (c)=>{
+  if(c.type==='وارد' && (c.source||'').startsWith('تسوية باقة —')){
+    const cashAccount = (c.method==='فيزا') ? '1120' : '1110';
+    await postJournalEntry({
+      date: c.date || new Date().toISOString().split('T')[0],
+      description: `تسوية باقة: ${c.notes||c.source}`,
+      sourceType: 'package_settlement',
+      sourceId: c.refId || null,
+      lines: [
+        {accountCode:cashAccount, debit:c.amount||0, credit:0, description:'تحصيل نقدي — تسوية باقة'},
+        {accountCode:'1130', debit:0, credit:c.amount||0, description:'من ذمم العميل — تسوية باقة'}
+      ]
+    });
+  }
+});
+
+// ── 10. تصحيح دفعة مورد (تعديل مبلغ دفعة سابقة من شاشة الموردين) ──
+EventBus.on('cashlog:created', async (c)=>{
+  if((c.source||'').startsWith('تصحيح دفعة مورد —')){
+    // زيادة المبلغ (صادر إضافي) = سداد إضافي فعلي لذمم المورد
+    // تقليل المبلغ (وارد استرجاع) = رجوع جزء من الذمم اللي كانت اتقفلت غلط
+    const isIncrease = c.type==='صادر';
+    await postJournalEntry({
+      date: c.date || new Date().toISOString().split('T')[0],
+      description: `تصحيح سداد مورد: ${c.notes||c.source}`,
+      sourceType: 'supplier_payment_correction',
+      sourceId: c.refId || null,
+      lines: isIncrease
+        ? [
+            {accountCode:'2100', debit:c.amount||0, credit:0, description:'سداد إضافي — تصحيح'},
+            {accountCode:'1110', debit:0, credit:c.amount||0, description:'من الخزينة'}
+          ]
+        : [
+            {accountCode:'1110', debit:c.amount||0, credit:0, description:'استرجاع للخزينة — تصحيح'},
+            {accountCode:'2100', debit:0, credit:c.amount||0, description:'رجوع لذمم مورد'}
+          ]
+    });
+  }
+});
+
+// ── 11. عكس قيد الفاتورة عند حذفها (delPat / delAppt) ──
+// ✅ الحذف الحالي في 00-core.js (invoices:deleted) بيمسح سجلات cashlog محليًا
+// من غير قيد عكسي، فلو سبنا قيد الإيراد الأصلي زي ما هو، هيفضل ظاهر في ميزان
+// المراجعة كإيراد حقيقي رغم إن الفاتورة اتحذفت فعليًا. بنستخدم reverseJournalEntry
+// (المبنية بالفعل في المرحلة 2/9) بدل حذف القيد — نفس مبدأ "عكس مش حذف" المتبع
+// في كل مكان تاني بالنظام (cashlog, إلخ).
+// ⚠️ نطاق معروف متبقي (مش مغطى هنا): حذف مستقل لخطة قسط/باقة/جلسة (packages:deleted,
+// installments:deleted, sessions:deleted) بدون حذف فاتورة — نادر عمليًا لأنه بيحصل
+// فقط من خلال delPat (حذف العميل بالكامل)، ووقتها بيتحذف كل حاجة مع بعض فمفيش
+// تناقض ظاهر في التقارير. يتغطى في مرحلة لاحقة لو ظهرت حاجة فعلية.
+EventBus.on('invoices:deleted', async (e)=>{
+  const invId = e?.id;
+  if(!invId) return;
+  const entry = (DB.get('journal_entries')||[])
+    .find(je => je.sourceType==='invoice' && String(je.sourceId)===String(invId) && je.status==='posted');
+  if(entry) await reverseJournalEntry(entry.id, 'حذف الفاتورة المرتبطة');
+});
