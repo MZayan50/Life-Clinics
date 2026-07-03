@@ -41,6 +41,7 @@ function stab(el,gid,tid){
   if(tid==='se-data' && typeof renderChartOfAccounts==='function'){
     setTimeout(renderChartOfAccounts, 50);
     setTimeout(renderJournalEntries, 50);
+    setTimeout(renderVouchers, 50);
   }
   if(tid==='acc-tb' && typeof renderTrialBalance==='function'){
     setTimeout(renderTrialBalance, 50);

@@ -1,8 +1,11 @@
 // ══════════════════════════════════════════
 // 🔗 AUTO-POSTING HOOKS — الربط التلقائي بين النظام الحالي ومحرك القيود
-// المرحلة 3 من دليل تطوير الطبقة المحاسبية
+// المرحلة 3 من دليل تطوير الطبقة المحاسبية + المرحلة 6 (سندات القبض/الصرف)
 // يتحمّل بعد 13-accounting.js
 // ⚠️ إضافة صرفة — بيستمع لأحداث EventBus الموجودة، ولا يعدّل أي دالة قائمة
+// ✅ المرحلة 6: كل hook فيه كاش فعلي داخل/خارج بيولّد سند (createVoucher) مباشرة
+// بعد نجاح postJournalEntry، بنفس رقم القيد (linkedEntryId). الحركات اللي مالهاش
+// كاش فعلي (زي استلام مشتريات آجل، أو عكس قيد فاتورة محذوفة) مالهاش سند عمدًا.
 // ══════════════════════════════════════════
 //
 // 📋 نطاق هذه المرحلة (بعد مراجعة الكود الفعلي، مش الافتراض النظري بس):
@@ -45,13 +48,21 @@ EventBus.on('invoices:created', async (inv)=>{
   if(total <= 0) return; // فاتورة صفرية — لا داعي لقيد
   lines.push({accountCode:revAccount, debit:0, credit:total, description:'إيراد فاتورة'});
 
-  await postJournalEntry({
+  const entry = await postJournalEntry({
     date: inv.date || new Date().toISOString().split('T')[0],
     description: `فاتورة #${inv.id} — ${inv.patient||''}`,
     sourceType: 'invoice',
     sourceId: inv.id,
     lines
   });
+  // ── سند قبض للجزء المدفوع نقدًا وقت إنشاء الفاتورة (المرحلة 6) ──
+  if(entry && (inv.paid||0) > 0){
+    await createVoucher({
+      type: 'receipt', date: inv.date, amount: inv.paid,
+      linkedInvoiceId: inv.id, linkedEntryId: entry.id,
+      paidTo_or_receivedFrom: inv.patient||'', method: inv.method||'كاش'
+    });
+  }
 });
 
 // ── 2. مصروف جديد → قيد مصروف (حساب المصروف مقابل الخزينة) ──
@@ -61,7 +72,7 @@ const EXPENSE_ACCOUNT_MAP = {
 };
 EventBus.on('expenses:created', async (exp)=>{
   const account = EXPENSE_ACCOUNT_MAP[exp.type] || '5900';
-  await postJournalEntry({
+  const entry = await postJournalEntry({
     date: exp.date || new Date().toISOString().split('T')[0],
     description: `مصروف: ${exp.name}`,
     sourceType: 'expense',
@@ -71,6 +82,13 @@ EventBus.on('expenses:created', async (exp)=>{
       {accountCode:'1110',  debit:0, credit:exp.amount||0, description:'من الخزينة'}
     ]
   });
+  // ── سند صرف (المرحلة 6) ──
+  if(entry){
+    await createVoucher({
+      type: 'payment', date: exp.date, amount: exp.amount||0,
+      linkedEntryId: entry.id, paidTo_or_receivedFrom: exp.name||'', method: 'كاش'
+    });
+  }
 });
 
 // ── 3. تحصيل دفعة على فاتورة (سواء من شاشة الفواتير أو تعديل الفاتورة) ──
@@ -82,7 +100,7 @@ EventBus.on('expenses:created', async (exp)=>{
 EventBus.on('cashlog:created', async (c)=>{
   if(c.type==='وارد' && (c.source||'').startsWith('دفعة فاتورة —')){
     const cashAccount = (c.method==='فيزا') ? '1120' : '1110';
-    await postJournalEntry({
+    const entry = await postJournalEntry({
       date: c.date || new Date().toISOString().split('T')[0],
       description: `تحصيل: ${c.notes||c.source}`,
       sourceType: 'payment',
@@ -92,6 +110,14 @@ EventBus.on('cashlog:created', async (c)=>{
         {accountCode:'1130', debit:0, credit:c.amount||0, description:'من ذمم العميل'}
       ]
     });
+    // ── سند قبض (المرحلة 6) ──
+    if(entry){
+      await createVoucher({
+        type: 'receipt', date: c.date, amount: c.amount||0,
+        linkedInvoiceId: c.refId, linkedEntryId: entry.id,
+        paidTo_or_receivedFrom: c.patient||'', method: c.method||'كاش'
+      });
+    }
   }
 });
 
@@ -109,7 +135,7 @@ EventBus.on('cashlog:created', async (c)=>{
   const isPkgPayment = src.startsWith('دفعة باقة —') || src.startsWith('باقة —');
   if(!isPkgPayment) return;
   const cashAccount = (c.method==='فيزا') ? '1120' : '1110';
-  await postJournalEntry({
+  const entry = await postJournalEntry({
     date: c.date || new Date().toISOString().split('T')[0],
     description: `تحصيل على باقة: ${c.notes||c.source}`,
     sourceType: 'payment',
@@ -119,6 +145,14 @@ EventBus.on('cashlog:created', async (c)=>{
       {accountCode:'1130', debit:0, credit:c.amount||0, description:'من ذمم العميل — باقة'}
     ]
   });
+  // ── سند قبض (المرحلة 6) ──
+  if(entry){
+    await createVoucher({
+      type: 'receipt', date: c.date, amount: c.amount||0,
+      linkedInvoiceId: c.refId || null, linkedEntryId: entry.id,
+      paidTo_or_receivedFrom: c.patient||'', method: c.method||'كاش'
+    });
+  }
 });
 
 // ── 4. استلام مشتريات من مورد (وقت الاستلام الفعلي — status='مستلم') ──
@@ -150,7 +184,7 @@ EventBus.on('purchases:updated', async (purchase)=>{
 
 // ── 5. سداد مورد → قيد سداد (ذمم موردين مقابل الخزينة) ──
 EventBus.on('supplier_payments:created', async (sp)=>{
-  await postJournalEntry({
+  const entry = await postJournalEntry({
     date: sp.date || new Date().toISOString().split('T')[0],
     description: `سداد مورد: ${sp.supplierName||''}`,
     sourceType: 'supplier_payment',
@@ -160,6 +194,13 @@ EventBus.on('supplier_payments:created', async (sp)=>{
       {accountCode:'1110', debit:0, credit:sp.amount||0, description:'من الخزينة'}
     ]
   });
+  // ── سند صرف (المرحلة 6) ──
+  if(entry){
+    await createVoucher({
+      type: 'payment', date: sp.date, amount: sp.amount||0,
+      linkedEntryId: entry.id, paidTo_or_receivedFrom: sp.supplierName||'', method: sp.method||'كاش'
+    });
+  }
 });
 
 // ══════════════════════════════════════════
@@ -185,7 +226,7 @@ EventBus.on('supplier_payments:created', async (sp)=>{
 EventBus.on('cashlog:created', async (c)=>{
   if(c.type==='وارد' && (c.source||'').startsWith('جلسة —')){
     const cashAccount = (c.method==='فيزا') ? '1120' : '1110';
-    await postJournalEntry({
+    const entry = await postJournalEntry({
       date: c.date || new Date().toISOString().split('T')[0],
       description: `إيراد جلسة: ${c.notes||c.source}`,
       sourceType: 'session',
@@ -195,6 +236,12 @@ EventBus.on('cashlog:created', async (c)=>{
         {accountCode:'4100', debit:0, credit:c.amount||0, description:'إيراد خدمات — جلسة'}
       ]
     });
+    if(entry){
+      await createVoucher({
+        type: 'receipt', date: c.date, amount: c.amount||0,
+        linkedEntryId: entry.id, paidTo_or_receivedFrom: c.patient||c.source||'', method: c.method||'كاش'
+      });
+    }
   }
 });
 
@@ -202,7 +249,7 @@ EventBus.on('cashlog:created', async (c)=>{
 EventBus.on('cashlog:created', async (c)=>{
   if(c.type==='وارد' && (c.source||'').startsWith('بيع منتج —')){
     const cashAccount = (c.method==='فيزا') ? '1120' : '1110';
-    await postJournalEntry({
+    const entry = await postJournalEntry({
       date: c.date || new Date().toISOString().split('T')[0],
       description: `إيراد بيع منتج: ${c.notes||c.source}`,
       sourceType: 'product_sale',
@@ -212,6 +259,12 @@ EventBus.on('cashlog:created', async (c)=>{
         {accountCode:'4200', debit:0, credit:c.amount||0, description:'إيراد بيع منتجات'}
       ]
     });
+    if(entry){
+      await createVoucher({
+        type: 'receipt', date: c.date, amount: c.amount||0,
+        linkedEntryId: entry.id, paidTo_or_receivedFrom: c.source||'بيع منتج', method: c.method||'كاش'
+      });
+    }
   }
 });
 
@@ -229,7 +282,7 @@ EventBus.on('cashlog:created', async (c)=>{
     const cashAccount   = (c.method==='فيزا') ? '1120' : '1110';
     const creditAccount = isLinkedToInvoiceOrPkg ? '1130' : '4100';
     const creditDesc    = isLinkedToInvoiceOrPkg ? 'من ذمم العميل — قسط' : 'إيراد قسط مستقل';
-    await postJournalEntry({
+    const entry = await postJournalEntry({
       date: c.date || new Date().toISOString().split('T')[0],
       description: `تحصيل قسط: ${c.notes||c.source}`,
       sourceType: 'installment',
@@ -239,6 +292,13 @@ EventBus.on('cashlog:created', async (c)=>{
         {accountCode:creditAccount, debit:0, credit:c.amount||0, description:creditDesc}
       ]
     });
+    if(entry){
+      await createVoucher({
+        type: 'receipt', date: c.date, amount: c.amount||0,
+        linkedInvoiceId: plan?.fromInvId || null, linkedEntryId: entry.id,
+        paidTo_or_receivedFrom: plan?.patientName||c.patient||'', method: c.method||'كاش'
+      });
+    }
   }
 });
 
@@ -246,7 +306,7 @@ EventBus.on('cashlog:created', async (c)=>{
 EventBus.on('cashlog:created', async (c)=>{
   if(c.type==='وارد' && (c.source||'').startsWith('تسوية باقة —')){
     const cashAccount = (c.method==='فيزا') ? '1120' : '1110';
-    await postJournalEntry({
+    const entry = await postJournalEntry({
       date: c.date || new Date().toISOString().split('T')[0],
       description: `تسوية باقة: ${c.notes||c.source}`,
       sourceType: 'package_settlement',
@@ -256,6 +316,12 @@ EventBus.on('cashlog:created', async (c)=>{
         {accountCode:'1130', debit:0, credit:c.amount||0, description:'من ذمم العميل — تسوية باقة'}
       ]
     });
+    if(entry){
+      await createVoucher({
+        type: 'receipt', date: c.date, amount: c.amount||0,
+        linkedEntryId: entry.id, paidTo_or_receivedFrom: c.patient||c.source||'', method: c.method||'كاش'
+      });
+    }
   }
 });
 
@@ -265,7 +331,7 @@ EventBus.on('cashlog:created', async (c)=>{
     // زيادة المبلغ (صادر إضافي) = سداد إضافي فعلي لذمم المورد
     // تقليل المبلغ (وارد استرجاع) = رجوع جزء من الذمم اللي كانت اتقفلت غلط
     const isIncrease = c.type==='صادر';
-    await postJournalEntry({
+    const entry = await postJournalEntry({
       date: c.date || new Date().toISOString().split('T')[0],
       description: `تصحيح سداد مورد: ${c.notes||c.source}`,
       sourceType: 'supplier_payment_correction',
@@ -280,6 +346,12 @@ EventBus.on('cashlog:created', async (c)=>{
             {accountCode:'2100', debit:0, credit:c.amount||0, description:'رجوع لذمم مورد'}
           ]
     });
+    if(entry){
+      await createVoucher({
+        type: isIncrease ? 'payment' : 'receipt', date: c.date, amount: c.amount||0,
+        linkedEntryId: entry.id, paidTo_or_receivedFrom: c.notes||c.source||'', method: c.method||'كاش'
+      });
+    }
   }
 });
 

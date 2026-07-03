@@ -241,7 +241,67 @@ EventBus.on('db:changed', (e)=>{
   }
 });
 
-// ── اختبار محرك القيود — يعمل قيد صحيح متوازن + يحاول قيد خاطئ غير متوازن للتأكد إنه بيترفض ──
+// ══════════════════════════════════════════
+// 🧾 VOUCHERS — سندات القبض والصرف
+// المرحلة 6 من دليل تطوير الطبقة المحاسبية
+// ⚠️ إضافة صرفة — بتتولد تلقائيًا من نفس الـ hooks اللي بتعمل postJournalEntry
+// في 14-accounting-hooks.js، لكل حركة فيها كاش فعلي داخل/خارج (مش كل قيد —
+// مثلاً استلام مشتريات آجل مفيهوش كاش فمالوش سند، لكن سداد مورد له سند صرف).
+// ══════════════════════════════════════════
+
+let _voucherCounters = { receipt: null, payment: null };
+
+async function _getNextVoucherNumber(type){ // type: 'receipt' | 'payment'
+  const prefix = type === 'receipt' ? 'RV' : 'PV';
+  if(_voucherCounters[type] === null){
+    const all = (DB.get('vouchers')||[]).filter(v=>v.type===type);
+    _voucherCounters[type] = all.length;
+  }
+  _voucherCounters[type]++;
+  return prefix + '-' + String(_voucherCounters[type]).padStart(6,'0');
+}
+
+// ── إنشاء سند قبض/صرف — يُستدعى مباشرة بعد postJournalEntry الناجح ──
+async function createVoucher({type, date, amount, linkedInvoiceId, linkedEntryId, paidTo_or_receivedFrom, method, notes}){
+  if(!amount || amount <= 0) return null;
+  const voucherNumber = await _getNextVoucherNumber(type);
+  return DB.push('vouchers', {
+    voucherNumber, type, date: date || new Date().toISOString().split('T')[0],
+    amount, linkedInvoiceId: linkedInvoiceId || null, linkedEntryId: linkedEntryId || null,
+    paidTo_or_receivedFrom: paidTo_or_receivedFrom || '', method: method || 'كاش',
+    notes: notes || ''
+  });
+}
+
+// ── عرض سندات القبض/الصرف في شاشة الإعدادات (تبويب جديد) ──
+function renderVouchers(){
+  const tb = document.getElementById('vch-tbody');
+  if(!tb) return;
+  const filterType = document.getElementById('vch-type-filter')?.value || '';
+  let vouchers = [...(DB.get('vouchers')||[])];
+  if(filterType) vouchers = vouchers.filter(v=>v.type===filterType);
+  vouchers.sort((a,b)=>(b.voucherNumber||'').localeCompare(a.voucherNumber||''));
+
+  tb.innerHTML = vouchers.map(v=>{
+    const typeTag = v.type==='receipt'
+      ? `<span class="tag tg-green">قبض</span>`
+      : `<span class="tag" style="background:rgba(244,63,94,.09);border-color:rgba(244,63,94,.24);color:var(--rose);">صرف</span>`;
+    return `<tr>
+      <td style="font-weight:700;font-family:monospace;font-size:12px">${v.voucherNumber}</td>
+      <td>${typeTag}</td>
+      <td style="font-size:12px">${v.date}</td>
+      <td style="font-size:13px;font-weight:600">${v.paidTo_or_receivedFrom||'—'}</td>
+      <td style="font-weight:700;color:${v.type==='receipt'?'var(--emerald)':'var(--rose)'}">${(v.amount||0).toLocaleString()} ج</td>
+      <td style="font-size:12px;color:var(--text-muted)">${v.method||''}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد سندات بعد</td></tr>`;
+}
+
+EventBus.on('db:changed', (e)=>{
+  if(e && e.collection==='vouchers' && typeof renderVouchers==='function') renderVouchers();
+});
+
+
 async function testJournalEntryEngine(){
   // 1) قيد صحيح ومتوازن — المفروض ينجح
   const goodEntry = await postJournalEntry({

@@ -10,15 +10,18 @@
 //   ✅ استلام المشتريات (status = مستلم فقط)
 //   ✅ سداد الموردين + تصحيحات الدفعات
 //   ✅ إيراد الجلسات المباشرة، بيع المنتجات المباشر، تحصيل الأقساط، تسوية الباقات
+//   ✅ سندات القبض/الصرف (المرحلة 6) — مرور عام على كل قيد فيه كاش فعلي بعد
+//      الترحيل، سواء اتولد دلوقتي أو من الـ hooks الحية قبل إضافة السندات
 // آمن للتشغيل أكتر من مرة: أي سجل اتغطى بقيد قبل كده (سواء من الـ Hook الحي
-// أو من تشغيل سابق لنفس السكريبت) بيتخطّى تلقائيًا، فمفيش تكرار في القيود.
+// أو من تشغيل سابق لنفس السكريبت) بيتخطّى تلقائيًا، فمفيش تكرار في القيود
+// ولا في السندات.
 // يتحمّل بعد 14-accounting-hooks.js (بيعيد استخدام _revenueAccountFor
 // و EXPENSE_ACCOUNT_MAP من نفس الملف بدل ما يكرر المنطق).
 // ══════════════════════════════════════════
 
 async function runAccountingBackfill(){
   if(!confirm(
-    'هيتم إنشاء قيود محاسبية بأثر رجعي لكل الفواتير/المصروفات/المشتريات المستلمة/سداد الموردين/الجلسات/بيع المنتجات/الأقساط/تسوية الباقات اللي لسه مالهاش قيد.\n\n' +
+    'هيتم إنشاء قيود محاسبية وسندات قبض/صرف بأثر رجعي لكل الفواتير/المصروفات/المشتريات المستلمة/سداد الموردين/الجلسات/بيع المنتجات/الأقساط/تسوية الباقات اللي لسه مالهاش قيد أو سند.\n\n' +
     'العملية آمنة وتقدر تشغّلها أكتر من مرة براحتك — أي سجل اتغطى قبل كده (تلقائيًا أو من تشغيل سابق) هيتخطّى ومش هيتكرر.\n\n' +
     'تكمل؟'
   )) return;
@@ -317,12 +320,43 @@ async function runAccountingBackfill(){
     }
   }
 
+  // ══════════════════════════════════════════
+  // 🧾 المرحلة 6 — سندات القبض/الصرف التاريخية
+  // ✅ بدل ما نربط السند بكل نوع تاسك على حدة (تكرار كبير)، بنعمل مرور عام واحد
+  // على *كل* journal_entries المرحّلة (سواء اتولدت دلوقتي أو من الـ hooks الحية
+  // قبل ما نضيف توليد السندات فيها) ونطلع سند لأي قيد فيه سطر كاش فعلي (1110/1120)
+  // مالوش سند مرتبط بيه لسه. القيود اللي مالهاش سطر كاش (زي استلام مشتريات آجل،
+  // أو عكس قيد فاتورة محذوفة) بتتخطى تلقائيًا لأنها مفيهاش حركة كاش حقيقية أصلًا.
+  // ══════════════════════════════════════════
+  let vouchered = 0;
+  const existingVoucherEntryIds = new Set((DB.get('vouchers')||[]).map(v=>String(v.linkedEntryId)));
+  const cashCodes = new Set(['1110','1120']);
+  const postedEntries = (DB.get('journal_entries')||[]).filter(e=>e.status==='posted' && e.sourceType!=='reversal');
+  for(const e of postedEntries){
+    if(existingVoucherEntryIds.has(String(e.id))) continue;
+    const cashLine = (e.lines||[]).find(l=>cashCodes.has(l.accountCode) && ((l.debit||0)>0 || (l.credit||0)>0));
+    if(!cashLine) continue; // مفيش حركة كاش فعلية في القيد ده — مفيش سند مطلوب
+    const isReceipt = (cashLine.debit||0) > 0; // مدين كاش = دخول فلوس = قبض؛ دائن كاش = خروج = صرف
+    const amount = isReceipt ? cashLine.debit : cashLine.credit;
+    try{
+      const v = await createVoucher({
+        type: isReceipt ? 'receipt' : 'payment',
+        date: e.date, amount, linkedEntryId: e.id,
+        linkedInvoiceId: e.sourceType==='invoice' ? e.sourceId : null,
+        paidTo_or_receivedFrom: (e.description||'').replace(/^\[ترحيل\]\s*/,''),
+        method: cashLine.accountCode==='1120' ? 'فيزا' : 'كاش'
+      });
+      if(v) vouchered++;
+    }catch(vErr){ console.error('[Backfill] فشل إنشاء سند تاريخي:', vErr, e); }
+  }
+
   showToast(
     failed ? 'warning' : 'success',
-    `✅ تم ترحيل ${posted} قيد بنجاح` + (failed ? ` — فشل ${failed} (تفاصيل الخطأ في الـ console)` : '')
+    `✅ تم ترحيل ${posted} قيد و${vouchered} سند بنجاح` + (failed ? ` — فشل ${failed} (تفاصيل الخطأ في الـ console)` : '')
   );
 
   if(typeof renderJournalEntries === 'function') renderJournalEntries();
   if(typeof renderTrialBalance === 'function') renderTrialBalance();
   if(typeof renderChartOfAccounts === 'function') renderChartOfAccounts();
+  if(typeof renderVouchers === 'function') renderVouchers();
 }
