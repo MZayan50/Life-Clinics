@@ -230,6 +230,17 @@ function renderTrialBalance(){
   }
 }
 
+// ── إعادة حساب الميزان تلقائيًا كل ما توصل بيانات جديدة/محدّثة من المزامنة ──
+// ⚠️ إصلاح: setTimeout(50ms) في stab() مش كفاية لو الاتصال بطيء (Firestore onSnapshot
+// لسه بيكمّل تحميل journal_entries وقت ما يفتح المستخدم التبويب) — فبيحسب الميزان
+// على جزء من القيود بس. الحل: أي تحديث فعلي على journal_entries أو chart_of_accounts
+// (created/updated/deleted) يعيد رسم الميزان تاني تلقائيًا، بغض النظر عن التوقيت.
+EventBus.on('db:changed', (e)=>{
+  if(e && (e.collection==='journal_entries' || e.collection==='chart_of_accounts')){
+    if(typeof renderTrialBalance==='function') renderTrialBalance();
+  }
+});
+
 // ── اختبار محرك القيود — يعمل قيد صحيح متوازن + يحاول قيد خاطئ غير متوازن للتأكد إنه بيترفض ──
 async function testJournalEntryEngine(){
   // 1) قيد صحيح ومتوازن — المفروض ينجح
