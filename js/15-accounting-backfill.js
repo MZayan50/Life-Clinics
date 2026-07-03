@@ -7,6 +7,7 @@
 //   ✅ إيراد الفواتير (عادية + باقات + من الشاشة الطبية)
 //   ✅ المصروفات
 //   ✅ تحصيل دفعات الفواتير والباقات
+//   ✅ باقات دخلت الأقساط من "مزامنة الباقات" بدون فاتورة (فجوة قديمة قبل hook 8ب)
 //   ✅ استلام المشتريات (status = مستلم فقط)
 //   ✅ سداد الموردين + تصحيحات الدفعات
 //   ✅ إيراد الجلسات المباشرة، بيع المنتجات المباشر، تحصيل الأقساط، تسوية الباقات
@@ -221,6 +222,33 @@ async function runAccountingBackfill(){
         lines: [
           {accountCode:cashCode, debit:amount, credit:0, description:'تحصيل نقدي — بيع منتج'},
           {accountCode:'4200', debit:0, credit:amount, description:'إيراد بيع منتجات'}
+        ]
+      });
+    }});
+  });
+
+  // ── 8ب. باقات دخلت الأقساط من "مزامنة الباقات" بدون فاتورة (فجوة قديمة) ──
+  // نفس منطق الـ hook الجديد رقم 8ب في 14-accounting-hooks.js، لكن هنا بنلف
+  // على installments الموجودة بالفعل (مش حدث لحظي) عشان نغطي أي باقة اتزامنت
+  // قبل إضافة الـ hook ولسه مالهاش قيد إيراد/ذمم مسجل.
+  (DB.get('installments')||[]).forEach(plan=>{
+    if(!plan.fromPkgId) return;
+    const amount = plan.total || 0;
+    if(amount <= 0) return;
+
+    const hasInvoice = (DB.get('invoices')||[]).some(i => String(i.pkgId) === String(plan.fromPkgId));
+    if(hasInvoice) return; // مغطاة بالفعل من بند إيراد الفواتير فوق
+
+    if(hasEntry('package', plan.fromPkgId)) return; // اتغطت قبل كده
+
+    tasks.push({date: plan.startDate || '0000-00-00', run: async ()=>{
+      return postJournalEntry({
+        date: plan.startDate || new Date().toISOString().split('T')[0],
+        description: `[ترحيل] سد فجوة مزامنة باقة: ${plan.service||''} — ${plan.patientName||''}`,
+        sourceType: 'package', sourceId: plan.fromPkgId,
+        lines: [
+          {accountCode:'1130', debit:amount, credit:0, description:'ذمم عميل — باقة (مزامنة)'},
+          {accountCode:'4300', debit:0, credit:amount, description:'إيراد باقات (مزامنة)'}
         ]
       });
     }});

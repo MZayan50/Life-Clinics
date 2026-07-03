@@ -13,6 +13,8 @@
 //      كلها بتعدّي على invoices:created فبتتغطى تلقائيًا مهما كان مصدرها)
 //   ✅ تحصيل دفعات الفواتير (سواء من شاشة الفواتير أو التعديل المباشر)
 //   ✅ تحصيل دفعات الباقات المباشرة (من ملف العميل أو من شاشة تعديل الباقة)
+//   ✅ باقات دخلت الأقساط من زرار "مزامنة الباقات" بدون فاتورة (hook 8ب —
+//      بيسجل القيد المفقود Debit 1130/Credit 4300 تلقائيًا وقت إنشاء القسط)
 //   ✅ المصروفات
 //   ✅ استلام المشتريات من المورد (وقت الاستلام الفعلي مش وقت إنشاء الطلب)
 //   ✅ سداد المورد
@@ -300,6 +302,47 @@ EventBus.on('cashlog:created', async (c)=>{
       });
     }
   }
+});
+
+// ── 8ب. سد فجوة "مزامنة الباقات" (syncPackageInstallments في 06-finance.js) ──
+// ⚠️ المشكلة: زرار "مزامنة الباقات" بيعمل DB.push('installments', {..., fromPkgId})
+// مباشرة من بيانات الباقة، من غير ما يمر على invoices:created أبدًا — يعني
+// مفيش قيد إيراد (Debit 1130 / Credit 4300) اتسجل للباقة دي أصلًا وقت إنشائها.
+// النتيجة: hook رقم 8 فوق بيفترض إن isLinkedToInvoiceOrPkg==true يبقى معناه
+// 1130 متسجل بالفعل، ويعمل credit عليه وقت التحصيل — فيدخل 1130 في رصيد سالب
+// وهمي لأي باقة دخلت من مسار المزامنة بدل مسار savePackage() العادي.
+// الحل: نسمع على installments:created، ولو الخطة جايه من fromPkgId وملهاش
+// فاتورة مرتبطة (يعني أكيد جايه من المزامنة مش من savePackage)، نعمل القيد
+// المفقود فورًا بنفس قيمة الباقة كاملة (plan.total) — ده هيسجل الذمم والإيراد
+// اللي كان المفروض يتسجلوا وقت إنشاء الباقة، فيتوازن الحساب صح وقت التحصيل بعد كده.
+// محمي ضد التكرار بالتحقق من sourceType:'package' قبل النشر.
+EventBus.on('installments:created', async (plan)=>{
+  if(!plan || !plan.fromPkgId) return; // مش خطة جايه من باقة أصلًا
+
+  const invoices = DB.get('invoices') || [];
+  const hasInvoice = invoices.some(i => String(i.pkgId) === String(plan.fromPkgId));
+  if(hasInvoice) return; // الباقة دخلت من savePackage() العادي وعندها فاتورة — مغطاة بالفعل بـ hook رقم 1
+
+  const journal = DB.get('journal_entries') || [];
+  const alreadyPosted = journal.some(e => e.sourceType === 'package' && String(e.sourceId) === String(plan.fromPkgId));
+  if(alreadyPosted) return; // اتغطت قبل كده — منع تكرار
+
+  const amount = plan.total || 0;
+  if(amount <= 0) return;
+
+  await postJournalEntry({
+    date: plan.startDate || new Date().toISOString().split('T')[0],
+    description: `[سد فجوة مزامنة] باقة: ${plan.service||''} — ${plan.patientName||''}`,
+    sourceType: 'package',
+    sourceId: plan.fromPkgId,
+    lines: [
+      {accountCode:'1130', debit:amount, credit:0, description:'ذمم عميل — باقة (مزامنة)'},
+      {accountCode:'4300', debit:0, credit:amount, description:'إيراد باقات (مزامنة)'}
+    ]
+  });
+  // ⚠️ مفيش createVoucher هنا عمدًا — مفيش حركة كاش فعلية وقت المزامنة نفسها
+  // (المزامنة مش بتحرك فلوس، بس بتسجل قيد كان ناقص). أي تحصيل فعلي بعد كده
+  // هيتغطى بسند من hook رقم 8 العادي وقت التحصيل الحقيقي.
 });
 
 // ── 9. تسوية باقة كاملة (سداد كل المتبقي دفعة واحدة من ملف العميل) ──
