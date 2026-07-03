@@ -155,7 +155,13 @@ service cloud.firestore {
 
     match /audit_log/{docId} {
       allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['action', 'col', 'ts'])
+      // ✅ FIX: القاعدة كانت بتطلب حقول قديمة (action/col/ts) مش موجودة في
+      // المستند الفعلي — _logAudit() في 00-core.js بيكتب فعليًا
+      // {collection, recordId, changes, user, timestamp}. النتيجة: كل كتابة
+      // audit_log كانت تُرفض بصمت (permission-denied)، والـ SDK كان يرجّع
+      // (revert) الإضافة المتفائلة محليًا فيختفي السجل من الشاشة فورًا بعد
+      // ما يظهر للحظة — وده اللي كان بيبان كـ "السجل فاضي".
+      allow create: if request.resource.data.keys().hasAll(['collection', 'recordId', 'changes', 'timestamp'])
                     && isReasonableSize(request.resource.data);
       allow update: if false;  // الـ audit log لا يُعدَّل أبداً
       allow delete: if false;  // الـ audit log لا يُحذف أبداً

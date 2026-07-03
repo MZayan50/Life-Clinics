@@ -32,7 +32,9 @@ service cloud.firestore {
         'suppliers', 'purchases', 'purchase_items', 'visits',
         'inventory_transactions', 'audit_log', 'transfers', 'supplier_payments',
         'product_sales', 'session_completions',
-        'photos', 'installments', 'cashlog', 'settings', 'config', 'users', 'advances'
+        'photos', 'installments', 'cashlog', 'settings', 'config', 'users', 'advances',
+        'call_queue',
+        'chart_of_accounts', 'journal_entries', 'accounting_periods', 'vouchers'
       ];
     }
 
@@ -89,6 +91,41 @@ service cloud.firestore {
       allow delete: if true;
     }
 
+    // ══════════════════════════════════════════════════════════════
+    // 💼 الطبقة المحاسبية (General Ledger) — دليل التطوير المحاسبي
+    // ══════════════════════════════════════════════════════════════
+
+    match /chart_of_accounts/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['code', 'name', 'type', 'normalBalance'])
+                    && isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /journal_entries/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['entryNumber', 'date', 'lines'])
+                    && isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /accounting_periods/{docId} {
+      allow read: if true;
+      allow create: if isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /vouchers/{docId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['voucherNumber', 'type', 'amount'])
+                    && isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
     match /installments/{docId} {
       allow read: if true;
       allow create: if request.resource.data.keys().hasAll(['patientId', 'total'])
@@ -118,7 +155,13 @@ service cloud.firestore {
 
     match /audit_log/{docId} {
       allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['action', 'col', 'ts'])
+      // ✅ FIX: القاعدة كانت بتطلب حقول قديمة (action/col/ts) مش موجودة في
+      // المستند الفعلي — _logAudit() في 00-core.js بيكتب فعليًا
+      // {collection, recordId, changes, user, timestamp}. النتيجة: كل كتابة
+      // audit_log كانت تُرفض بصمت (permission-denied)، والـ SDK كان يرجّع
+      // (revert) الإضافة المتفائلة محليًا فيختفي السجل من الشاشة فورًا بعد
+      // ما يظهر للحظة — وده اللي كان بيبان كـ "السجل فاضي".
+      allow create: if request.resource.data.keys().hasAll(['collection', 'recordId', 'changes', 'timestamp'])
                     && isReasonableSize(request.resource.data);
       allow update: if false;  // الـ audit log لا يُعدَّل أبداً
       allow delete: if false;  // الـ audit log لا يُحذف أبداً
@@ -160,6 +203,19 @@ service cloud.firestore {
       allow create, update: if isReasonableSize(request.resource.data);
     }
     match /waitlist/{docId} {
+      allow read, delete: if true;
+      allow create, update: if isReasonableSize(request.resource.data);
+    }
+
+    // ✅ FIX (نظام الاستدعاء): مجموعة call_queue كانت تُكتب من شاشة الطبيب
+    // وتُقرأ (onSnapshot) من شاشة الاستقبال — في 07-clinical.js و 11-settings.js —
+    // لكن لم يكن لها أي match block هنا. النتيجة: كل عملية "استدعاء" كانت
+    // تُرفَض بصمت بواسطة قاعدة "أي collection تانية ممنوع تماماً" في آخر هذا
+    // الملف (permission-denied يظهر فقط في console). الأثر العملي: تحديث حالة
+    // الموعد (وصل → في الاستشارة) كان يحصل بنجاح لأن /appointments لها قاعدة
+    // صريحة، لكن رسالة/صوت الاستدعاء نفسه كانا يختفيان تماماً ولا يصلان لأي
+    // شاشة استقبال (نفس المتصفح أو مستخدم آخر).
+    match /call_queue/{docId} {
       allow read, delete: if true;
       allow create, update: if isReasonableSize(request.resource.data);
     }
