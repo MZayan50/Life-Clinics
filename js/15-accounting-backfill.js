@@ -1,0 +1,174 @@
+// ══════════════════════════════════════════
+// 🔄 BACKFILL — الترحيل التاريخي للقيود المحاسبية
+// خطوة تمهيدية قبل المرحلة 5 من دليل تطوير الطبقة المحاسبية
+// ⚠️ سكريبت مرة واحدة تحت إشراف المستخدم — بيشتغل فقط لما تضغط الزرار يدويًا،
+//    مفيش أي تشغيل تلقائي أو عند تحميل الصفحة.
+// بيغطي بالظبط نفس نطاق المرحلة 3 (لا أكتر ولا أقل) عشان أرقام الماضي تتطابق
+// مع اللي هيتسجل تلقائيًا من دلوقتي فصاعدًا:
+//   ✅ إيراد الفواتير (عادية + باقات + من الشاشة الطبية)
+//   ✅ المصروفات
+//   ✅ تحصيل دفعات الفواتير
+//   ✅ استلام المشتريات (status = مستلم فقط)
+//   ✅ سداد الموردين
+// آمن للتشغيل أكتر من مرة: أي سجل اتغطى بقيد قبل كده (سواء من الـ Hook الحي
+// أو من تشغيل سابق لنفس السكريبت) بيتخطّى تلقائيًا، فمفيش تكرار في القيود.
+// يتحمّل بعد 14-accounting-hooks.js (بيعيد استخدام _revenueAccountFor
+// و EXPENSE_ACCOUNT_MAP من نفس الملف بدل ما يكرر المنطق).
+// ══════════════════════════════════════════
+
+async function runAccountingBackfill(){
+  if(!confirm(
+    'هيتم إنشاء قيود محاسبية بأثر رجعي لكل الفواتير/المصروفات/المشتريات المستلمة/سداد الموردين اللي لسه مالهاش قيد.\n\n' +
+    'العملية آمنة وتقدر تشغّلها أكتر من مرة براحتك — أي سجل اتغطى قبل كده (تلقائيًا أو من تشغيل سابق) هيتخطّى ومش هيتكرر.\n\n' +
+    'تكمل؟'
+  )) return;
+
+  const journal = DB.get('journal_entries')||[];
+  const hasEntry = (type, sourceId) =>
+    journal.some(e=>e.sourceType===type && String(e.sourceId)===String(sourceId));
+
+  const tasks = []; // {date, run: async fn}
+
+  // ── 1. إيراد الفواتير ──
+  (DB.get('invoices')||[]).forEach(inv=>{
+    const total = (inv.paid||0) + (inv.remaining||0);
+    if(total <= 0) return;                     // فاتورة صفرية — زي الـ Hook بالظبط
+    if(hasEntry('invoice', inv.id)) return;     // اتغطت بالفعل
+
+    tasks.push({date: inv.date || '0000-00-00', run: async ()=>{
+      const revAccount = _revenueAccountFor(inv);
+      const lines = [];
+      if((inv.paid||0) > 0){
+        const cashAccount = (inv.method==='فيزا') ? '1120' : '1110';
+        lines.push({accountCode:cashAccount, debit:inv.paid, credit:0, description:'مدفوع نقدًا/بطاقة'});
+      }
+      if((inv.remaining||0) > 0){
+        lines.push({accountCode:'1130', debit:inv.remaining, credit:0, description:'ذمم عميل'});
+      }
+      lines.push({accountCode:revAccount, debit:0, credit:total, description:'إيراد فاتورة'});
+
+      return postJournalEntry({
+        date: inv.date || new Date().toISOString().split('T')[0],
+        description: `[ترحيل] فاتورة #${inv.id} — ${inv.patient||''}`,
+        sourceType: 'invoice', sourceId: inv.id, lines
+      });
+    }});
+  });
+
+  // ── 2. المصروفات ──
+  (DB.get('expenses')||[]).forEach(exp=>{
+    if((exp.amount||0) <= 0) return;
+    if(hasEntry('expense', exp.id)) return;
+
+    tasks.push({date: exp.date || '0000-00-00', run: async ()=>{
+      const account = EXPENSE_ACCOUNT_MAP[exp.type] || '5900';
+      return postJournalEntry({
+        date: exp.date || new Date().toISOString().split('T')[0],
+        description: `[ترحيل] مصروف: ${exp.name}`,
+        sourceType: 'expense', sourceId: exp.id,
+        lines: [
+          {accountCode:account, debit:exp.amount||0, credit:0, description:exp.name},
+          {accountCode:'1110',  debit:0, credit:exp.amount||0, description:'من الخزينة'}
+        ]
+      });
+    }});
+  });
+
+  // ── 3. تحصيل دفعات الفواتير (من cashlog) ──
+  // ملاحظة: قيود الدفعات (سواء من الـ Hook الحي أو من تشغيل سابق لهذا
+  // السكريبت) بتتسجل بنفس sourceId (رقم الفاتورة) لأكتر من دفعة أحيانًا،
+  // فمنقدرش نعتمد على sourceId لوحده للتحقق من التكرار زي باقي الأنواع.
+  // بدل كده، بنتأكد إن فيه قيد 'payment' بنفس رقم الفاتورة + نفس التاريخ +
+  // نفس المبلغ المدين على حساب الخزينة (1110) قبل ما نعتبرها مغطاة.
+  (DB.get('cashlog')||[]).forEach(c=>{
+    if(c.type !== 'وارد' || !(c.source||'').startsWith('دفعة فاتورة —')) return;
+    const amount = c.amount || 0;
+    if(amount <= 0) return;
+
+    const covered = journal.some(e =>
+      e.sourceType === 'payment' &&
+      String(e.sourceId) === String(c.refId) &&
+      e.date === c.date &&
+      (e.lines||[]).some(l => l.accountCode==='1110' && Math.abs((l.debit||0) - amount) < 0.01)
+    );
+    if(covered) return;
+
+    tasks.push({date: c.date || '0000-00-00', run: async ()=>{
+      return postJournalEntry({
+        date: c.date || new Date().toISOString().split('T')[0],
+        description: `[ترحيل] تحصيل: ${c.notes || c.source}`,
+        sourceType: 'payment', sourceId: c.refId,
+        lines: [
+          {accountCode:'1110', debit:amount, credit:0, description:'تحصيل نقدي'},
+          {accountCode:'1130', debit:0, credit:amount, description:'من ذمم العميل'}
+        ]
+      });
+    }});
+  });
+
+  // ── 4. استلام المشتريات (وقت الاستلام الفعلي فقط) ──
+  (DB.get('purchases')||[]).forEach(p=>{
+    if(p.status !== 'مستلم') return;
+    if(hasEntry('purchase', p.id)) return;
+
+    tasks.push({date: p.deliveryDate || p.orderDate || '0000-00-00', run: async ()=>{
+      return postJournalEntry({
+        date: p.deliveryDate || p.orderDate || new Date().toISOString().split('T')[0],
+        description: `[ترحيل] استلام مشتريات #${p.id} — ${p.supplier||''}`,
+        sourceType: 'purchase', sourceId: p.id,
+        lines: [
+          {accountCode:'1140', debit:p.total||0, credit:0, description:'إضافة للمخزون'},
+          {accountCode:'2100', debit:0, credit:p.total||0, description:'ذمم مورد'}
+        ]
+      });
+    }});
+  });
+
+  // ── 5. سداد الموردين ──
+  (DB.get('supplier_payments')||[]).forEach(sp=>{
+    if((sp.amount||0) <= 0) return;
+    if(hasEntry('supplier_payment', sp.id)) return;
+
+    tasks.push({date: sp.date || '0000-00-00', run: async ()=>{
+      return postJournalEntry({
+        date: sp.date || new Date().toISOString().split('T')[0],
+        description: `[ترحيل] سداد مورد: ${sp.supplierName||''}`,
+        sourceType: 'supplier_payment', sourceId: sp.id,
+        lines: [
+          {accountCode:'2100', debit:sp.amount||0, credit:0, description:'سداد ذمم مورد'},
+          {accountCode:'1110', debit:0, credit:sp.amount||0, description:'من الخزينة'}
+        ]
+      });
+    }});
+  });
+
+  if(tasks.length === 0){
+    showToast('info', 'ℹ️ مفيش سجلات محتاجة ترحيل — كل حاجة مغطاة بقيود بالفعل');
+    return;
+  }
+
+  // ترتيب زمني عشان أرقام القيود (JE-000001...) تطلع بترتيب تاريخ العيادة الحقيقي
+  tasks.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+
+  showToast('info', `⏳ جاري ترحيل ${tasks.length} سجل قديم... متسكّرش الصفحة`);
+
+  let posted = 0, failed = 0;
+  for(const t of tasks){
+    try{
+      const r = await t.run();
+      if(r) posted++; else failed++;
+    }catch(err){
+      console.error('[Backfill] فشل ترحيل سجل:', err, t);
+      failed++;
+    }
+  }
+
+  showToast(
+    failed ? 'warning' : 'success',
+    `✅ تم ترحيل ${posted} قيد بنجاح` + (failed ? ` — فشل ${failed} (تفاصيل الخطأ في الـ console)` : '')
+  );
+
+  if(typeof renderJournalEntries === 'function') renderJournalEntries();
+  if(typeof renderTrialBalance === 'function') renderTrialBalance();
+  if(typeof renderChartOfAccounts === 'function') renderChartOfAccounts();
+}
