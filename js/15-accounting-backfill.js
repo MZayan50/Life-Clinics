@@ -60,7 +60,10 @@ async function runAccountingBackfill(){
   });
 
   // ── 2. المصروفات ──
-  (DB.get('expenses')||[]).forEach(exp=>{
+  // ✅ المرحلة 9: مصروف محذوف (isDeleted:true) ملوش قيد أصلاً — لو اتحذف
+  // بعد الترحيل هيتعكس عبر reverseJournalEntry (14-accounting-hooks.js)،
+  // ولو اتحذف قبل ما نشغّل الباكفيل أصلاً منمنعش إنشاء قيد ليه من البداية.
+  DB.getActive('expenses').forEach(exp=>{
     if((exp.amount||0) <= 0) return;
     if(hasEntry('expense', exp.id)) return;
 

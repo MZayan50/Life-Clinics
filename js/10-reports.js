@@ -48,7 +48,7 @@ function renderReports(){
   const invoices  = DB.get('invoices')  || [];
   const patients  = DB.get('patients')  || [];
   const appts     = DB.get('appointments') || [];
-  const expenses  = DB.get('expenses')  || [];
+  const expenses  = DB.getActive('expenses');
   const today     = new Date().toISOString().split('T')[0];
   const thisMonth = today.substring(0,7);
 

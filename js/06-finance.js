@@ -3,12 +3,12 @@ function renderExpenses(){
   const tb=document.getElementById('exp-tbody');if(!tb)return;
   const q=(document.getElementById('exp-search')?.value||'').trim().toLowerCase();
   const type=document.getElementById('exp-type-filter')?.value||'';
-  let exps=DB.get('expenses');
+  let exps=DB.getActive('expenses');
   if(q)exps=exps.filter(e=>e.name.toLowerCase().includes(q));
   if(type)exps=exps.filter(e=>e.type===type);
   exps=[...exps].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 
-  const all=DB.get('expenses');
+  const all=DB.getActive('expenses');
   const total=all.reduce((s,e)=>s+(e.amount||0),0);
   const thisMonth=new Date().toISOString().slice(0,7);
   const monthTotal=all.filter(e=>(e.date||'').startsWith(thisMonth)).reduce((s,e)=>s+(e.amount||0),0);
@@ -79,8 +79,13 @@ function delExp(id){
     const filtered=cashlog.filter(c=>!(String(c.refId)===String(id)&&c.source==='مصروف'));
     if(filtered.length!==cashlog.length) DB.set('cashlog',filtered);
     
-    // حذف المصروف نفسه
-    DB.del('expenses',id);
+    // ✅ المرحلة 9 (دليل الطبقة المحاسبية): Soft Delete بدل الحذف الفعلي.
+    // السجل يفضل موجود (isDeleted:true) للأرشفة/Audit Trail بدل ما يختفي
+    // نهائيًا. القيد المحاسبي المرتبط بيتعكس تلقائيًا (مش يتمسح) عبر هاندلر
+    // EventBus في 14-accounting-hooks.js. كل نقاط عرض/حساب المصروفات
+    // (renderExpenses/renderAccounts/syncTreasury والتقارير والباكفيل)
+    // بقت تقرأ عبر DB.getActive('expenses') فبتستبعد المحذوف تلقائيًا.
+    DB.softDel('expenses',id);
     showToast('info','🗑 تم الحذف');
     renderExpenses();
     
@@ -357,7 +362,7 @@ function delInstallment(id){
 // ══════════════════════════════════════════
 function renderAccounts(){
   const invoices=DB.get('invoices');
-  const expenses=DB.get('expenses');
+  const expenses=DB.getActive('expenses');
   const today=new Date().toISOString().slice(0,7);
 
   document.getElementById('acc-period-lbl').textContent=new Date().toLocaleDateString('ar-EG',{month:'long',year:'numeric'});
@@ -632,7 +637,7 @@ async function clearCashlog(){
 function syncTreasury(){
   if(!confirm('سيتم إعادة مزامنة الخزينة بناءً على البيانات الحالية.\nأي مصروف محذوف سيُحذف من الخزينة تلقائياً.\nتكملة؟')) return;
 
-  const expenses  = DB.get('expenses') || [];
+  const expenses  = DB.getActive('expenses');
   const cashlog   = DB.get('cashlog')  || [];
 
   // 1. احتفظ بكل الحركات الواردة + غير المصروفات

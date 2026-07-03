@@ -415,3 +415,31 @@ EventBus.on('invoices:deleted', async (e)=>{
     .find(je => je.sourceType==='invoice' && String(je.sourceId)===String(invId) && je.status==='posted');
   if(entry) await reverseJournalEntry(entry.id, 'حذف الفاتورة المرتبطة');
 });
+
+// ── 12. عكس قيد المصروف عند حذفه (delExp في 06-finance.js) ──
+// المرحلة 9 من دليل تطوير الطبقة المحاسبية.
+// ✅ delExp() بقت تستخدم DB.softDel('expenses', id) بدل DB.del() (Soft
+// Delete حقيقي — كل نقاط القراءة اتحدّثت لـ DB.getActive() في 06-finance.js/
+// 10-reports.js/15-accounting-backfill.js عشان تستبعد isDeleted:true).
+// DB.softDel() بتنادي DB.upd() داخليًا، يعني الحدث اللي بيتطلق هو
+// 'expenses:updated' (مش 'expenses:deleted') مع record.isDeleted===true.
+// بنسمع للحالتين مع بعض: 'updated' مع isDeleted (المسار الفعلي دلوقتي)،
+// و'deleted' الفعلي (دفاع احتياطي لو ظهر مسار حذف فعلي تاني مستقبلاً).
+// reverseJournalEntry() نفسها idempotent (بترفض تعكس قيد معكوس بالفعل)،
+// فمفيش خطر من استدعائها أكتر من مرة لنفس المصروف.
+async function _reverseExpenseJournalEntry(expId, reason){
+  if(!expId) return;
+  const entry = (DB.get('journal_entries')||[])
+    .find(je => je.sourceType==='expense' && String(je.sourceId)===String(expId) && je.status==='posted');
+  if(entry) await reverseJournalEntry(entry.id, reason);
+}
+
+EventBus.on('expenses:deleted', async (e)=>{
+  await _reverseExpenseJournalEntry(e?.id, 'حذف المصروف المرتبط (حذف فعلي)');
+});
+
+EventBus.on('expenses:updated', async (exp)=>{
+  if(exp && exp.isDeleted){
+    await _reverseExpenseJournalEntry(exp.id, 'حذف المصروف المرتبط (Soft Delete)');
+  }
+});

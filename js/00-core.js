@@ -230,6 +230,14 @@ const DB = {
     DB.upd(k, id, { isDeleted: true, deletedAt: _now(), deletedBy: u });
   },
 
+  // ── قراءة السجلات "الفعّالة" فقط (استبعاد المحذوف Soft Delete) ──
+  // ✅ إضافة صرفة (المرحلة 9 من دليل تطوير الطبقة المحاسبية) — DB.get() نفسها
+  // متلموسة زي ما هي (بيستخدمها push/upd/del داخليًا)، ودي دالة جديدة بس
+  // لشاشات العرض/الحسابات اللي محتاجة تستبعد السجلات المحذوفة softly.
+  getActive(k){
+    return (DB.get(k) || []).filter(x => !x.isDeleted);
+  },
+
   del(k, id){
     const rec = DB.get(k).find(x => x.id == id);
     const filtered = DB.get(k).filter(x => x.id != id);
