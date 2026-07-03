@@ -1338,6 +1338,11 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
         <tbody id="je-tbody"></tbody>
       </table></div>
     </div>
+    <div class="card"><div class="card-hdr"><div class="card-title">🗑️ Soft Delete وعكس القيد عند الحذف (اختبار)</div>
+        <button class="btn btn-primary btn-sm" onclick="testExpenseReversalCycle()">🧪 تشغيل اختبار المرحلة 9</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">المرحلة 9 — بينشئ مصروف تجريبي 77 ج، يتأكد من تسجيل قيده، يحذفه (Soft Delete)، ثم يتأكد إن القيد الأصلي اتعكس وإن المصروف اختفى من الشاشات مع بقاء سجله فعليًا للأرشفة. النتيجة تظهر كـ toast فوق، وتفاصيلها الكاملة في Console (F12).</div>
+    </div>
     <div class="card"><div class="card-hdr"><div class="card-title">🔄 الترحيل التاريخي (Backfill)</div>
         <button class="btn btn-primary btn-sm" onclick="runAccountingBackfill()">🔄 تشغيل الترحيل</button>
       </div>
@@ -1346,6 +1351,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       </div>
     </div>
     <div class="card"><div class="card-hdr"><div class="card-title">🧾 سندات القبض والصرف</div>
+        <button class="btn btn-ghost btn-sm" onclick="repairVoidedVouchers()" style="margin-inline-end:6px;" title="يبطّل أي سند قديم مرتبط بقيد كان اتعكس قبل هذا الإصلاح">🔧 إصلاح السندات القديمة</button>
         <select id="vch-type-filter" class="selbox" onchange="renderVouchers()" style="max-width:130px;">
           <option value="">الكل</option>
           <option value="receipt">قبض فقط</option>
