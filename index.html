@@ -1350,6 +1350,15 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
         خطوة تمهيدية قبل المرحلة 5 — بيعمل قيود بأثر رجعي لكل الفواتير/المصروفات/دفعات التحصيل/المشتريات المستلمة/سداد الموردين اللي لسه مالهاش قيد، عشان ميزان المراجعة يعكس تاريخ العيادة الحقيقي كامل. آمن للتشغيل أكتر من مرة — أي سجل اتغطى بالفعل هيتخطّى تلقائيًا.
       </div>
     </div>
+    <div class="card"><div class="card-hdr"><div class="card-title">🧹 تنظيف بيانات عميل اختبار</div></div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+        بيمسح المريض المكتوب اسمه نهائيًا مع كل ما يرتبط بيه (فواتير، باقات، أقساط، مواعيد، جلسات، قيود محاسبية، سندات، حركات خزينة، صور). حذف حقيقي غير قابل للتراجع — استخدمه فقط لمسح بيانات اختبار.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input id="cleanup-pat-name" type="text" class="inp" placeholder="اسم العميل بالظبط" value="Mohamed Zayan" style="flex:1;min-width:180px;">
+        <button class="btn btn-danger btn-sm" onclick="cleanupTestPatientUI()">🗑️ حذف بيانات هذا العميل بالكامل</button>
+      </div>
+    </div>
     <div class="card"><div class="card-hdr"><div class="card-title">🧾 سندات القبض والصرف</div>
         <button class="btn btn-ghost btn-sm" onclick="repairVoidedVouchers()" style="margin-inline-end:6px;" title="يبطّل أي سند قديم مرتبط بقيد كان اتعكس قبل هذا الإصلاح">🔧 إصلاح السندات القديمة</button>
         <select id="vch-type-filter" class="selbox" onchange="renderVouchers()" style="max-width:130px;">
@@ -2821,6 +2830,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <script src="js/14-accounting-hooks.js?v=3"></script>
 <script src="js/15-accounting-backfill.js?v=1"></script>
 <script src="js/16-periods.js?v=1"></script>
+<script src="js/17-cleanup-tools.js?v=1"></script>
 <script>
   // ✅ ننتظر تحميل كل الملفات قبل استدعاء init()
   if (typeof init === 'function') {
