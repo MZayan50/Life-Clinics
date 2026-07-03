@@ -1373,6 +1373,21 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
         <tbody id="audit-tbody"></tbody>
       </table></div>
     </div>
+    <div class="card"><div class="card-hdr"><div class="card-title">🔒 إغلاق الفترات المحاسبية</div>
+        <button class="btn btn-primary btn-sm" onclick="closeCurrentAccountingPeriod()">🔒 إقفال الشهر الحالي</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+        المرحلة 8 — بعد إقفال أي شهر، لا يمكن إضافة أو تعديل أي قيد محاسبي بتاريخ داخله (المصروفات/الفواتير القديمة تفضل شغالة عادي، بس القيود المرتبطة بيها هتترفض لو حاولت تتسجل بتاريخ داخل فترة مقفولة). الإقفال بيتم فقط لو ميزان المراجعة متوازن حتى آخر يوم في الشهر.
+      </div>
+      <div style="display:flex;gap:9px;align-items:center;margin-bottom:14px;">
+        <input type="month" id="period-select-input" class="selbox" style="max-width:160px;">
+        <button class="btn btn-ghost btn-sm" onclick="closeSelectedAccountingPeriod()">إقفال الشهر المختار</button>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>الفترة</th><th>الحالة</th><th>تفاصيل الإقفال</th><th>إجراء</th></tr></thead>
+        <tbody id="periods-tbody"></tbody>
+      </table></div>
+    </div>
     <div class="card"><div class="card-hdr"><div class="card-title">💾 إدارة البيانات</div></div>
       <div style="display:flex;flex-direction:column;gap:11px;">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:13px;background:var(--glass);border-radius:var(--radius-sm);"><div><div style="font-weight:600;font-size:13.5px;">استيراد بيانات (JSON)</div><div style="font-size:12px;color:var(--text-muted)">استعادة من نسخة احتياطية</div></div><button class="btn btn-ghost btn-sm" onclick="importData()">📤 استيراد</button></div>
@@ -2799,6 +2814,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <script src="js/13-accounting.js?v=6"></script>
 <script src="js/14-accounting-hooks.js?v=3"></script>
 <script src="js/15-accounting-backfill.js?v=1"></script>
+<script src="js/16-periods.js?v=1"></script>
 <script>
   // ✅ ننتظر تحميل كل الملفات قبل استدعاء init()
   if (typeof init === 'function') {
