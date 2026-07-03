@@ -201,9 +201,17 @@ const DB = {
     // Update local cache immediately (optimistic UI)
     DB.set(k, filtered);
     // Delete from Firestore (or queue if offline)
-    if (DB._fb.includes(k)) fbDel(k, id);
+    // ✅ FIX (عميل محذوف بيرجع بعد قفل المتصفح): الاستدعاءات القديمة كانت
+    // "fire-and-forget" — بترجع فورًا من غير ما تستنى تأكيد Firestore. أي كود
+    // بيعمل حذف جماعي (زي delPat) وبيقفل التاب فور ما يظهر توست النجاح، ممكن
+    // يقفل قبل ما آخر طلب حذف (عادة سجل العميل نفسه) يوصل فعليًا للسيرفر —
+    // فيختفي محليًا بس، ويرجع تاني من Firestore بعد أي ريفريش. بترجع الـ
+    // promise هنا عشان أي كود حرج (زي الحذف الجماعي) يقدر ينتظرها قبل ما
+    // يأكّد للمستخدم إن الحذف خلص فعلاً.
+    const fbPromise = DB._fb.includes(k) ? fbDel(k, id) : Promise.resolve();
     EventBus.emit(k + ':deleted', { id, record: rec });
     EventBus.emit('db:changed', { collection: k, action: 'deleted', id });
+    return fbPromise;
   }
 };
 

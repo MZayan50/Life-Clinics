@@ -566,16 +566,22 @@ function delPat(id){
   if(!confirm(msg)) return;
 
   let deleted = 0;
+  // ✅ FIX (عميل محذوف بيرجع تاني بعد قفل المتصفح): DB.del كانت fire-and-forget،
+  // فتوست "تم الحذف" كان بيظهر فورًا قبل ما الحذف يوصل فعليًا لـ Firestore.
+  // المستخدم بيقفل التاب لما يشوف التوست — فآخر طلبات الحذف (وأهمها سجل
+  // العميل نفسه، رقم 11 في الترتيب) بتتلغي مع قفل التاب لو لسه في الطريق.
+  // الحل: نجمع كل الـ promises ونستنى Promise.all قبل ما نأكّد النجاح.
+  const _delPromises = [];
 
   // ── 1. فواتير العميل ──
   DB.get('invoices')
     .filter(i => String(i.patId)===String(id) || i.patient===pat.name)
-    .forEach(i => { DB.del('invoices', i.id); deleted++; });
+    .forEach(i => { _delPromises.push(DB.del('invoices', i.id)); deleted++; });
 
   // ── 2. بنود الفواتير ──
   (DB.get('invoice_items')||[])
     .filter(ii => String(ii.patId)===String(id))
-    .forEach(ii => { DB.del('invoice_items', ii.id); deleted++; });
+    .forEach(ii => { _delPromises.push(DB.del('invoice_items', ii.id)); deleted++; });
 
   // ── 3. سجلات الخزينة المرتبطة بالعميل ──
   // ✅ FIX حرج: cashlog غير قابل للحذف بتصميم متعمَّد (دفتر append-only —
@@ -605,43 +611,49 @@ function delPat(id){
   // ── 4. خطط الأقساط ──
   (DB.get('installments')||[])
     .filter(p => String(p.patientId)===String(id))
-    .forEach(p => { DB.del('installments', p.id); deleted++; });
+    .forEach(p => { _delPromises.push(DB.del('installments', p.id)); deleted++; });
 
   // ── 5. الباقات ──
   DB.get('packages')
     .filter(pk => String(pk.patId)===String(id))
-    .forEach(pk => { DB.del('packages', pk.id); deleted++; });
+    .forEach(pk => { _delPromises.push(DB.del('packages', pk.id)); deleted++; });
 
   // ── 6. الجلسات ──
   DB.get('sessions')
     .filter(s => String(s.patId)===String(id))
-    .forEach(s => { DB.del('sessions', s.id); deleted++; });
+    .forEach(s => { _delPromises.push(DB.del('sessions', s.id)); deleted++; });
 
   // ── 7. المواعيد ──
   DB.get('appointments')
     .filter(a => String(a.patId||a.patientId)===String(id) || a.patient===pat.name)
-    .forEach(a => { DB.del('appointments', a.id); deleted++; });
+    .forEach(a => { _delPromises.push(DB.del('appointments', a.id)); deleted++; });
 
   // ── 8. الصور ──
   (DB.get('photos')||[])
     .filter(ph => String(ph.patId)===String(id))
-    .forEach(ph => { DB.del('photos', ph.id); deleted++; });
+    .forEach(ph => { _delPromises.push(DB.del('photos', ph.id)); deleted++; });
 
   // ── 9. قائمة الانتظار ──
   (DB.get('waitlist')||[])
     .filter(w => String(w.patId||w.patientId)===String(id) || w.patient===pat.name)
-    .forEach(w => { DB.del('waitlist', w.id); deleted++; });
+    .forEach(w => { _delPromises.push(DB.del('waitlist', w.id)); deleted++; });
 
   // ── 10. الزيارات ──
   (DB.get('visits')||[])
     .filter(v => String(v.patId||v.patientId)===String(id))
-    .forEach(v => { DB.del('visits', v.id); deleted++; });
+    .forEach(v => { _delPromises.push(DB.del('visits', v.id)); deleted++; });
 
   // ── 11. أخيراً: حذف العميل نفسه ──
-  DB.del('patients', id);
+  _delPromises.push(DB.del('patients', id));
   deleted++;
 
-  showToast('success', `✅ تم حذف ${pat.name} بالكامل`, `${deleted} سجل محذوف من Firebase`);
+  showToast('info', `⏳ جارٍ حذف ${pat.name} من Firebase...`);
+  Promise.all(_delPromises).then(()=>{
+    showToast('success', `✅ تم حذف ${pat.name} بالكامل`, `${deleted} سجل محذوف من Firebase — آمن تقفل الصفحة دلوقتي`);
+  }).catch(err=>{
+    console.error('[delPat] فشل حذف بعض السجلات:', err);
+    showToast('error', `⚠️ فيه سجلات محتمل ماتحذفتش`, 'افتح الصفحة وحاول تاني قبل ما تقفل المتصفح');
+  });
   // EventBus يتولى تحديث الواجهة تلقائياً
 }
 
