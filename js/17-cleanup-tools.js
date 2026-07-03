@@ -1,5 +1,50 @@
+function inspectCashlogMonthUI(){
+  const monthInput = document.getElementById('cleanup-diag-month')?.value || ''; // yyyy-mm
+  const type = document.getElementById('cleanup-diag-type')?.value || 'صادر';
+  if(!monthInput){ showToast('error','❌ اختر الشهر'); return; }
+  const rows = (DB.get('cashlog')||[])
+    .filter(c => (c.date||'').startsWith(monthInput) && c.type === type);
+
+  const box = document.getElementById('cleanup-diag-results');
+  if(!box) return;
+  if(rows.length === 0){
+    box.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:8px;">لا توجد حركات "${type}" في ${monthInput}</div>`;
+    return;
+  }
+  box.innerHTML = `<div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;">
+    <thead><tr style="text-align:right;border-bottom:1px solid var(--glass-border);">
+      <th style="padding:4px;">المصدر</th><th style="padding:4px;">المريض</th>
+      <th style="padding:4px;">المبلغ</th><th style="padding:4px;">التاريخ</th>
+      <th style="padding:4px;">refId</th><th style="padding:4px;">ملاحظات</th>
+    </tr></thead>
+    <tbody>${rows.map(c=>`<tr style="border-bottom:1px solid var(--glass-border);">
+      <td style="padding:4px;">${c.source||''}</td>
+      <td style="padding:4px;">${c.patient||''}</td>
+      <td style="padding:4px;font-weight:700;">${(c.amount||0).toLocaleString()}</td>
+      <td style="padding:4px;">${c.date||''}</td>
+      <td style="padding:4px;">${c.refId||''}</td>
+      <td style="padding:4px;">${c.notes||''}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
 // ══════════════════════════════════════════════════════════
-// 🧹 أداة تنظيف عميل اختبار بالكامل — من واجهة الإعدادات مباشرة
+// 🔍 تشخيص: عرض كل حركات الخزينة "صادر" في شهر معيّن بالتفصيل
+// (بدون حذف — للمساعدة في تتبع مصدر رقم غريب ظاهر في التدفق النقدي)
+// ══════════════════════════════════════════════════════════
+function inspectCashlogMonth(yyyyMm, type){
+  type = type || 'صادر';
+  const rows = (DB.get('cashlog')||[])
+    .filter(c => (c.date||'').startsWith(yyyyMm) && c.type === type)
+    .map(c => ({
+      المصدر: c.source||'', المريض: c.patient||'', المبلغ: c.amount,
+      التاريخ: c.date, refId: c.refId||'', ملاحظات: c.notes||''
+    }));
+  console.table(rows);
+  showToast('info', `📋 ${rows.length} حركة "${type}" في ${yyyyMm} — التفاصيل في Console (F12)`);
+  return rows;
+}
+
 // (بديل عن لصق كود في Console، عشان تشتغل من الموبايل بسهولة)
 // حذف حقيقي (DB.del) ومتزامن مع Firestore — غير قابل للتراجع.
 // ══════════════════════════════════════════════════════════
