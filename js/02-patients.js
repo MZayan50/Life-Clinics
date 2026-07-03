@@ -669,9 +669,21 @@ function openPackageFromProfile(){
 // المتبقي والحالة القديمة رغم تحصيل المبلغ فعليًا. هذه الدالة تربط الاتجاه الناقص.
 function _syncInstallmentPlanOnPayment({invoiceId, pkgId, paidAmount, newRemaining}){
   const plans = DB.get('installments')||[];
-  const plan = invoiceId
-    ? plans.find(p => String(p.fromInvId)===String(invoiceId))
-    : plans.find(p => String(p.fromPkgId)===String(pkgId));
+  let plan;
+  if(invoiceId){
+    plan = plans.find(p => String(p.fromInvId)===String(invoiceId));
+  } else {
+    // ✅ FIX (تكرار قسط الباقة): القسط اللي بيتعمل تلقائياً عند إنشاء فاتورة الباقة
+    // (00-core.js → invoices:created) بيتربط بـ fromInvId (فاتورة الباقة)، مش بـ
+    // fromPkgId — القسط مبيتعملش fromPkgId إلا لو جه من زرار "مزامنة الباقات"
+    // (syncPackageInstallments في 06-finance.js). فكانت الدالة دي بتدور بـ fromPkgId
+    // بس، متلاقيش القسط الأصلي، وترجع من غير تعديل — فيفضل القسط الأصلي عالق بالمتبقي
+    // القديم، ولو "مزامنة الباقات" اتشغّلت بعدين بتضيف قسط تاني صحيح فوقه = تكرار.
+    // الحل: دور بالاتنين — fromPkgId أو fromInvId بتاع فاتورة الباقة المرتبطة.
+    const pkgInv = DB.get('invoices').find(i => String(i.pkgId)===String(pkgId));
+    plan = plans.find(p => String(p.fromPkgId)===String(pkgId)
+      || (pkgInv && String(p.fromInvId)===String(pkgInv.id)));
+  }
   if(!plan) return;
   const today = new Date().toISOString().split('T')[0];
   const update = {
