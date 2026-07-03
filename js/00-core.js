@@ -40,6 +40,34 @@ function _audit(extra = {}){
 }
 
 // ══════════════════════════════════════════
+// 🕵️ AUDIT TRAIL — المرحلة 7 من دليل تطوير الطبقة المحاسبية
+// يسجّل تفاصيل كل تعديل فعلي (مش بس createdBy/updatedBy) في audit_log
+// ══════════════════════════════════════════
+
+// حقول تُستثنى من المقارنة لأنها بتتغيّر أوتوماتيك مع كل upd وملهاش قيمة تدقيقية
+const _AUDIT_IGNORE_FIELDS = ['updatedAt', 'updatedBy', 'version'];
+
+function _diffFields(oldObj, newObj){
+  const changes = [];
+  Object.keys(newObj || {}).forEach(k=>{
+    if(_AUDIT_IGNORE_FIELDS.includes(k)) return;
+    const oldVal = oldObj ? oldObj[k] : undefined;
+    const newVal = newObj[k];
+    if(JSON.stringify(oldVal) !== JSON.stringify(newVal)){
+      changes.push({ field: k, oldValue: oldVal ?? null, newValue: newVal ?? null });
+    }
+  });
+  return changes;
+}
+
+function _logAudit(collection, recordId, changes, user){
+  DB.push('audit_log', {
+    collection, recordId: String(recordId), changes,
+    user: user || _currentUser(), timestamp: _now()
+  });
+}
+
+// ══════════════════════════════════════════
 // 📡 EVENT BUS — نظام الأحداث المركزي
 // ══════════════════════════════════════════
 // الاستخدام:
@@ -180,11 +208,18 @@ const DB = {
     const i = a.findIndex(x => x.id == id);
     if (i >= 0){
       const u = _currentUser();
+      const before = a[i];
       a[i] = { ...a[i], ...d, updatedAt: _now(), updatedBy: u, version: (a[i].version || 1) + 1 };
       // Update local cache immediately (optimistic UI)
       DB.set(k, a);
       // Write to Firestore (or queue if offline)
       if (DB._fb.includes(k)) fbSet(k, id, a[i]);
+      // ✅ المرحلة 7 — Audit Trail: تسجيل التغييرات الفعلية في audit_log
+      // مستثنى: cashlog (عالي التردد) وaudit_log نفسه (منع تكرار لا نهائي)
+      if(k !== 'cashlog' && k !== 'audit_log'){
+        const changes = _diffFields(before, a[i]);
+        if(changes.length) _logAudit(k, id, changes, u);
+      }
       EventBus.emit(k + ':updated', a[i]);
       EventBus.emit('db:changed', { collection: k, action: 'updated', record: a[i] });
     }

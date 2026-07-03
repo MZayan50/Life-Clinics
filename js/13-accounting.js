@@ -302,6 +302,65 @@ EventBus.on('db:changed', (e)=>{
 });
 
 
+// ══════════════════════════════════════════
+// 🕵️ AUDIT TRAIL VIEWER — المرحلة 7 من دليل تطوير الطبقة المحاسبية
+// منطق التسجيل نفسه في DB.upd (00-core.js) — هنا العرض فقط
+// ══════════════════════════════════════════
+
+const AUDIT_COLLECTION_LABELS = {
+  patients:'العملاء', invoices:'الفواتير', expenses:'المصروفات', appointments:'المواعيد',
+  inventory:'المخزون', purchases:'المشتريات', suppliers:'الموردين', packages:'الباقات',
+  installments:'الأقساط', journal_entries:'القيود المحاسبية', vouchers:'السندات',
+  chart_of_accounts:'دليل الحسابات', accounting_periods:'الفترات المحاسبية',
+  users:'المستخدمين', settings:'الإعدادات', doctors:'الأطباء'
+};
+
+function _auditFieldValue(v){
+  if(v===null || v===undefined || v==='') return '—';
+  if(typeof v==='object') return JSON.stringify(v);
+  return String(v);
+}
+
+// ── عرض آخر التعديلات في شاشة الإعدادات (تبويب البيانات) ──
+function renderAuditLog(){
+  const tb = document.getElementById('audit-tbody');
+  if(!tb) return;
+
+  const filterCol = document.getElementById('audit-collection-filter')?.value || '';
+  let logs = [...(DB.get('audit_log')||[])];
+  if(filterCol) logs = logs.filter(l=>l.collection===filterCol);
+  logs.sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+  logs = logs.slice(0, 100); // آخر 100 تعديل فقط — منعًا لثقل الشاشة
+
+  tb.innerHTML = logs.map(l=>{
+    const colLabel = AUDIT_COLLECTION_LABELS[l.collection] || l.collection;
+    const changesHtml = (l.changes||[]).map(c=>
+      `<div><b>${c.field}</b>: ${_auditFieldValue(c.oldValue)} ← ${_auditFieldValue(c.newValue)}</div>`
+    ).join('');
+    const dt = l.timestamp ? new Date(l.timestamp) : null;
+    const dtLabel = dt ? dt.toLocaleString('ar-EG', {dateStyle:'short', timeStyle:'short'}) : '—';
+    return `<tr>
+      <td style="font-size:12px;white-space:nowrap">${dtLabel}</td>
+      <td><span class="tag tg-purple">${colLabel}</span></td>
+      <td style="font-size:11px;font-family:monospace;color:var(--text-muted)">${(l.recordId||'').slice(0,8)}</td>
+      <td style="font-size:11px;color:var(--text-muted);max-width:320px">${changesHtml||'—'}</td>
+      <td style="font-size:12px;font-weight:600">${l.user||'—'}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد تعديلات مسجّلة بعد</td></tr>`;
+}
+
+function _auditCollectionOptions(){
+  const sel = document.getElementById('audit-collection-filter');
+  if(!sel || sel.options.length > 1) return; // اتعمل قبل كده
+  const cols = Object.keys(AUDIT_COLLECTION_LABELS);
+  sel.innerHTML = '<option value="">كل الجداول</option>' +
+    cols.map(c=>`<option value="${c}">${AUDIT_COLLECTION_LABELS[c]}</option>`).join('');
+}
+
+EventBus.on('db:changed', (e)=>{
+  if(e && e.collection==='audit_log' && typeof renderAuditLog==='function') renderAuditLog();
+});
+
 async function testJournalEntryEngine(){
   // 1) قيد صحيح ومتوازن — المفروض ينجح
   const goodEntry = await postJournalEntry({

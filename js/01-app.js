@@ -42,6 +42,8 @@ function stab(el,gid,tid){
     setTimeout(renderChartOfAccounts, 50);
     setTimeout(renderJournalEntries, 50);
     setTimeout(renderVouchers, 50);
+    if(typeof _auditCollectionOptions==='function') setTimeout(_auditCollectionOptions, 50);
+    if(typeof renderAuditLog==='function') setTimeout(renderAuditLog, 50);
   }
   if(tid==='acc-tb' && typeof renderTrialBalance==='function'){
     setTimeout(renderTrialBalance, 50);
