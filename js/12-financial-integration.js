@@ -78,9 +78,10 @@ function _recordSessionCompletion({ sessionPlanId, pkgId, patId, patName,
   const actualProfit = (revenue || 0) - actualMaterialCost;
 
   // ── §5: خصم المخزون مرة واحدة فقط ──
+  let actualDeductedCost = 0; // ✅ التكلفة الفعلية للمواد المخصومة فعليًا من المخزون (لقيد COGS)
   if (!alreadyDeducted) {
     if (typeof deductInventory === 'function' && serviceId) {
-      deductInventory(serviceId, 1);
+      actualDeductedCost = deductInventory(serviceId, 1) || 0;
     }
     _markDeducted(deductKey);
   }
@@ -97,6 +98,7 @@ function _recordSessionCompletion({ sessionPlanId, pkgId, patId, patName,
     actualMaterialCost,
     actualProfit,
     inventoryDeducted: !alreadyDeducted,
+    cogsAmount: alreadyDeducted ? 0 : actualDeductedCost, // ✅ للاستخدام في قيد COGS (14-accounting-hooks.js)
     _protected: true  // يمنع التعديل اليدوي
   };
 

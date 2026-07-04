@@ -1042,6 +1042,11 @@ function finalizeConsultation(){
   const _coveredByPkg   = _activePkgCheck &&
     (!_activePkgCheck.services || !_activePkgCheck.services.trim() ||
      _activePkgCheck.services.includes(svcName));
+  // 2b. خصم المخزون *قبل* إنشاء الفاتورة عشان نلحق نسجّل تكلفة المواد الفعلية
+  // جوه الفاتورة نفسها (materialCost) — تُستخدم لاحقًا لترحيل قيد COGS في
+  // 14-accounting-hooks.js (بطلب المستخدم: صافي الربح يعكس تكلفة المواد فعليًا).
+  const svcRecord = DB.get('services').find(s => s.name === svcName) || DB.get('services').find(s => s.id === a.serviceId);
+  const _materialCost = deductInventory(svcRecord?.id || a.serviceId, 1) || 0;
   if(_coveredByPkg){
     DB.push('invoices',{
       patient:a.patient,patId:a.patId,doctor:a.doctor||'',service:svcName,
@@ -1049,18 +1054,17 @@ function finalizeConsultation(){
       status:'مدفوع',method:'باقة',fromAppt:apptId,
       pkgId:_activePkgCheck.id,pkgName:_activePkgCheck.name,
       commission:0,commissionPct:0,branch:a.branch||'',
-      notes:`مغطاة بباقة: ${_activePkgCheck.name}`
+      notes:`مغطاة بباقة: ${_activePkgCheck.name}`,
+      materialCost:_materialCost
     });
   } else {
     DB.push('invoices',{
       patient:a.patient,patId:a.patId,doctor:a.doctor||'',service:svcName,
       date:today,originalPrice:price,discount:disc,total:net,paid:net,remaining:0,
-      status:'مدفوع',method,fromAppt:apptId,commission:comm,commissionPct:doc?.commission||0,branch:a.branch||''
+      status:'مدفوع',method,fromAppt:apptId,commission:comm,commissionPct:doc?.commission||0,branch:a.branch||'',
+      materialCost:_materialCost
     });
   }
-  // 3. Deduct inventory
-  const svcRecord = DB.get('services').find(s => s.name === svcName) || DB.get('services').find(s => s.id === a.serviceId);
-  deductInventory(svcRecord?.id || a.serviceId, 1);
   // 3b. خصم تلقائي من باقة العميل النشطة
   const pkgResult = deductPackageSession(a.patId, svcName);
   if(pkgResult){

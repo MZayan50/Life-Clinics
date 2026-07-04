@@ -27,11 +27,12 @@ EventBus.on('transfers:deleted',  () => { if(window.renderTransfers) renderTrans
 // الأولوية: recipe[] → ثم linkedProductId (legacy) للتوافق مع البيانات القديمة
 // ══════════════════════════════════════════
 function deductInventory(serviceId, sessionQty){
-  if(!serviceId) return;
+  if(!serviceId) return 0;
   const svc = DB.get('services').find(s => s.id === serviceId);
-  if(!svc) return;
+  if(!svc) return 0;
   const inv = DB.get('inventory');
   sessionQty = sessionQty || 1;
+  let totalCost = 0; // ✅ إجمالي تكلفة المواد المستهلكة — لازم لقيد COGS (تكلفة البضاعة المباعة)
 
   // ── نظام الوصفة الجديد (BOM) ──
   const recipe = svc.recipe;
@@ -43,6 +44,8 @@ function deductInventory(serviceId, sessionQty){
       const deductQty = parseFloat(ingredient.qty) * sessionQty;
       const newQty    = parseFloat(Math.max(0, item.qty - deductQty).toFixed(4));
       const newStatus = newQty === 0 ? 'نفذ' : newQty <= (item.reorder||0) ? 'منخفض' : 'متوفر';
+      const unitCost  = item.costPerConsumeUnit || item.cost || item.costPrice || item.lastPurchasePrice || 0;
+      totalCost += unitCost * deductQty;
       DB.upd('inventory', item.id, { qty: newQty, status: newStatus });
       // تسجيل حركة خصم في سجل المخزون
       if(typeof DB.push === 'function'){
@@ -57,16 +60,18 @@ function deductInventory(serviceId, sessionQty){
         showToast('warning', `⚠️ مخزون منخفض: ${item.name}`, `متبقي ${newQty.toFixed(2)} ${ingredient.unit||item.consumeUnit||'وحدة'}`);
       }
     });
-    return;
+    return totalCost;
   }
 
   // ── نظام المنتج الواحد القديم (legacy fallback) ──
-  if(!svc.linkedProductId) return;
+  if(!svc.linkedProductId) return 0;
   const consumeQty = (svc.consumeQty || 1) * sessionQty;
   const item = inv.find(i => i.id === svc.linkedProductId);
-  if(!item) return;
+  if(!item) return 0;
   const newQty    = parseFloat(Math.max(0, item.qty - consumeQty).toFixed(4));
   const newStatus = newQty === 0 ? 'نفذ' : newQty <= (item.reorder||0) ? 'منخفض' : 'متوفر';
+  const unitCost  = item.costPerConsumeUnit || item.cost || item.costPrice || item.lastPurchasePrice || 0;
+  totalCost = unitCost * consumeQty;
   DB.upd('inventory', item.id, { qty: newQty, status: newStatus });
   if(typeof DB.push === 'function'){
     DB.push('inventory_transactions', {
@@ -79,6 +84,7 @@ function deductInventory(serviceId, sessionQty){
   if(newQty <= (item.reorder||0)){
     showToast('warning', `⚠️ مخزون منخفض: ${item.name}`, `متبقي ${newQty.toFixed(2)} ${item.consumeUnit||'وحدة'}`);
   }
+  return totalCost;
 }
 
 // ══════════════════════════════════════════
@@ -854,19 +860,22 @@ function saveProductSale(){
     qty, unitPrice: price, refType: 'sale',
     date: today, notes: `بيع مباشر${patName ? ' — ' + patName : ''}`
   });
+  const saleRec = DB.push('product_sales', {
+    productId, productName: prodName,
+    qty, unitPrice: price, unitCost: cost,
+    total, profit, method,
+    patientName: patName, date: today, notes
+  });
+  // ✅ ربط بـ refId عشان هوك المحاسبة (14-accounting-hooks.js) يقدر يلاقي
+  // unitCost*qty ويسجّل قيد COGS (تكلفة المواد) مقابل قيد الإيراد
   DB.push('cashlog', {
     type: 'وارد',
     source: `بيع منتج — ${prodName}`,
     amount: total, method,
     date: today,
     notes: `${qty} × ${prodName}${patName ? ' | ' + patName : ''}`,
-    refType: 'product_sale'
-  });
-  DB.push('product_sales', {
-    productId, productName: prodName,
-    qty, unitPrice: price, unitCost: cost,
-    total, profit, method,
-    patientName: patName, date: today, notes
+    refType: 'product_sale',
+    refId: saleRec.id
   });
   closeModal('product-sale-modal');
   showToast('success', `✅ تم بيع ${qty} × ${prodName} بقيمة ${total.toLocaleString()} ج | ربح: ${profit.toLocaleString()} ج`);

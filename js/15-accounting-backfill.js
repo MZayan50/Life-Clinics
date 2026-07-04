@@ -330,6 +330,86 @@ async function runAccountingBackfill(){
     }});
   });
 
+  // ══════════════════════════════════════════
+  // 💰 COGS + حملات إعلانية (بطلب المستخدم: صافي الربح يعكس تكلفة المواد
+  // والتسويق فعليًا، مش الإيراد الإجمالي بس). ✅ FIX: hasEntry() بتتحقق من
+  // وجود *أي* قيد بنفس sourceType/sourceId، وده مش كافي هنا لأن قيد الإيراد
+  // والـ COGS بيشاركوا نفس sourceType/sourceId — فلو استخدمنا hasEntry() هنا
+  // هتترجع true بسبب قيد الإيراد وتمنع ترحيل الـ COGS خالص. بنستخدم فحص خاص
+  // بيدوّر على سطر فعلي بحساب 5100 (تكلفة المواد) داخل نفس المصدر تحديدًا.
+  // ══════════════════════════════════════════
+  const hasCOGSEntry = (sourceType, sourceId) =>
+    journal.some(e => e.sourceType===sourceType && String(e.sourceId)===String(sourceId)
+      && (e.lines||[]).some(l=>l.accountCode==='5100'));
+
+  // ── COGS: فواتير فيها تكلفة مواد مسجّلة (materialCost) ──
+  (DB.get('invoices')||[]).forEach(inv=>{
+    const cost = inv.materialCost||0;
+    if(cost <= 0) return;
+    if(hasCOGSEntry('invoice', inv.id)) return;
+    tasks.push({date: inv.date || '0000-00-00', run: async ()=> postJournalEntry({
+      date: inv.date || new Date().toISOString().split('T')[0],
+      description: `[ترحيل] تكلفة مواد — فاتورة #${inv.id}`,
+      sourceType:'invoice', sourceId:inv.id,
+      lines: [
+        {accountCode:'5100', debit:cost, credit:0, description:'تكلفة المواد المستهلكة'},
+        {accountCode:'1140', debit:0, credit:cost, description:'خصم من المخزون'}
+      ]
+    })});
+  });
+
+  // ── COGS: بيع منتجات مباشر (unitCost×qty متوفرة تاريخيًا من الأول) ──
+  (DB.get('product_sales')||[]).forEach(sale=>{
+    const cost = (sale.unitCost||0) * (sale.qty||0);
+    if(cost <= 0) return;
+    if(hasCOGSEntry('product_sale', sale.id)) return;
+    tasks.push({date: sale.date || '0000-00-00', run: async ()=> postJournalEntry({
+      date: sale.date || new Date().toISOString().split('T')[0],
+      description: `[ترحيل] تكلفة مواد — بيع منتج: ${sale.productName||''}`,
+      sourceType:'product_sale', sourceId:sale.id,
+      lines: [
+        {accountCode:'5100', debit:cost, credit:0, description:'تكلفة المنتج المباع'},
+        {accountCode:'1140', debit:0, credit:cost, description:'خصم من المخزون'}
+      ]
+    })});
+  });
+
+  // ── COGS: استهلاك مواد الجلسات/الباقات (أفضل تقدير متاح تاريخيًا) ──
+  (DB.get('session_completions')||[]).forEach(rec=>{
+    const cost = rec.cogsAmount || rec.actualMaterialCost || rec.materialCost || 0;
+    const sourceType = rec.sessionPlanId ? 'session' : (rec.pkgId ? 'package' : null);
+    const sourceId = rec.sessionPlanId || rec.pkgId || null;
+    if(cost <= 0 || !sourceType || !sourceId) return;
+    if(hasCOGSEntry(sourceType, sourceId)) return;
+    tasks.push({date: rec.date || '0000-00-00', run: async ()=> postJournalEntry({
+      date: rec.date || new Date().toISOString().split('T')[0],
+      description: `[ترحيل] تكلفة مواد — جلسة: ${rec.serviceName||''}`,
+      sourceType, sourceId,
+      lines: [
+        {accountCode:'5100', debit:cost, credit:0, description:'تكلفة المواد المستهلكة'},
+        {accountCode:'1140', debit:0, credit:cost, description:'خصم من المخزون'}
+      ]
+    })});
+  });
+
+  // ── حملات إعلانية قديمة مالهاش مصروف مرتبط بعد ──
+  (DB.get('campaigns')||[]).forEach(c=>{
+    if(!((c.budget||0) > 0)) return;
+    const already = (DB.getActive?DB.getActive('expenses'):DB.get('expenses')).some(e=>e.linkedCampaignId===c.id);
+    if(already) return;
+    tasks.push({date: c.startDate || '0000-00-00', run: async ()=>{
+      // DB.push بتاعة expenses هتولّد expenses:created فتتغطى بقيدها المحاسبي
+      // تلقائيًا عبر الـ Hook الحي (رقم 2) — مش محتاجين نكرر postJournalEntry هنا
+      const saved = DB.push('expenses', {
+        name: `حملة إعلانية: ${c.name}`, type:'تسويق', amount:c.budget,
+        branch: c.branch||'', date: c.startDate || new Date().toISOString().split('T')[0],
+        notes: `[ترحيل] ميزانية حملة "${c.name}"${c.channel?' — '+c.channel:''}`,
+        linkedCampaignId: c.id
+      });
+      return saved;
+    }});
+  });
+
   if(tasks.length === 0){
     showToast('info', 'ℹ️ مفيش سجلات محتاجة ترحيل — كل حاجة مغطاة بقيود بالفعل');
     return;

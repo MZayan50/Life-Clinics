@@ -36,6 +36,24 @@ function _revenueAccountFor(invoice){
 
 // ── 1. فاتورة جديدة → قيد إيراد (كاش/آجل مقابل إيراد) ──
 EventBus.on('invoices:created', async (inv)=>{
+  // ── 1أ. COGS (تكلفة المواد المستهلكة) — بطلب المستخدم: صافي الربح لازم
+  // يعكس تكلفة المواد الفعلية، مش الإيراد الإجمالي بس. مستقل تمامًا عن قيد
+  // الإيراد تحت (بيشتغل حتى لو total=0 لفاتورة مغطاة بباقة، لأن المواد
+  // بتتستهلك من المخزون فعليًا في الحالتين). inv.materialCost بيتحسب وقت
+  // خصم المخزون في finalizeConsultation (07-clinical.js) قبل إنشاء الفاتورة.
+  if((inv.materialCost||0) > 0){
+    await postJournalEntry({
+      date: inv.date || new Date().toISOString().split('T')[0],
+      description: `تكلفة مواد — فاتورة #${inv.id}`,
+      sourceType: 'invoice',
+      sourceId: inv.id,
+      lines: [
+        {accountCode:'5100', debit:inv.materialCost, credit:0, description:'تكلفة المواد المستهلكة'},
+        {accountCode:'1140', debit:0, credit:inv.materialCost, description:'خصم من المخزون'}
+      ]
+    });
+  }
+
   const revAccount = _revenueAccountFor(inv);
   const lines = [];
 
@@ -267,6 +285,24 @@ EventBus.on('cashlog:created', async (c)=>{
         linkedEntryId: entry.id, paidTo_or_receivedFrom: c.source||'بيع منتج', method: c.method||'كاش'
       });
     }
+    // ✅ COGS — تكلفة المنتج المباع (بطلب المستخدم: صافي الربح يعكس التكلفة
+    // الفعلية). product_sales سجّلت unitCost*qty وقت البيع (05-inventory.js)،
+    // ومربوطة بنفس c.refId. نفس sourceType/sourceId لقيد الإيراد فوق عشان
+    // تتعكس مع بعض تلقائيًا لو حصل حذف/عكس للبيع مستقبلاً.
+    const saleRec = c.refId ? (DB.get('product_sales')||[]).find(s=>s.id===c.refId) : null;
+    const cogsCost = (saleRec?.unitCost||0) * (saleRec?.qty||0);
+    if(cogsCost > 0){
+      await postJournalEntry({
+        date: c.date || new Date().toISOString().split('T')[0],
+        description: `تكلفة مواد — بيع منتج: ${c.notes||c.source}`,
+        sourceType: 'product_sale',
+        sourceId: c.refId || null,
+        lines: [
+          {accountCode:'5100', debit:cogsCost, credit:0, description:'تكلفة المنتج المباع'},
+          {accountCode:'1140', debit:0, credit:cogsCost, description:'خصم من المخزون'}
+        ]
+      });
+    }
   }
 });
 
@@ -419,9 +455,9 @@ EventBus.on('cashlog:created', async (c)=>{
 EventBus.on('invoices:deleted', async (e)=>{
   const invId = e?.id;
   if(!invId) return;
-  const entry = (DB.get('journal_entries')||[])
-    .find(je => je.sourceType==='invoice' && String(je.sourceId)===String(invId) && je.status==='posted');
-  if(entry) await reverseJournalEntry(entry.id, 'حذف الفاتورة المرتبطة');
+  // ✅ FIX: كانت بتعكس أول قيد بس (.find) — بعد إضافة قيد COGS المستقل بجانب
+  // قيد الإيراد لنفس sourceId، لازم نعكس *كل* القيود المرتبطة مش واحد بس.
+  await _reverseAllSourceJournalEntries('invoice', invId, 'حذف الفاتورة المرتبطة');
 });
 
 // ── 12. عكس قيد المصروف عند حذفه (delExp في 06-finance.js) ──
@@ -479,4 +515,72 @@ EventBus.on('sessions:deleted', async (e)=>{
 
 EventBus.on('packages:deleted', async (e)=>{
   await _reverseAllSourceJournalEntries('package', e?.id, 'حذف الباقة المرتبطة');
+});
+
+// ── 14. COGS لاستهلاك المخزون في الجلسات العلاجية/الباقات ──
+// بطلب المستخدم: صافي الربح يعكس تكلفة المواد الفعلية. session_completions
+// بيتسجل في _recordSessionCompletion (12-financial-integration.js) بعد كل
+// خصم مخزون فعلي، وبيحمل cogsAmount = القيمة الحقيقية اللي رجّعتها
+// deductInventory() (مش تقدير نظري). لو الجلسة مرتبطة بخطة جلسات (sessionPlanId)
+// نستخدم sourceType:'session' بنفس sourceId بتاع قيد الإيراد (هوك 6) عشان
+// تتعكس مع بعض تلقائيًا لو الخطة اتحذفت (هوك 13). لو مرتبطة بباقة (pkgId)
+// بدل كده، نستخدم sourceType:'package' بنفس منطق حذف الباقة.
+EventBus.on('session_completions:created', async (rec)=>{
+  const cost = rec?.cogsAmount || 0;
+  if(cost <= 0) return;
+  const sourceType = rec.sessionPlanId ? 'session' : (rec.pkgId ? 'package' : null);
+  const sourceId   = rec.sessionPlanId || rec.pkgId || null;
+  if(!sourceType || !sourceId) return; // مفيش مصدر نقدر نربط بيه القيد أو نعكسه لاحقًا
+  await postJournalEntry({
+    date: rec.date || new Date().toISOString().split('T')[0],
+    description: `تكلفة مواد — جلسة: ${rec.serviceName||''} (${rec.patName||''})`,
+    sourceType, sourceId,
+    lines: [
+      {accountCode:'5100', debit:cost, credit:0, description:'تكلفة المواد المستهلكة'},
+      {accountCode:'1140', debit:0, credit:cost, description:'خصم من المخزون'}
+    ]
+  });
+});
+
+// ── 15. حملات إعلانية → مصروف تلقائي (تسويق) ──
+// بطلب المستخدم: ميزانية الحملة لازم تنعكس في المصروفات عشان صافي الربح
+// يبقى حقيقي 100% ويشمل تكلفة التسويق. بنعتمد على البنية الموجودة بالفعل:
+// مصروف جديد بنوع 'تسويق' بيتحول تلقائيًا لقيد محاسبي (حساب 5500) عبر
+// هوك رقم 2 فوق — إحنا هنا بس بنولّد/بنحدّث/بنعكس المصروف "المرتبط" بالحملة
+// (عبر حقل linkedCampaignId)، والباقي بيحصل لوحده عبر الهوكس الموجودة.
+// ⚠️ افتراض: حقل "الميزانية" (budget) في نموذج الحملة بيمثل مبلغ فعلي
+// (مش رقم تخطيطي بس)، ومُسجَّل كمصروف بتاريخ بداية الحملة.
+function _findActiveCampaignExpense(campaignId){
+  return (DB.getActive ? DB.getActive('expenses') : DB.get('expenses')).find(e => e.linkedCampaignId === campaignId);
+}
+function _campaignExpensePayload(c){
+  return {
+    name: `حملة إعلانية: ${c.name}`,
+    type: 'تسويق',
+    amount: c.budget || 0,
+    branch: c.branch || '',
+    date: c.startDate || new Date().toISOString().split('T')[0],
+    notes: `ميزانية حملة "${c.name}"${c.channel?' — '+c.channel:''}`,
+    linkedCampaignId: c.id
+  };
+}
+
+EventBus.on('campaigns:created', (c)=>{
+  if(!c || !((c.budget||0) > 0)) return;
+  DB.push('expenses', _campaignExpensePayload(c)); // بيولّد expenses:created → قيد 5500 تلقائيًا
+});
+
+EventBus.on('campaigns:updated', (c)=>{
+  if(!c) return;
+  const existing = _findActiveCampaignExpense(c.id);
+  const newBudget = c.budget || 0;
+  const newDate   = c.startDate || (existing?.date) || new Date().toISOString().split('T')[0];
+  if(existing && existing.amount === newBudget && existing.date === newDate) return; // مفيش تغيير مالي فعلي
+  if(existing) DB.softDel('expenses', existing.id); // بيعكس القيد القديم تلقائيًا (هوك 12 فوق)
+  if(newBudget > 0) DB.push('expenses', _campaignExpensePayload(c));
+});
+
+EventBus.on('campaigns:deleted', (e)=>{
+  const existing = _findActiveCampaignExpense(e?.id);
+  if(existing) DB.softDel('expenses', existing.id); // بيعكس القيد تلقائيًا (هوك 12 فوق)
 });
