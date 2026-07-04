@@ -597,7 +597,7 @@ function _buildAccountingReportData(view){
         ['قيمة المخزون','أصول', inventory],
         ['ذمم مدينة (أقساط)','أصول', receivables],
         ['مستحقات موردين','التزامات', suppliers],
-        ['صافي حقوق الملكية','حقوق ملكية', equity]
+        ['صافي حقوق الملكية (= الأصول - مستحقات الموردين)','حقوق ملكية', equity]
       ],
       totalsRow: ['إجمالي الأصول','', cash+inventory+receivables]
     };
