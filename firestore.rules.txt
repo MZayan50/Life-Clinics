@@ -164,7 +164,20 @@ service cloud.firestore {
       allow create: if request.resource.data.keys().hasAll(['collection', 'recordId', 'changes', 'timestamp'])
                     && isReasonableSize(request.resource.data);
       allow update: if false;  // الـ audit log لا يُعدَّل أبداً
-      allow delete: if false;  // الـ audit log لا يُحذف أبداً
+      // ✅ FIX (بطلب المستخدم صراحةً — زر "حذف كل البيانات" في الإعدادات
+      // المفروض يمسح كل حاجة ماعدا المستخدمين، وده شامل سجل التعديلات نفسه):
+      // كانت القاعدة "if false" بتمنع Firestore من تنفيذ batch.delete اللي
+      // بيعمله clearAll() (11-settings.js) على audit_log تحديدًا، فيفشل
+      // بصمت (catch(e){console.warn}) والسجلات القديمة ترجع تظهر تاني بعد
+      // الـ reload رغم إن كل حاجة تانية اتمسحت فعلاً.
+      // ⚠️ تنبيه أمني مهم: فتح الحذف هنا معناه إن أي حد عنده وصول للتطبيق
+      // (حتى لو موظف عادي مش مدير) يقدر يمسح أثر تعديلاته بنفسه، مش بس عبر
+      // زر "حذف كل البيانات" — لأن قواعد Firestore مش بتقدر تفرّق بين حذف
+      // جماعي مقصود وحذف مستند واحد بعينه. لو النظام دخل مرحلة إنتاج فعلي
+      // ومحتاج ضمان إن الأدمن بس اللي يقدر يصفّر كل حاجة، الحل الصح وقتها
+      // Firebase Auth Custom Claims (role:'admin') بدل الاعتماد على session
+      // محلي في localStorage زي باقي الـ collections.
+      allow delete: if true;
     }
 
     // ══════════════════════════════════════════════════════════════
