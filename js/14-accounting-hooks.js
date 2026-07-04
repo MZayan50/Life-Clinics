@@ -414,10 +414,8 @@ EventBus.on('cashlog:created', async (c)=>{
 // المراجعة كإيراد حقيقي رغم إن الفاتورة اتحذفت فعليًا. بنستخدم reverseJournalEntry
 // (المبنية بالفعل في المرحلة 2/9) بدل حذف القيد — نفس مبدأ "عكس مش حذف" المتبع
 // في كل مكان تاني بالنظام (cashlog, إلخ).
-// ⚠️ نطاق معروف متبقي (مش مغطى هنا): حذف مستقل لخطة قسط/باقة/جلسة (packages:deleted,
-// installments:deleted, sessions:deleted) بدون حذف فاتورة — نادر عمليًا لأنه بيحصل
-// فقط من خلال delPat (حذف العميل بالكامل)، ووقتها بيتحذف كل حاجة مع بعض فمفيش
-// تناقض ظاهر في التقارير. يتغطى في مرحلة لاحقة لو ظهرت حاجة فعلية.
+// ✅ الحذف المستقل لخطة قسط/باقة/جلسة (بدون حذف فاتورة) بقى مغطّى في هوك رقم 13
+// تحت (packages:deleted, installments:deleted, sessions:deleted).
 EventBus.on('invoices:deleted', async (e)=>{
   const invId = e?.id;
   if(!invId) return;
@@ -452,4 +450,33 @@ EventBus.on('expenses:updated', async (exp)=>{
   if(exp && exp.isDeleted){
     await _reverseExpenseJournalEntry(exp.id, 'حذف المصروف المرتبط (Soft Delete)');
   }
+});
+
+// ── 13. إغلاق الفجوة المعروفة من هوك رقم 11: حذف مستقل لخطة قسط/جلسة/باقة ──
+// المرحلة 9 من دليل تطوير الطبقة المحاسبية (تكملة).
+// خلافًا للفاتورة/المصروف (قيد واحد لكل مصدر عادةً)، خطة القسط وخطة الجلسات
+// ممكن يتسجلّهم أكتر من قيد على مدار الوقت لنفس الـ sourceId (كل تحصيل قسط،
+// وكل جلسة بتتحصّل إيرادها لوحدها — هوك 6 و8 فوق). فلما تتحذف الخطة نفسها
+// (delInstallment/delSession في 06-finance.js/07-clinical.js) أو الباقة
+// (delPackage) لازم نعكس *كل* القيود المرتبطة، مش أول واحدة بس، وإلا هيفضل
+// جزء من الإيراد ظاهر في ميزان المراجعة رغم إن مصدره اتحذف بالكامل.
+async function _reverseAllSourceJournalEntries(sourceType, sourceId, reason){
+  if(!sourceId) return;
+  const entries = (DB.get('journal_entries')||[])
+    .filter(je => je.sourceType===sourceType && String(je.sourceId)===String(sourceId) && je.status==='posted');
+  for(const je of entries){
+    await reverseJournalEntry(je.id, reason);
+  }
+}
+
+EventBus.on('installments:deleted', async (e)=>{
+  await _reverseAllSourceJournalEntries('installment', e?.id, 'حذف خطة الأقساط المرتبطة');
+});
+
+EventBus.on('sessions:deleted', async (e)=>{
+  await _reverseAllSourceJournalEntries('session', e?.id, 'حذف خطة الجلسات المرتبطة');
+});
+
+EventBus.on('packages:deleted', async (e)=>{
+  await _reverseAllSourceJournalEntries('package', e?.id, 'حذف الباقة المرتبطة');
 });
