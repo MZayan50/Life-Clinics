@@ -538,25 +538,56 @@ function _buildAccountingReportData(view){
     const tb = calcTrialBalance(null);
     const revRows = tb.rows.filter(r=>r.type==='revenue');
     const expRows = tb.rows.filter(r=>r.type==='expense');
-    const totalRevenue = revRows.reduce((s,r)=>s+r.balance,0);
-    const totalExpense = expRows.reduce((s,r)=>s+r.balance,0);
+    let totalRevenue, totalExpense, rows;
+    if(tb && tb.rows.length){
+      totalRevenue = revRows.reduce((s,r)=>s+r.balance,0);
+      totalExpense = expRows.reduce((s,r)=>s+r.balance,0);
+      rows = [
+        ...revRows.map(r=>['إيراد', r.name, r.balance]),
+        ...expRows.map(r=>['مصروف', r.name, r.balance])
+      ];
+    } else {
+      // ✅ نفس الـ Fallback في renderAccounts() — قبل وجود قيود مرحّلة كفاية
+      const cashlog = DB.get('cashlog')||[];
+      totalRevenue = cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
+      totalExpense = cashlog.filter(c=>c.type==='صادر').reduce((s,c)=>s+(c.amount||0),0);
+      rows = [
+        ['إيراد', 'إجمالي الإيراد (من سجل الخزينة)', totalRevenue],
+        ['مصروف', 'إجمالي المصروف (من سجل الخزينة)', totalExpense]
+      ];
+    }
     return {
       title: 'قائمة الأرباح والخسائر',
       headers: ['النوع','الحساب','القيمة'],
-      rows: [
-        ...revRows.map(r=>['إيراد', r.name, r.balance]),
-        ...expRows.map(r=>['مصروف', r.name, r.balance])
-      ],
+      rows,
       totalsRow: ['', 'صافي الربح / الخسارة', totalRevenue-totalExpense]
     };
   }
   if(view==='bs'){
     const tb = calcTrialBalance(null);
     const balOf = code => tb.rows.find(r=>r.code===code)?.balance||0;
-    const cash = balOf('1110') + balOf('1120');
-    const receivables = balOf('1130');
-    const inventory = balOf('1140');
-    const suppliers = balOf('2100');
+    // ✅ نفس منطق الـ Fallback الموجود في renderAccounts() (06-finance.js):
+    // لو مفيش قيود محاسبية كفاية بعد (قبل تشغيل الترحيل التاريخي)، الاعتماد
+    // على calcTrialBalance بس كان بيطلّع كل الأرقام صفر رغم إن الشاشة الحية
+    // بتعرض قيم حقيقية من مصادر تانية. من غير الـ fallback ده، التصدير كان
+    // بيطلع فاضي فعليًا حتى لو الشاشة نفسها ظاهرة فيها أرقام.
+    let cash, receivables, inventory, suppliers;
+    if(tb && tb.rows.length){
+      cash        = balOf('1110') + balOf('1120');
+      receivables = balOf('1130');
+      inventory   = balOf('1140');
+      suppliers   = balOf('2100');
+    } else {
+      inventory = typeof calcInventoryCostValue==='function' ? calcInventoryCostValue()
+        : (DB.get('inventory')||[]).reduce((s,i)=>s+(i.qty*(i.costPerConsumeUnit||i.costPrice||i.lastPurchasePrice||0)),0);
+      receivables = (DB.get('patients')||[]).reduce((s,p)=>s+Math.max(0,p.balance||0),0);
+      suppliers = typeof calcAllSuppliersOwed==='function' ? calcAllSuppliersOwed()
+        : (DB.get('suppliers')||[]).reduce((s,x)=>s+(x.owed||0),0);
+      const cashlog = DB.get('cashlog')||[];
+      const rev = cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
+      const exp = cashlog.filter(c=>c.type==='صادر').reduce((s,c)=>s+(c.amount||0),0);
+      cash = Math.max(0, rev-exp);
+    }
     const equity = cash + inventory + receivables - suppliers;
     return {
       title: 'الميزانية العمومية',
