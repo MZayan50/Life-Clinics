@@ -511,3 +511,171 @@ async function testExpenseReversalCycle(){
   renderJournalEntries();
 }
 
+
+// ══════════════════════════════════════════
+// 📤 EXPORT — ميزان المراجعة / الأرباح والخسائر / الميزانية العمومية / التدفق النقدي
+// المرحلة 11 من دليل تطوير الطبقة المحاسبية
+// ⚠️ نفس قالب exportReportPDF (10-reports.js) للـ PDF، ونفس أسلوب exportInvs
+// (04-invoices.js) للـ CSV — بس مطبّقين على تبويبات شاشة "الحسابات"
+// (screen-accounts) بدل شاشة "التقارير". قراءة فقط، مفيش أي تعديل على
+// renderAccounts()/calcTrialBalance() الموجودين.
+// ══════════════════════════════════════════
+
+// ── تجميع بيانات التقرير المطلوب تصديره (view: 'tb' | 'pl' | 'bs' | 'cf') ──
+function _buildAccountingReportData(view){
+  if(view==='tb'){
+    const asOfDate = document.getElementById('tb-asof-date')?.value || '';
+    const tb = calcTrialBalance(asOfDate || null);
+    const typeLabels = {asset:'أصول', liability:'التزامات', equity:'حقوق ملكية', revenue:'إيرادات', expense:'مصروفات'};
+    return {
+      title: 'ميزان المراجعة' + (asOfDate ? ` — حتى ${asOfDate}` : ' — كل التاريخ'),
+      headers: ['الكود','اسم الحساب','النوع','مدين','دائن','الرصيد'],
+      rows: tb.rows.map(r=>[r.code, r.name, typeLabels[r.type]||r.type, r.debit, r.credit, r.balance]),
+      totalsRow: ['','','الإجمالي', tb.totalDebit, tb.totalCredit, tb.isBalanced?'✅ متوازن':'❌ غير متوازن']
+    };
+  }
+  if(view==='pl'){
+    const tb = calcTrialBalance(null);
+    const revRows = tb.rows.filter(r=>r.type==='revenue');
+    const expRows = tb.rows.filter(r=>r.type==='expense');
+    const totalRevenue = revRows.reduce((s,r)=>s+r.balance,0);
+    const totalExpense = expRows.reduce((s,r)=>s+r.balance,0);
+    return {
+      title: 'قائمة الأرباح والخسائر',
+      headers: ['النوع','الحساب','القيمة'],
+      rows: [
+        ...revRows.map(r=>['إيراد', r.name, r.balance]),
+        ...expRows.map(r=>['مصروف', r.name, r.balance])
+      ],
+      totalsRow: ['', 'صافي الربح / الخسارة', totalRevenue-totalExpense]
+    };
+  }
+  if(view==='bs'){
+    const tb = calcTrialBalance(null);
+    const balOf = code => tb.rows.find(r=>r.code===code)?.balance||0;
+    const cash = balOf('1110') + balOf('1120');
+    const receivables = balOf('1130');
+    const inventory = balOf('1140');
+    const suppliers = balOf('2100');
+    const equity = cash + inventory + receivables - suppliers;
+    return {
+      title: 'الميزانية العمومية',
+      headers: ['البند','النوع','القيمة'],
+      rows: [
+        ['النقدية في الخزينة','أصول', cash],
+        ['قيمة المخزون','أصول', inventory],
+        ['ذمم مدينة (أقساط)','أصول', receivables],
+        ['مستحقات موردين','التزامات', suppliers],
+        ['صافي حقوق الملكية','حقوق ملكية', equity]
+      ],
+      totalsRow: ['إجمالي الأصول','', cash+inventory+receivables]
+    };
+  }
+  if(view==='cf'){
+    const cashlog = DB.get('cashlog')||[];
+    const MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+    const year = new Date().getFullYear();
+    let cumulative = 0;
+    const rows = MONTHS.map((m,i)=>{
+      const mStr = `${year}-${String(i+1).padStart(2,'0')}`;
+      const inflow  = cashlog.filter(c=>c.type==='وارد'&&(c.date||'').startsWith(mStr)).reduce((s,c)=>s+(c.amount||0),0);
+      const outflow = cashlog.filter(c=>c.type==='صادر'&&(c.date||'').startsWith(mStr)).reduce((s,c)=>s+(c.amount||0),0);
+      const net = inflow-outflow; cumulative += net;
+      return [m, inflow, outflow, net, cumulative];
+    });
+    return {
+      title: 'التدفق النقدي الشهري — ' + year,
+      headers: ['الشهر','الوارد','الصادر','الصافي','الرصيد التراكمي'],
+      rows,
+      totalsRow: null
+    };
+  }
+  return null;
+}
+
+// ── تصدير CSV — نفس أسلوب exportInvs (04-invoices.js) ──
+function exportAccountingCSV(view){
+  const data = _buildAccountingReportData(view);
+  if(!data){ showToast('error','❌ نوع تقرير غير معروف'); return; }
+  const allRows = [data.headers, ...data.rows];
+  if(data.totalsRow) allRows.push(data.totalsRow);
+  const csv = allRows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${data.title.replace(/[^ء-يa-zA-Z0-9]+/g,'-')}-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  showToast('success', '📊 تم تصدير ' + data.title);
+}
+
+// ── تصدير PDF — نفس قالب exportReportPDF (10-reports.js: نافذة جديدة + html2pdf) ──
+function exportAccountingPDF(view){
+  const data = _buildAccountingReportData(view);
+  if(!data){ showToast('error','❌ نوع تقرير غير معروف'); return; }
+
+  const clinicName  = DB.obj('settings').clinicName || 'عيادات الحياة للتجميل';
+  const clinicPhone = DB.obj('settings').phone || '';
+  const now = new Date().toLocaleDateString('ar-EG',{year:'numeric',month:'long',day:'numeric'});
+
+  const fmt = v => typeof v==='number' ? v.toLocaleString()+' ج' : (v??'—');
+  const tableRows = data.rows.map(r=>`<tr>${r.map((c,i)=>`<td style="padding:7px;border-bottom:1px solid #f0f0f0;${i===0?'font-weight:700;':''}${typeof c==='number'?'text-align:left;font-family:monospace;color:#047857;':''}">${fmt(c)}</td>`).join('')}</tr>`).join('');
+  const totalsHtml = data.totalsRow
+    ? `<tr style="font-weight:800;background:#f8f4ef;">${data.totalsRow.map(c=>`<td style="padding:7px;">${fmt(c)}</td>`).join('')}</tr>`
+    : '';
+
+  const bodyHtml = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+    <thead><tr style="background:#f8f4ef;">${data.headers.map(h=>`<th style="padding:7px;text-align:right;border-bottom:2px solid #C4A882;">${h}</th>`).join('')}</tr></thead>
+    <tbody>${tableRows}${totalsHtml}</tbody>
+  </table>`;
+
+  const html = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>${data.title}</title>
+<style>@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Tajawal',sans-serif;background:#fff;color:#1a1a1a;padding:28px;font-size:13.5px;}
+.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #C4A882;padding-bottom:18px;margin-bottom:20px;}
+.logo{font-size:20px;font-weight:900;color:#C4A882;}.logo-sub{font-size:11px;color:#666;margin-top:3px;}
+.rpt-meta{text-align:left;font-size:12px;color:#666;}.rpt-meta strong{font-size:16px;color:#1a1a1a;display:block;}
+.footer{text-align:center;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:14px;margin-top:20px;}
+@media print{body{padding:14px;}}</style></head><body>
+<div class="header"><div style="display:flex;align-items:center;gap:10px;"><div>${clinicLogoHTML(38)}</div><div><div class="logo">${clinicName}</div><div class="logo-sub">📞 ${clinicPhone}</div></div></div>
+<div class="rpt-meta"><span>تقرير محاسبي رسمي</span><strong>${data.title}</strong><div style="margin-top:3px">📅 ${now}</div></div></div>
+${bodyHtml}
+<div class="footer">أُنشئ بواسطة نظام عيادات الحياة للتجميل 💎 · ${now}</div>
+</body></html>`;
+
+  const fileName = `${data.title.replace(/[^ء-يa-zA-Z0-9]+/g,'-')}-${new Date().toLocaleDateString('en-GB').replace(/\//g,'-')}.pdf`;
+  const toolbar = `<div id="rpt-toolbar" style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:3px solid #C4A882;padding:12px 20px;display:flex;gap:10px;justify-content:center;align-items:center;z-index:9999;font-family:'Tajawal',sans-serif;">
+    <button id="rpt-pdf-btn" onclick="downloadRptPDF()" style="padding:9px 26px;background:#1a6dcc;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;">📄 تحميل PDF</button>
+    <button onclick="window.print()" style="padding:9px 22px;background:#C4A882;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;">🖨 طباعة</button>
+    <button onclick="window.close()" style="padding:9px 22px;background:#eee;color:#333;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;">✕ إغلاق</button>
+  </div>
+  <div style="height:70px"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
+  <script>
+  function downloadRptPDF(){
+    var btn=document.getElementById('rpt-pdf-btn');
+    btn.textContent='⏳ جارٍ التحميل...'; btn.disabled=true;
+    var tb=document.getElementById('rpt-toolbar');
+    tb.style.display='none';
+    html2pdf().set({
+      margin:[8,8,8,8],
+      filename:'${fileName}',
+      image:{type:'jpeg',quality:0.97},
+      html2canvas:{scale:2,useCORS:true,letterRendering:true},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+    }).from(document.body).save().then(function(){
+      tb.style.display='flex';
+      btn.textContent='📄 تحميل PDF'; btn.disabled=false;
+    });
+  }
+  <\/script>`;
+
+  const fullHtml = html.replace('</body>', toolbar + '</body>');
+
+  const w = window.open('','_blank','width=860,height=750,scrollbars=yes');
+  if(!w){ showToast('error','❌ السماح بفتح النوافذ المنبثقة مطلوب'); return; }
+  w.document.write(fullHtml);
+  w.document.close();
+  showToast('success', '📄 جاهز للتحميل أو الطباعة');
+}
+
