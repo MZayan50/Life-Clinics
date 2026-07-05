@@ -286,6 +286,8 @@ function attachFirestoreSync(col){
         if(allCols.every(c => window._fbFirstSync[c])){
           const syncEl = document.getElementById('fb-sync-indicator');
           if(syncEl) syncEl.style.display = 'none';
+          if(typeof dashHideSkeleton === 'function') dashHideSkeleton();
+          if(typeof buildDashboard === 'function') buildDashboard();
         }
       }
     }, err => {

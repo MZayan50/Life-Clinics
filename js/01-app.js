@@ -801,6 +801,7 @@ function dashChartFilter(type, btn){
 window._dashApptFilter = 'all';
 
 function buildDashboard(){
+  applyDashboardTimeTheme();
   const today = new Date().toISOString().split('T')[0];
   const branch = (document.getElementById('dash-branch-sel')?.value)||'';
 
@@ -1275,8 +1276,44 @@ function animateCount(id, target){
 }
 function setDate(){const el=document.getElementById('topbar-date');if(el)el.textContent=new Date().toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'});}
 
+// تبديل تبويب "الفواتير / تقارير" داخل الكارت المدمج بالداشبورد
+function dashRow2Tab(which, btn){
+  document.querySelectorAll('.dash-r2-tab').forEach(b=>{b.style.background='transparent';b.style.color='var(--text-muted)';});
+  if(btn){btn.style.background='rgba(45,212,191,.15)';btn.style.color='var(--teal)';}
+  const inv = document.getElementById('dash-r2-invoices');
+  const rep = document.getElementById('dash-r2-reports');
+  if(inv) inv.style.display = which==='invoices' ? 'block' : 'none';
+  if(rep) rep.style.display = which==='reports'  ? 'block' : 'none';
+}
+
+// تحية وأيقونة ديناميكية حسب وقت اليوم (صباح/ظهر/مساء/ليل)
+function applyDashboardTimeTheme(){
+  const h = new Date().getHours();
+  let emoji, greet, a, b;
+  if(h>=5 && h<12){ emoji='☀️'; greet='صباح الخير'; a='var(--gold)'; b='var(--amber)'; }
+  else if(h>=12 && h<17){ emoji='🌤️'; greet='نهارك سعيد'; a='var(--teal)'; b='var(--emerald)'; }
+  else if(h>=17 && h<21){ emoji='🌆'; greet='مساء الخير'; a='var(--rose)'; b='var(--purple)'; }
+  else { emoji='🌙'; greet='تصبح على خير'; a='var(--purple)'; b='var(--teal-dark)'; }
+  const rawName = (document.getElementById('user-name')?.textContent||'').trim();
+  const name = rawName.replace(/^د\.\s*/,'');
+  const icon = document.getElementById('dash-time-icon');
+  if(icon){ icon.style.background = `linear-gradient(135deg,${a},${b})`; icon.textContent = emoji; }
+  const greetEl = document.getElementById('dash-greeting-text');
+  if(greetEl) greetEl.textContent = name ? `${greet}، ${name}` : greet;
+}
+
+// إظهار/إخفاء هيكل التحميل (Skeleton) أثناء أول مزامنة من Firestore
+function dashShowSkeleton(){ document.getElementById('dash-skeleton')?.classList.add('show'); }
+function dashHideSkeleton(){ document.getElementById('dash-skeleton')?.classList.remove('show'); }
+
 // INIT
 function init(){
+  applyDashboardTimeTheme();
+  // لو فيه إعداد Firebase، البيانات هتوصل async — نظهر Skeleton لحد ما توصل
+  if(localStorage.getItem('ha_fb_config')){
+    dashShowSkeleton();
+    setTimeout(dashHideSkeleton, 8000); // fallback أمان لو التزامن اتأخر
+  }
   buildDashboard();buildChart();loadSettings();setDate();
   // تحديث حالة الأقساط المتأخرة عند بدء التشغيل
   setTimeout(()=>{ if(typeof updateInstallmentStatuses==='function') updateInstallmentStatuses(); }, 1500);
