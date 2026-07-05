@@ -135,7 +135,9 @@ const DB = {
     // onSnapshot) لا يرى الاستدعاء مطلقاً — حتى بعد إصلاح firestore.rules.
     'call_queue',
     // 💼 ACCOUNTING LAYER (دليل تطوير الطبقة المحاسبية — المرحلة 1+)
-    'chart_of_accounts', 'journal_entries', 'accounting_periods', 'vouchers'
+    'chart_of_accounts', 'journal_entries', 'accounting_periods', 'vouchers',
+    // 📆 المرحلة 12 — إدارة السنة المالية (قيد إقفال سنوي + سجل الإقفالات)
+    'fiscal_years'
   ],
 
   // ── In-memory cache: Firestore data lives here ──

@@ -78,7 +78,11 @@ async function postJournalEntry({date, description, sourceType, sourceId, lines}
   }
 
   // ✅ فحص إغلاق الفترة (يُفعّل فعليًا بعد المرحلة 8 — isPeriodLocked لسه مش موجودة)
-  if(typeof isPeriodLocked === 'function' && isPeriodLocked(date)){
+  // ⚠️ استثناء (المرحلة 12): قيد إقفال السنة المالية نفسه لازم يتسجل بتاريخ آخر
+  // يوم في السنة المالية — وهو نفس اليوم اللي 18-fiscal-year.js بيتأكد إنه جوه
+  // فترة مقفولة فعلاً (شرط أساسي قبل الإقفال). لو منعناه هنا هيبقى مستحيل نقفل
+  // أي سنة مالية إطلاقًا. فبنستثني sourceType='year_end_closing' وحده من هذا الفحص.
+  if(sourceType !== 'year_end_closing' && typeof isPeriodLocked === 'function' && isPeriodLocked(date)){
     showToast('warning', '⚠️ الفترة المحاسبية مقفولة — لا يمكن إضافة قيود');
     return null;
   }
