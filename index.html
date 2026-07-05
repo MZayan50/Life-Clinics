@@ -1343,6 +1343,21 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
         </div>
         <button class="btn btn-primary" style="margin-top:14px;" onclick="saveSettings()">💾 حفظ</button>
       </div>
+      <div class="card"><div class="card-hdr"><div class="card-title">🗓️ السنة المالية</div></div>
+        <div class="fg" style="gap:12px;">
+          <div class="fgrp"><label class="flbl">شهر بداية السنة المالية</label>
+            <select class="fctl" id="s-fy-start-month">
+              <option value="1">يناير (سنة مالية = سنة ميلادية)</option>
+              <option value="2">فبراير</option><option value="3">مارس</option><option value="4">أبريل</option>
+              <option value="5">مايو</option><option value="6">يونيو</option><option value="7">يوليو</option>
+              <option value="8">أغسطس</option><option value="9">سبتمبر</option><option value="10">أكتوبر</option>
+              <option value="11">نوفمبر</option><option value="12">ديسمبر</option>
+            </select>
+          </div>
+          <div class="fgrp full" style="font-size:11.5px;color:var(--text-muted);">المرحلة 12 — تحدّد بداية دورة السنة المالية للعيادة. عند إقفال السنة (من شاشة "إغلاق الفترات والسنة المالية")، بيتحسب صافي الربح/الخسارة للفترة من هذا الشهر لحد نفس الشهر في السنة التالية (لو مختلف عن يناير) ويترحّل لحساب "أرباح مرحّلة" 3200. تغييرها لا يؤثر على أي إقفال سابق.</div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:14px;" onclick="saveSettings()">💾 حفظ</button>
+      </div>
       <div class="card"><div class="card-hdr"><div class="card-title">🔺 تنبيه رفع أسعار الجلسات</div></div>
         <div class="fg" style="gap:12px;">
           <div class="fgrp"><label class="flbl">أقل هامش ربح مقبول (%)</label><input class="fctl" id="s-margin-threshold" type="number" value="30"></div>
@@ -1531,6 +1546,21 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       <div class="table-wrap"><table>
         <thead><tr><th>الفترة</th><th>الحالة</th><th>تفاصيل الإقفال</th><th>إجراء</th></tr></thead>
         <tbody id="periods-tbody"></tbody>
+      </table></div>
+    </div>
+    <div class="card"><div class="card-hdr"><div class="card-title">📆 إقفال السنة المالية</div>
+        <button class="btn btn-primary btn-sm" onclick="closeCurrentFiscalYearUI()">🏁 إقفال السنة الحالية</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+        المرحلة 12 — قيد إقفال تلقائي في نهاية السنة المالية (حسب شهر البداية المحدَّد في "الإعدادات العامة"): بيصفّر كل حسابات الإيرادات والمصروفات (يدِن الإيرادات ويُقيّد المصروفات بقيمة رصيدها بالكامل) ويرحّل صافي الربح أو الخسارة لحساب "أرباح مرحّلة" 3200. يتطلب إقفال آخر شهر في السنة المالية أولاً (من قسم "إغلاق الفترات المحاسبية" فوق) وميزان مراجعة متوازن حتى آخر يوم في السنة. القفل قابل للتراجع (🔓 فتح) لو حصل خطأ، وهيعكس القيد تلقائيًا.
+      </div>
+      <div style="display:flex;gap:9px;align-items:center;margin-bottom:14px;">
+        <input type="number" id="fy-select-input" class="selbox" style="max-width:160px;" placeholder="سنة البداية مثلاً 2026">
+        <button class="btn btn-ghost btn-sm" onclick="closeSelectedFiscalYearUI()">إقفال السنة المختارة</button>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>السنة المالية</th><th>الفترة</th><th>الحالة</th><th>صافي الربح/الخسارة</th><th>تفاصيل الإقفال</th><th>إجراء</th></tr></thead>
+        <tbody id="fy-tbody"></tbody>
       </table></div>
     </div>
     <div class="card"><div class="card-hdr"><div class="card-title">💾 إدارة البيانات</div></div>
@@ -2980,6 +3010,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <script src="js/15-accounting-backfill.js?v=2"></script>
 <script src="js/16-periods.js?v=1"></script>
 <script src="js/17-cleanup-tools.js?v=1"></script>
+<script src="js/18-fiscal-year.js?v=1"></script>
 <script>
   // ✅ ننتظر تحميل كل الملفات قبل استدعاء init()
   if (typeof init === 'function') {
