@@ -1017,12 +1017,19 @@ function calcCdTotal(){
   const svcName=svcSel?.options[svcSel?.selectedIndex]?.value||a?.service||'';
   const svcRecord=DB.get('services').find(s=>s.name===svcName);
   const matCost=svcRecord&&typeof calcServiceMaterialCost==='function'?calcServiceMaterialCost(svcRecord.id):0;
-  const netProfit=Math.max(0,net-matCost);
+  // ✅ FIX: لو الجلسة مغطاة بباقة نشطة، قيمة الجلسة الحقيقية هي نصيب الجلسة
+  // من سعر بيع الباقة (price/sessionsCount)، مش سعر الخدمة في الفورم (اللي
+  // غالبًا صفر للخدمات المُباعة بس جوه باقات). نفس منطق finalizeConsultation.
+  const _activePkg=a?getPatientActivePackage(a.patId):null;
+  const _covered=_activePkg&&(!_activePkg.services||!_activePkg.services.trim()||_activePkg.services.includes(svcName));
+  const pkgSessionValue=_covered?Math.max(0,((_activePkg.price||0)-(_activePkg.discount||0))/(_activePkg.sessionsCount||1)):0;
+  const sessionValue=_covered?pkgSessionValue:net;
+  const netProfit=Math.max(0,sessionValue-matCost);
   const comm=Math.round(netProfit*(doc?.commission||0)/100);
   const netEl=document.getElementById('cd-net');
   const commEl=document.getElementById('cd-comm-display');
   if(netEl)netEl.textContent=net.toLocaleString()+' ج';
-  if(commEl)commEl.textContent=comm.toLocaleString()+' ج ('+(doc?.commission||0)+'% من صافي الربح'+(matCost?' — بعد خصم تكلفة مواد '+matCost.toFixed(1)+' ج':'')+')';
+  if(commEl)commEl.textContent=comm.toLocaleString()+' ج ('+(doc?.commission||0)+'% من صافي الربح'+(_covered?' — نصيب الجلسة من الباقة '+sessionValue.toFixed(1)+' ج':'')+(matCost?' — بعد خصم تكلفة مواد '+matCost.toFixed(1)+' ج':'')+')';
 }
 
 function finalizeConsultation(){
@@ -1056,11 +1063,23 @@ function finalizeConsultation(){
   // 14-accounting-hooks.js (بطلب المستخدم: صافي الربح يعكس تكلفة المواد فعليًا).
   const svcRecord = DB.get('services').find(s => s.name === svcName) || DB.get('services').find(s => s.id === a.serviceId);
   const _materialCost = deductInventory(svcRecord?.id || a.serviceId, 1) || 0;
-  // ✅ FIX (بطلب المستخدم): عمولة الطبيب تُحسب من صافي الربح — أي سعر الخدمة
-  // بعد الخصم (net) مطروحًا منه تكلفة المنتجات/المواد المستهلكة فعليًا في هذه
-  // الجلسة (_materialCost) — وليس من إجمالي سعر الخدمة كما كان سابقًا. تنطبق
-  // نفس القاعدة سواء الفاتورة مدفوعة مباشرة أو مغطاة بباقة (راجع فرعي الشرط تحت).
-  const _netProfit = Math.max(0, net - _materialCost);
+  // ✅ FIX (الجذر الحقيقي للمشكلة): الخدمات اللي بتتباع بس جوه باقة (زي "جلسة
+  // خلايا جزء") غالبًا سعرها في كتالوج الخدمات صفر أو غير معرّف — مفيش سعر
+  // مستقل ليها أصلاً، فاستخدام price/net (سعر مربوط بحقل الفورم) كان بيدّي
+  // صافي ربح = صفر دايمًا لأي جلسة مغطاة بباقة، أيًا كان تعديل معادلة العمولة.
+  // القيمة الحقيقية للجلسة في حالة الباقة هي نصيبها من سعر بيع الباقة نفسها
+  // (نفس منطق sellingPrice المستخدم أصلاً في _updatePackageFinancials —
+  // 12-financial-integration.js — لحساب ربح الباقة الكلي)، مقسومة على عدد
+  // الجلسات، وليس سعر الخدمة في الفورم.
+  const _pkgSessionValue = _coveredByPkg
+    ? Math.max(0, ((_activePkgCheck.price||0) - (_activePkgCheck.discount||0)) / (_activePkgCheck.sessionsCount || 1))
+    : 0;
+  // ✅ FIX (بطلب المستخدم): عمولة الطبيب تُحسب من صافي الربح — قيمة الجلسة
+  // (سعر الخدمة بعد الخصم لو فاتورة عادية، أو نصيب الجلسة من سعر الباقة لو
+  // مغطاة بباقة) مطروحًا منها تكلفة المنتجات/المواد المستهلكة فعليًا
+  // (_materialCost) — وليس من إجمالي السعر كما كان سابقًا.
+  const _sessionValue = _coveredByPkg ? _pkgSessionValue : net;
+  const _netProfit = Math.max(0, _sessionValue - _materialCost);
   const comm = Math.round(_netProfit * (doc?.commission || 0) / 100);
   if(_coveredByPkg){
     // ✅ FIX: كانت الفاتورة المغطاة بباقة تُسجَّل بعمولة صفر للطبيب لأن total/paid=0
