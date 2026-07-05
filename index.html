@@ -132,8 +132,29 @@ body{font-family:'Tajawal',sans-serif;background:var(--bg-primary);color:var(--t
 .dash-appt-row:last-child{margin-bottom:0;}
 /* compat stubs */
 .dash-period-btn.active,.dash-cf-btn.active{background:rgba(45,212,191,.15)!important;color:var(--teal)!important;}
-@media(max-width:1100px){#dash-kpi-grid{grid-template-columns:repeat(2,1fr)!important;} .dash-row2{grid-template-columns:1fr 1fr!important;} .dash-row3{grid-template-columns:1fr!important;} .dash-row3 > div:last-child{display:none;}}
-@media(max-width:640px){#dash-kpi-grid{grid-template-columns:1fr!important;} .dash-row2{grid-template-columns:1fr!important;}}
+/* ── KPI visual hierarchy: hero card (أهم رقم) + 3 mini cards ── */
+#dash-kpi-grid{display:grid;grid-template-columns:1.35fr 1fr;grid-template-rows:repeat(3,1fr);grid-template-areas:"hero pat" "hero appt" "hero mrev";gap:14px;margin-bottom:18px;align-items:stretch;}
+.kpi-area-hero{grid-area:hero;}
+.kpi-area-pat{grid-area:pat;}
+.kpi-area-appt{grid-area:appt;}
+.kpi-area-mrev{grid-area:mrev;}
+.dash-kpi-hero{cursor:pointer;position:relative;overflow:hidden;border-radius:var(--radius);padding:24px 26px;height:100%;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(145deg,rgba(16,185,129,.14),rgba(16,185,129,.03) 60%),var(--bg-card);border:1px solid rgba(16,185,129,.35);box-shadow:0 10px 30px -12px rgba(16,185,129,.25);transition:all .22s;}
+.dash-kpi-hero:hover{transform:translateY(-2px);box-shadow:0 14px 36px -10px rgba(16,185,129,.35);}
+.dash-kpi-hero .kh-top{display:flex;justify-content:space-between;align-items:flex-start;}
+.dash-kpi-hero .kh-label{font-size:13px;color:var(--text-secondary);font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.dash-kpi-hero .kh-icon{width:52px;height:52px;border-radius:14px;background:rgba(16,185,129,.18);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.dash-kpi-hero .kh-value{font-size:44px;font-weight:900;color:var(--emerald);line-height:1;letter-spacing:-1px;}
+.dash-kpi-hero .kh-chg{margin-top:12px;font-size:12.5px;}
+.dash-kpi-hero .kh-spark{margin-top:14px;height:40px;display:flex;align-items:flex-end;gap:4px;}
+.dash-kpi-mini{cursor:pointer;position:relative;overflow:hidden;border-radius:var(--radius-sm);padding:12px 14px;height:100%;display:flex;align-items:center;gap:12px;background:var(--bg-card);border:1px solid var(--glass-border);border-right:3px solid var(--mini-color,var(--teal));transition:all .2s;}
+.dash-kpi-mini:hover{background:var(--bg-card-hover);transform:translateX(-2px);}
+.dash-kpi-mini .km-icon{width:34px;height:34px;border-radius:9px;background:var(--mini-bg,rgba(45,212,191,.12));display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.dash-kpi-mini .km-body{flex:1;min-width:0;}
+.dash-kpi-mini .km-label{font-size:10.5px;color:var(--text-muted);font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dash-kpi-mini .km-value{font-size:19px;font-weight:900;color:var(--mini-color,var(--teal));line-height:1;}
+.dash-kpi-mini .km-chg{font-size:10px;margin-top:3px;}
+@media(max-width:1100px){#dash-kpi-grid{grid-template-columns:1.15fr 1fr;} .dash-row2{grid-template-columns:1fr 1fr!important;} .dash-row3{grid-template-columns:1fr!important;} .dash-row3 > div:last-child{display:none;}}
+@media(max-width:640px){#dash-kpi-grid{grid-template-columns:1fr!important;grid-template-rows:auto;grid-template-areas:"hero" "pat" "appt" "mrev";} .dash-kpi-hero .kh-value{font-size:36px;} .dash-row2{grid-template-columns:1fr!important;}}
 /* ── End Dashboard ── */
 /* ── Dashboard v2 widgets — بيانات حقيقية من النظام ── */
 .dgrid-3{display:grid;grid-template-columns:1fr 1.6fr 1fr;gap:16px;margin-bottom:18px;}
@@ -496,57 +517,58 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     </div>
   </div>
 
-  <!-- ══ ROW 1: KPI Cards (4 cards) ══ -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;" id="dash-kpi-grid">
+  <!-- ══ ROW 1: KPI Cards — كارت رئيسي (إيراد اليوم) + 3 كروت ثانوية ══ -->
+  <div id="dash-kpi-grid">
 
-    <div class="dash-kpi-card" onclick="showScreen('patients')" style="cursor:pointer;background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;transition:all .22s;border-top:3px solid var(--amber);">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+    <!-- HERO: إيرادات اليوم — الرقم الأهم -->
+    <div class="dash-kpi-hero kpi-area-hero" onclick="showScreen('finance')">
+      <div class="kh-top">
         <div>
-          <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:8px;">إجمالي العملاء</div>
-          <div style="font-size:30px;font-weight:900;color:var(--amber);line-height:1;" id="kpi-pat">0</div>
+          <div class="kh-label">💰 إيرادات اليوم</div>
+          <div class="kh-value" id="kpi-rev">0</div>
         </div>
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(245,158,11,.12);display:flex;align-items:center;justify-content:center;font-size:18px;">👥</div>
+        <div class="kh-icon">💰</div>
       </div>
-      <div id="kpi-pat-chg" style="margin-top:10px;font-size:11px;"><span class="kpi-chg kpi-up">↑ هذا الشهر</span></div>
-      <div id="kpi-pat-sparkline" style="margin-top:8px;height:28px;display:flex;align-items:flex-end;gap:3px;"></div>
+      <div>
+        <div class="kh-chg" id="kpi-rev-chg"><span class="kpi-chg kpi-up">↑ عن أمس</span></div>
+        <div class="kh-spark" id="kpi-rev-sparkline"></div>
+      </div>
     </div>
 
-    <div class="dash-kpi-card" onclick="showScreen('calendar')" style="cursor:pointer;background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;transition:all .22s;border-top:3px solid var(--rose);">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-        <div>
-          <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:8px;">مواعيد اليوم</div>
-          <div style="font-size:30px;font-weight:900;color:var(--rose);line-height:1;" id="kpi-appt">0</div>
-        </div>
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(244,63,94,.12);display:flex;align-items:center;justify-content:center;font-size:18px;">📅</div>
+    <!-- MINI: إجمالي العملاء -->
+    <div class="dash-kpi-mini kpi-area-pat" style="--mini-color:var(--amber);--mini-bg:rgba(245,158,11,.12);" onclick="showScreen('patients')">
+      <div class="km-icon">👥</div>
+      <div class="km-body">
+        <div class="km-label">إجمالي العملاء</div>
+        <div class="km-value" id="kpi-pat">0</div>
+        <div class="km-chg" id="kpi-pat-chg"><span class="kpi-chg kpi-up">↑ هذا الشهر</span></div>
       </div>
-      <div id="kpi-appt-chg" style="margin-top:10px;font-size:11px;"><span class="kpi-chg kpi-up">↑ عن أمس</span></div>
-      <div id="kpi-appt-sparkline" style="margin-top:8px;height:28px;display:flex;align-items:flex-end;gap:3px;"></div>
+      <div id="kpi-pat-sparkline" style="display:none;"></div>
     </div>
 
-    <div class="dash-kpi-card" onclick="showScreen('finance')" style="cursor:pointer;background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;transition:all .22s;border-top:3px solid var(--emerald);">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-        <div>
-          <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:8px;">إيرادات اليوم (ج)</div>
-          <div style="font-size:30px;font-weight:900;color:var(--emerald);line-height:1;" id="kpi-rev">0</div>
-        </div>
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(16,185,129,.12);display:flex;align-items:center;justify-content:center;font-size:18px;">💰</div>
+    <!-- MINI: مواعيد اليوم -->
+    <div class="dash-kpi-mini kpi-area-appt" style="--mini-color:var(--rose);--mini-bg:rgba(244,63,94,.12);" onclick="showScreen('calendar')">
+      <div class="km-icon">📅</div>
+      <div class="km-body">
+        <div class="km-label">مواعيد اليوم</div>
+        <div class="km-value" id="kpi-appt">0</div>
+        <div class="km-chg" id="kpi-appt-chg"><span class="kpi-chg kpi-up">↑ عن أمس</span></div>
       </div>
-      <div id="kpi-rev-chg" style="margin-top:10px;font-size:11px;"><span class="kpi-chg kpi-up">↑ عن أمس</span></div>
-      <div id="kpi-rev-sparkline" style="margin-top:8px;height:28px;display:flex;align-items:flex-end;gap:3px;"></div>
+      <div id="kpi-appt-sparkline" style="display:none;"></div>
     </div>
 
-    <div class="dash-kpi-card" onclick="showScreen('finance')" style="cursor:pointer;background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;transition:all .22s;border-top:3px solid var(--purple);">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-        <div>
-          <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:8px;">رصيد الخزينة (ج)</div>
-          <div style="font-size:30px;font-weight:900;color:var(--purple);line-height:1;" id="kpi-mrev">0</div>
-        </div>
-        <div style="width:40px;height:40px;border-radius:10px;background:rgba(139,92,246,.12);display:flex;align-items:center;justify-content:center;font-size:18px;">🏦</div>
+    <!-- MINI: رصيد الخزينة -->
+    <div class="dash-kpi-mini kpi-area-mrev" style="--mini-color:var(--purple);--mini-bg:rgba(139,92,246,.12);" onclick="showScreen('finance')">
+      <div class="km-icon">🏦</div>
+      <div class="km-body">
+        <div class="km-label">رصيد الخزينة</div>
+        <div class="km-value" id="kpi-mrev">0</div>
+        <div class="km-chg" id="kpi-mrev-chg"><span class="kpi-chg kpi-up">↑ محدث</span></div>
       </div>
-      <div id="kpi-mrev-chg" style="margin-top:10px;font-size:11px;"><span class="kpi-chg kpi-up">↑ محدث</span></div>
-      <div id="kpi-mrev-sparkline" style="margin-top:8px;height:28px;display:flex;align-items:flex-end;gap:3px;"></div>
+      <div id="kpi-mrev-sparkline" style="display:none;"></div>
     </div>
   </div>
+
 
   <!-- ══ ROW 2: Income Chart (wide) + Donut + Quick Reports ══ -->
   <div style="display:grid;grid-template-columns:1.8fr 1fr 1fr;gap:16px;margin-bottom:18px;">
