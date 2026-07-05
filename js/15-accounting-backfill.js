@@ -68,6 +68,24 @@ async function runAccountingBackfill(){
     if(hasEntry('expense', exp.id)) return;
 
     tasks.push({date: exp.date || '0000-00-00', run: async ()=>{
+      // ✅ إصلاح تصنيف السلف والرواتب: نفس المعالجة الخاصة الموجودة في
+      // 14-accounting-hooks.js (expenses:created) — راتب فيه advanceDeduction
+      // بيتقسم بين 5300 (إجمالي)/1150 (تسوية سلفة)/1110 (صافي كاش) بدل ما
+      // يتسجل بالصافي بس على 5300 زي أي مصروف عادي.
+      if(exp.type==='رواتب' && (exp.advanceDeduction||0) > 0){
+        if(typeof _ensureAdvancesAccount==='function') _ensureAdvancesAccount();
+        const net = exp.amount||0, deduction = exp.advanceDeduction||0, gross = net+deduction;
+        return postJournalEntry({
+          date: exp.date || new Date().toISOString().split('T')[0],
+          description: `[ترحيل] مصروف: ${exp.name}`,
+          sourceType: 'expense', sourceId: exp.id,
+          lines: [
+            {accountCode:'5300', debit:gross, credit:0, description:'راتب إجمالي'},
+            {accountCode:'1150', debit:0, credit:deduction, description:'تسوية سلفة موظف'},
+            {accountCode:'1110', debit:0, credit:net, description:'صافي مدفوع من الخزينة'}
+          ]
+        });
+      }
       const account = EXPENSE_ACCOUNT_MAP[exp.type] || '5900';
       return postJournalEntry({
         date: exp.date || new Date().toISOString().split('T')[0],
@@ -76,6 +94,24 @@ async function runAccountingBackfill(){
         lines: [
           {accountCode:account, debit:exp.amount||0, credit:0, description:exp.name},
           {accountCode:'1110',  debit:0, credit:exp.amount||0, description:'من الخزينة'}
+        ]
+      });
+    }});
+  });
+
+  // ── 2ب. السلف (advances) اللي لسه مالهاش قيد — مدين 1150 / دائن 1110 ──
+  (DB.get('advances')||[]).forEach(a=>{
+    if((a.amount||0) <= 0) return;
+    if(hasEntry('advance', a.id)) return;
+    tasks.push({date: a.date || '0000-00-00', run: async ()=>{
+      if(typeof _ensureAdvancesAccount==='function') _ensureAdvancesAccount();
+      return postJournalEntry({
+        date: a.date || new Date().toISOString().split('T')[0],
+        description: `[ترحيل] سلفة: ${a.staffName||''}`,
+        sourceType: 'advance', sourceId: a.id,
+        lines: [
+          {accountCode:'1150', debit:a.amount||0, credit:0, description:'سلفة موظف'},
+          {accountCode:'1110', debit:0, credit:a.amount||0, description:'من الخزينة'}
         ]
       });
     }});

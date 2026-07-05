@@ -396,10 +396,16 @@ function payStaffSalary(id){
     : `صرف راتب ${s.name} (${salary.toLocaleString()} ج)؟\nتاريخ الاستحقاق: ${s.dueDate}`;
   if(!confirm(confirmMsg)) return;
 
+  // ✅ إصلاح (تصنيف السلف والرواتب): amount هنا فضل الصافي المدفوع فعليًا
+  // (زي ما هو من قبل — عشان أي كود تاني بيقرأ amount كـ"كاش خرج فعليًا"
+  // يفضل شغّال صح من غير تعديل)، وبنضيف advanceDeduction بس عشان هوك
+  // المحاسبة (14-accounting-hooks.js) يقدر يسجل الراتب الإجمالي في حساب
+  // 5300 ويقفل جزء الخصم من حساب السلفة 1150 بدل ما يتجاهله.
   const _salExp = DB.push('expenses', {
     name:   `راتب: ${s.name}${deduction > 0 ? ` (بعد خصم سلفة ${deduction.toLocaleString()} ج)` : ''}`,
     type:   'رواتب',
     amount: net,
+    advanceDeduction: deduction,
     branch: s.branch,
     date:   new Date().toISOString().split('T')[0],
     notes:  deduction > 0 ? `تم خصم سلفة بقيمة ${deduction.toLocaleString()} ج من راتب استحقاق ${s.dueDate}` : '',
@@ -467,7 +473,14 @@ function saveAdvance(){
   const date = gv('adv-date') || new Date().toISOString().split('T')[0];
   const note = gv('adv-note');
 
-  DB.push('advances', {
+  // ✅ إصلاح (تصنيف السلف والرواتب): السلفة بقت بتتسجل في 'advances' بس —
+  // مبقتش بتتسجل كمصروف (كانت بتتحط في 'expenses' بنوع 'سلفة' وتتقفل على
+  // حساب 5900 "مصروفات متنوعة" افتراضيًا، رغم إنها اقتصاديًا ذمة على الموظف
+  // قابلة للاسترداد مش مصروف نهائي). القيد المحاسبي الصحيح (مدين 1150 سلف
+  // الموظفين / دائن 1110 الخزينة) بقى بيتسجل تلقائيًا عبر هوك advances:created
+  // في 14-accounting-hooks.js. cashlog لسه بيتسجل هنا زي ما هو (كاش خرج
+  // فعليًا من الخزينة)، بس بمرجع refId = معرّف السلفة نفسها بدل مصروف وهمي.
+  const _adv = DB.push('advances', {
     staffId,
     staffName: s.name,
     branch:    s.branch,
@@ -478,20 +491,10 @@ function saveAdvance(){
     status: 'مستحق',
   });
 
-  // صرف السلفة فعليًا كمصروف نقدي (يُخصم لاحقًا من الراتب القادم)
-  const _advExp = DB.push('expenses', {
-    name:   `سلفة: ${s.name}`,
-    type:   'سلفة',
-    amount,
-    branch: s.branch,
-    date,
-    notes:  note || '',
-  });
-  // ✅ FIX: تسجيل السلفة في الخزينة مباشرةً (نفس منطق payStaffSalary)
   DB.push('cashlog', {
     type: 'صادر',
-    source: 'مصروف',
-    refId: _advExp?.id || null,
+    source: 'سلفة موظف',
+    refId: _adv?.id || null,
     amount,
     method: 'كاش',
     date,

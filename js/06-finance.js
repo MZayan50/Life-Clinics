@@ -363,19 +363,29 @@ function delInstallment(id){
 function renderAccounts(){
   const invoices=DB.get('invoices');
   const expenses=DB.getActive('expenses');
-  const today=new Date().toISOString().slice(0,7);
-
-  document.getElementById('acc-period-lbl').textContent=new Date().toLocaleDateString('ar-EG',{month:'long',year:'numeric'});
 
   // ══════════════════════════════════════════
-  // ✅ المرحلة 5 من دليل تطوير الطبقة المحاسبية: P&L / Balance Sheet بقوا
-  // بيتحسبوا من journal_entries (عبر calcTrialBalance) بدل cashlog مباشرة —
-  // بعد التأكد إن كل حركة مالية حقيقية (فواتير، باقات، أقساط، جلسات، بيع
-  // منتجات، مشتريات، موردين) بقالها قيد محاسبي مقابل (راجع 14-accounting-hooks.js
-  // و15-accounting-backfill.js). لسه محتفظين بـ cashlog لجدول Cash Flow الشهري
-  // تحت بس (الدليل مش بيطلب نقله)، ولتفصيل الإيراد/المصروف حسب النوع (breakdown).
+  // ✅ إصلاح "صافي الربح" الثلاثية: تبويب "الأرباح والخسائر" كان بيعرض عنوان
+  // شهري (مثلاً "يوليو 2026") لكن calcTrialBalance(null) اللي تحته تراكمي من
+  // أول قيد في النظام — رقم مختلف تمامًا عن نفس الشهر في الداشبورد والتقارير.
+  // دلوقتي بقى فيه اختيار شهر فعلي (افتراضيًا الشهر الحالي)، والحساب بيقتصر
+  // على حركة الشهر ده بس عبر calcPLForMonth() (13-accounting.js) — بنفس
+  // الأساس المحاسبي (Accrual من journal_entries) لكن بنطاق شهري زي باقي
+  // الشاشتين، فالرقم بقى قابل للمقارنة المباشرة.
+  // الميزانية العمومية (Balance Sheet) فضلت تراكمية لغاية اليوم عمدًا — دي
+  // طبيعتها المحاسبية الصحيحة (لقطة للوضع الحالي، مش لفترة).
   // ══════════════════════════════════════════
-  const tb = typeof calcTrialBalance==='function' ? calcTrialBalance(null) : null;
+  const monthEl = document.getElementById('acc-pl-month');
+  if(monthEl && !monthEl.value) monthEl.value = new Date().toISOString().slice(0,7);
+  const selMonth = monthEl?.value || new Date().toISOString().slice(0,7);
+  const {start: periodStart, end: periodEnd} = typeof getMonthRange==='function'
+    ? getMonthRange(selMonth) : {start: selMonth+'-01', end: selMonth+'-31'};
+
+  document.getElementById('acc-period-lbl').textContent=new Date(selMonth+'-01').toLocaleDateString('ar-EG',{month:'long',year:'numeric'});
+
+  // tbPeriod: قيود الشهر المختار بس (للـP&L) — tb: تراكمي لغاية النهاردة (للميزانية العمومية تحت)
+  const tbPeriod = typeof calcTrialBalance==='function' ? calcTrialBalance(periodEnd, periodStart) : null;
+  const tb        = typeof calcTrialBalance==='function' ? calcTrialBalance(null) : null;
 
   // deduplication للـ cashlog قبل أي حسابات (لسه مستخدمة في الـ breakdown وCash Flow تحت)
   const _rawCashlog=DB.get('cashlog')||[];
@@ -389,39 +399,55 @@ function renderAccounts(){
     }
   });
   const cashlog=[..._seenRefsT.values()];
+  // نفس الحركات بس مقصورة على الشهر المختار — للـbreakdown عشان يتطابق مع الإجمالي
+  const cashlogPeriod = cashlog.filter(c=>(c.date||'') >= periodStart && (c.date||'') <= periodEnd);
 
-  // P&L — من ميزان المراجعة (تجميع كل حسابات الإيراد/المصروف)
+  // P&L — من ميزان المراجعة لفترة الشهر المختار بس (تجميع حسابات الإيراد/المصروف)
   let totalRevenue, totalExpense;
-  if(tb && tb.rows.length){
-    totalRevenue = tb.rows.filter(r=>r.type==='revenue').reduce((s,r)=>s+r.balance,0);
-    totalExpense = tb.rows.filter(r=>r.type==='expense').reduce((s,r)=>s+r.balance,0);
+  if(tbPeriod && tbPeriod.rows.length){
+    totalRevenue = tbPeriod.rows.filter(r=>r.type==='revenue').reduce((s,r)=>s+r.balance,0);
+    totalExpense = tbPeriod.rows.filter(r=>r.type==='expense').reduce((s,r)=>s+r.balance,0);
   } else {
     // ⚠️ Fallback: لسه مفيش قيود محاسبية مرحّلة (قبل seedChartOfAccounts/تشغيل
-    // الترحيل التاريخي) — نرجع للحساب القديم من cashlog عشان الشاشة متفضلش فاضية
-    totalRevenue=cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
-    totalExpense=cashlog.filter(c=>c.type==='صادر').reduce((s,c)=>s+(c.amount||0),0);
+    // الترحيل التاريخي) — نرجع للحساب القديم من cashlog (مقصور على نفس الشهر
+    // برضه) عشان الشاشة متفضلش فاضية ولا تتناقض مع باقي المؤشرات
+    totalRevenue=cashlogPeriod.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
+    totalExpense=cashlogPeriod.filter(c=>c.type==='صادر').reduce((s,c)=>s+(c.amount||0),0);
   }
   const netProfit=totalRevenue-totalExpense;
   const margin=totalRevenue?Math.round(netProfit/totalRevenue*100):0;
 
-  // Revenue breakdown — من cashlog:وارد مجمَّع بالخدمة (تفصيل عرضي فقط، مش من الميزان)
+  // Revenue breakdown — من cashlog:وارد لنفس الشهر مجمَّع بالخدمة (تفصيل عرضي فقط، مش من الميزان)
   const revByService={};
-  cashlog.filter(c=>c.type==='وارد').forEach(c=>{
+  cashlogPeriod.filter(c=>c.type==='وارد').forEach(c=>{
     const k=c.service||c.source||'إيراد';
     revByService[k]=(revByService[k]||0)+(c.amount||0);
   });
   const revEl=document.getElementById('acc-revenues');
   if(revEl) revEl.innerHTML=Object.entries(revByService).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--glass-border);"><span style="color:var(--text-muted)">${k}</span><span style="font-weight:700;color:var(--emerald)">${v.toLocaleString()} ج</span></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px">لا توجد إيرادات</div>';
 
-  // Expense breakdown — من expenses (الرواتب/الإيجار المسجَّلة يدويًا)
+  // Expense breakdown — من expenses لنفس الشهر (الرواتب/الإيجار المسجَّلة يدويًا)
   // + بند "تكلفة المواد" (COGS) من ميزان المراجعة صراحة، لأنه بيُحسب تلقائيًا
   // في journal_entries (حساب 5100) ومبيتسجّلش في مجموعة expenses خالص — من
   // غيره، totalExpense (فوق) كان بيشمله في الإجمالي لكن القائمة المعروضة هنا
   // كانت بتفضل ناقصة بنفس قيمته، فيبان إن الإجمالي "مش متطابق" مع تفاصيله.
+  // ✅ إصلاح تصنيف السلف: نوع 'سلفة' مستبعد من هنا لأنه بقى أصل (حساب 1150)
+  // مش مصروف حقيقي — لو فضل معدود هنا، totalExpense (من الميزان) هيفضل غير
+  // متطابق مع تفاصيل القائمة المعروضة، بالظبط نفس مشكلة الـCOGS اللي فوق.
   const expByType={};
-  expenses.forEach(e=>{expByType[e.type||e.category||'أخرى']=(expByType[e.type||e.category||'أخرى']||0)+(e.amount||0);});
-  const cogsBalance = tb ? (tb.rows.find(r=>r.code==='5100')?.balance||0) : 0;
+  expenses
+    .filter(e=>(e.date||'') >= periodStart && (e.date||'') <= periodEnd && e.type!=='سلفة')
+    .forEach(e=>{expByType[e.type||e.category||'أخرى']=(expByType[e.type||e.category||'أخرى']||0)+(e.amount||0);});
+  const cogsBalance = tbPeriod ? (tbPeriod.rows.find(r=>r.code==='5100')?.balance||0) : 0;
   if(cogsBalance > 0) expByType['تكلفة المواد (COGS)'] = cogsBalance;
+  // ✅ إصلاح تصنيف السلف والرواتب: راتب اتخصم منه سلفة بيتسجل بالصافي في
+  // expenses.amount (عشان مزامنة الخزينة تفضل شغّالة صح)، لكن حساب 5300 في
+  // journal_entries بياخد الإجمالي (net+الخصم). لو سبنا بند "رواتب" هنا بيجمع
+  // net بس، هيفضل أقل من رصيد 5300 الحقيقي المحسوب في totalExpense فوق —
+  // فبنستبدله برصيد 5300 من الميزان مباشرة (نفس أسلوب الـCOGS بالظبط).
+  const salaryBalance = tbPeriod ? (tbPeriod.rows.find(r=>r.code==='5300')?.balance||0) : 0;
+  if(salaryBalance > 0) expByType['رواتب'] = salaryBalance;
+  else delete expByType['رواتب'];
   const expEl=document.getElementById('acc-expenses-list');
   if(expEl) expEl.innerHTML=Object.entries(expByType).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--glass-border);"><span style="color:var(--text-muted)">${k}</span><span style="font-weight:700;color:var(--rose)">${v.toLocaleString()} ج</span></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px">لا توجد مصروفات</div>';
 

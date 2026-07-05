@@ -126,9 +126,62 @@ EventBus.on('invoices:created', async (inv)=>{
 // ── 2. مصروف جديد → قيد مصروف (حساب المصروف مقابل الخزينة) ──
 const EXPENSE_ACCOUNT_MAP = {
   'إيجار':'5200', 'رواتب':'5300', 'مرافق':'5400',
-  'تسويق':'5500', 'صيانة':'5600'
+  'تسويق':'5500', 'صيانة':'5600',
+  // ✅ إصلاح تصنيف السلف: شاشة "إضافة مصروف" العامة (06-finance.js) لسه فيها
+  // خيار نوع "سلفة" منفصل عن مودال السلفة المخصص في شاشة الموارد البشرية
+  // (09-hr.js/openAdvanceModal). لو حد استخدمه، بنوجّهه لنفس حساب الأصل
+  // (1150 سلف الموظفين) بدل ما يقع على الافتراضي 5900 كمصروف نهائي —
+  // البنية (مدين account / دائن 1110) سليمة برضه حتى لو الحساب أصل مش مصروف.
+  'سلفة':'1150'
 };
+
+// ── تأكيد وجود حساب "سلف الموظفين" (1150) في دليل الحسابات ──
+// إصلاح تصنيف السلف/الرواتب: قواعد البيانات الموجودة بالفعل شغّلت
+// seedChartOfAccounts() قبل إضافة الحساب ده لـ DEFAULT_COA (13-accounting.js)،
+// وseedChartOfAccounts() بترفض تعمل حاجة لو فيه حسابات موجودة أصلًا. فبنتأكد
+// من وجوده هنا بشكل idempotent قبل أي قيد بيستخدمه — لو مش موجود، calcTrialBalance
+// هيتجاهل رصيده تمامًا (بيلف على chart_of_accounts مش على القيود) والميزان
+// هيبان "غير متوازن" غلط.
+function _ensureAdvancesAccount(){
+  const exists = (DB.get('chart_of_accounts')||[]).some(a=>a.code==='1150');
+  if(!exists){
+    DB.push('chart_of_accounts', {code:'1150', name:'سلف الموظفين', type:'asset', normalBalance:'debit', isActive:true});
+  }
+}
+
 EventBus.on('expenses:created', async (exp)=>{
+  // ✅ إصلاح (تصنيف السلف والرواتب): راتب اتخصم منه سلفة (exp.advanceDeduction>0)
+  // له معالجة خاصة — الراتب الإجمالي (net + الخصم) بيتسجل كامل في حساب 5300
+  // عشان بند "رواتب" في التقارير يعكس التكلفة الحقيقية الكاملة، وقيمة الخصم
+  // بتقفل حساب السلفة 1150 بدل ما تتسجل كأنها كاش خرج فعليًا من الخزينة.
+  // exp.amount نفسه فضل زي ما هو (الصافي المدفوع فعليًا) عشان أي كود تاني بيقرأ
+  // exp.amount (مزامنة الخزينة، الداشبورد) يفضل شغّال صح من غير أي تعديل.
+  _ensureAdvancesAccount(); // idempotent — رخيصة، وبتغطي أي مسار بيستخدم حساب 1150
+
+  if(exp.type==='رواتب' && (exp.advanceDeduction||0) > 0){
+    const net       = exp.amount||0;
+    const deduction = exp.advanceDeduction||0;
+    const gross     = net + deduction;
+    const entry = await postJournalEntry({
+      date: exp.date || new Date().toISOString().split('T')[0],
+      description: `مصروف: ${exp.name}`,
+      sourceType: 'expense',
+      sourceId: exp.id,
+      lines: [
+        {accountCode:'5300', debit:gross, credit:0, description:'راتب إجمالي'},
+        {accountCode:'1150', debit:0, credit:deduction, description:'تسوية سلفة موظف'},
+        {accountCode:'1110', debit:0, credit:net, description:'صافي مدفوع من الخزينة'}
+      ]
+    });
+    if(entry){
+      await createVoucher({
+        type: 'payment', date: exp.date, amount: net,
+        linkedEntryId: entry.id, paidTo_or_receivedFrom: exp.name||'', method: 'كاش'
+      });
+    }
+    return;
+  }
+
   const account = EXPENSE_ACCOUNT_MAP[exp.type] || '5900';
   const entry = await postJournalEntry({
     date: exp.date || new Date().toISOString().split('T')[0],
@@ -146,6 +199,48 @@ EventBus.on('expenses:created', async (exp)=>{
       type: 'payment', date: exp.date, amount: exp.amount||0,
       linkedEntryId: entry.id, paidTo_or_receivedFrom: exp.name||'', method: 'كاش'
     });
+  }
+});
+
+// ── 2ب. سلفة جديدة → قيد سلفة موظف (أصل متداول قابل للاسترداد، مش مصروف نهائي) ──
+// إصلاح تصنيف السلف: كانت بتتسجل كمصروف كامل فورًا (حساب 5900 الافتراضي)
+// رغم إنها اقتصاديًا ذمة على الموظف. دلوقتي: مدين 1150 (سلف الموظفين) —
+// أصل — / دائن 1110 (الخزينة). لما تُخصم لاحقًا من الراتب، هوك رقم 2 فوق
+// بيقفلها من 1150 مش من رصيد الخزينة تاني (عشان منحسبهاش كاش خرج مرتين).
+EventBus.on('advances:created', async (a)=>{
+  _ensureAdvancesAccount();
+  const entry = await postJournalEntry({
+    date: a.date || new Date().toISOString().split('T')[0],
+    description: `سلفة: ${a.staffName||''}`,
+    sourceType: 'advance',
+    sourceId: a.id,
+    lines: [
+      {accountCode:'1150', debit:a.amount||0, credit:0, description:'سلفة موظف'},
+      {accountCode:'1110', debit:0, credit:a.amount||0, description:'من الخزينة'}
+    ]
+  });
+  if(entry){
+    await createVoucher({
+      type: 'payment', date: a.date, amount: a.amount||0,
+      linkedEntryId: entry.id, paidTo_or_receivedFrom: a.staffName||'', method: 'كاش'
+    });
+  }
+});
+
+// ── عكس قيد السلفة لو اتحذفت (دفاع احتياطي — نفس مبدأ عكس المصروف تحت،
+// حتى لو مفيش زرار حذف سلفة في الواجهة حاليًا) ──
+async function _reverseAdvanceJournalEntry(advId, reason){
+  if(!advId) return;
+  const entry = (DB.get('journal_entries')||[])
+    .find(je => je.sourceType==='advance' && String(je.sourceId)===String(advId) && je.status==='posted');
+  if(entry) await reverseJournalEntry(entry.id, reason);
+}
+EventBus.on('advances:deleted', async (e)=>{
+  await _reverseAdvanceJournalEntry(e?.id, 'حذف السلفة المرتبطة (حذف فعلي)');
+});
+EventBus.on('advances:updated', async (a)=>{
+  if(a && a.isDeleted){
+    await _reverseAdvanceJournalEntry(a.id, 'حذف السلفة المرتبطة (Soft Delete)');
   }
 });
 

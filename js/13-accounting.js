@@ -11,6 +11,7 @@ const DEFAULT_COA = [
   {code:'1120', name:'حساب فيزا/بنك',      type:'asset',     normalBalance:'debit'},
   {code:'1130', name:'ذمم العملاء',        type:'asset',     normalBalance:'debit'},
   {code:'1140', name:'المخزون',            type:'asset',     normalBalance:'debit'},
+  {code:'1150', name:'سلف الموظفين',       type:'asset',     normalBalance:'debit'},
   {code:'1210', name:'أجهزة ومعدات',       type:'asset',     normalBalance:'debit'},
   {code:'2100', name:'ذمم الموردين',       type:'liability', normalBalance:'credit'},
   {code:'2200', name:'ضرائب مستحقة',       type:'liability', normalBalance:'credit'},
@@ -188,9 +189,15 @@ function renderJournalEntries(){
 // هو اللي بيصفّر أثرها في الميزان. استبعاد الأصلي وسيبان بس قيد العكس كان بيدي
 // أثر أحادي الجانب (مثلاً دائن 3000 من غير مدين مقابل) بدل ما يتصفر تمامًا.
 // status هنا للعرض فقط (تاج "معكوس" في دفتر اليومية) — مش معيار فلترة للميزان.
-function calcTrialBalance(asOfDate){
+// ✅ إصلاح (مشكلة "صافي الربح" الثلاثية): إضافة fromDate اختياري عشان نقدر
+// نحسب حركة فترة معيّنة (شهر مثلاً) بدل التراكمي بس من أول قيد. لو fromDate
+// اتبعتت، الفلترة بتبقى e.date >= fromDate && e.date <= asOfDate (شاملة
+// الطرفين). من غيرها (fromDate=null) السلوك القديم زي ما هو تمامًا —
+// تراكمي لغاية asOfDate — عشان باقي الاستخدامات (الميزانية العمومية، ميزان
+// المراجعة الكامل) متتأثرش خالص.
+function calcTrialBalance(asOfDate, fromDate){
   const entries = (DB.get('journal_entries')||[])
-    .filter(e=>(!asOfDate || e.date<=asOfDate));
+    .filter(e=>(!asOfDate || e.date<=asOfDate) && (!fromDate || e.date>=fromDate));
   const accounts = DB.get('chart_of_accounts')||[];
 
   const balances = {}; // code -> {debit, credit}
@@ -214,6 +221,24 @@ function calcTrialBalance(asOfDate){
   const totalCredit = rows.reduce((s,r)=>s+r.credit,0);
 
   return {rows, totalDebit, totalCredit, isBalanced: Math.abs(totalDebit-totalCredit)<0.01, entriesCount: entries.length};
+}
+
+// ── حدود شهر بصيغة YYYY-MM-DD (أول يوم وآخر يوم) — مستخدمة في P&L الشهري ──
+function getMonthRange(monthStr){
+  const m = /^\d{4}-\d{2}$/.test(monthStr||'') ? monthStr : new Date().toISOString().slice(0,7);
+  const [y, mo] = m.split('-').map(Number);
+  const start = `${m}-01`;
+  const lastDay = new Date(y, mo, 0).getDate(); // اليوم الأخير في الشهر
+  const end = `${m}-${String(lastDay).padStart(2,'0')}`;
+  return {start, end, month: m};
+}
+
+// ── حساب P&L لفترة شهر واحد فقط (بدل التراكمي) — تُستخدم في شاشة الحسابات
+// وفي تصدير CSV/PDF عشان الرقم يتطابق مع الداشبورد والتقارير لنفس الشهر ──
+function calcPLForMonth(monthStr){
+  const {start, end} = getMonthRange(monthStr);
+  const tb = calcTrialBalance(end, start);
+  return {...tb, start, end};
 }
 
 // ── عرض ميزان المراجعة في شاشة "الحسابات" (تبويب جديد) ──
@@ -539,7 +564,15 @@ function _buildAccountingReportData(view){
     };
   }
   if(view==='pl'){
-    const tb = calcTrialBalance(null);
+    // ✅ إصلاح "صافي الربح" الثلاثية: التصدير كان بيستخدم calcTrialBalance(null)
+    // (تراكمي من أول قيد) بينما الشاشة الحية أصلًا بتعرض عنوان شهري — نفس
+    // التناقض المشروح في renderAccounts() (06-finance.js). دلوقتي التصدير
+    // بياخد نفس الشهر المختار فعليًا في شاشة "الحسابات" (acc-pl-month)، فيطلع
+    // نفس الرقم بالظبط اللي المستخدم شايفه على الشاشة وقت الضغط على تصدير.
+    const monthEl = document.getElementById('acc-pl-month');
+    const selMonth = monthEl?.value || new Date().toISOString().slice(0,7);
+    const {start: periodStart, end: periodEnd} = getMonthRange(selMonth);
+    const tb = calcTrialBalance(periodEnd, periodStart);
     const revRows = tb.rows.filter(r=>r.type==='revenue');
     const expRows = tb.rows.filter(r=>r.type==='expense');
     let totalRevenue, totalExpense, rows;
@@ -552,7 +585,8 @@ function _buildAccountingReportData(view){
       ];
     } else {
       // ✅ نفس الـ Fallback في renderAccounts() — قبل وجود قيود مرحّلة كفاية
-      const cashlog = DB.get('cashlog')||[];
+      // (مقصور على نفس الشهر برضه عشان يتطابق مع الشاشة)
+      const cashlog = (DB.get('cashlog')||[]).filter(c=>(c.date||'')>=periodStart && (c.date||'')<=periodEnd);
       totalRevenue = cashlog.filter(c=>c.type==='وارد').reduce((s,c)=>s+(c.amount||0),0);
       totalExpense = cashlog.filter(c=>c.type==='صادر').reduce((s,c)=>s+(c.amount||0),0);
       rows = [
@@ -561,7 +595,7 @@ function _buildAccountingReportData(view){
       ];
     }
     return {
-      title: 'قائمة الأرباح والخسائر',
+      title: `قائمة الأرباح والخسائر — ${new Date(selMonth+'-01').toLocaleDateString('ar-EG',{month:'long',year:'numeric'})}`,
       headers: ['النوع','الحساب','القيمة'],
       rows,
       totalsRow: ['', 'صافي الربح / الخسارة', totalRevenue-totalExpense]
