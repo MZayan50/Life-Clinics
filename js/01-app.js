@@ -128,9 +128,15 @@ function updateServiceDistribution(){
   const thisMonth = new Date().toISOString().substring(0,7);
   const invoices = DB.get('invoices').filter(i=>(i.date||'').startsWith(thisMonth));
   const svcMap = {};
+  // ✅ FIX (باج: نسب "الخدمات الأكثر طلباً" غلط): كانت بتوزن كل خدمة بمبلغ
+  // inv.paid المحصَّل، بينما فواتير الجلسات المغطاة بباقة (method:'باقة')
+  // دايمًا paid=0 (الإيراد اتسجل فعليًا وقت بيع الباقة، مش وقت كل جلسة).
+  // النتيجة: خدمة اتقدّمت فعليًا 3 مرات هذا الشهر تظهر بنسبة 0% في قائمة
+  // "الأكثر طلباً"! ده غير منطقي لعنوان يقيس "الطلب" (frequency)، مش الإيراد.
+  // الحل: نحسب عدد مرات تقديم كل خدمة (تكرار الطلب)، مش المبلغ المحصَّل.
   invoices.forEach(inv=>{
     const svc = (inv.service||inv.items?.[0]?.name||'أخرى').trim()||'أخرى';
-    svcMap[svc] = (svcMap[svc]||0) + (inv.paid||0);
+    svcMap[svc] = (svcMap[svc]||0) + 1;
   });
   const total = Object.values(svcMap).reduce((a,b)=>a+b,0);
   if(!total){
@@ -168,7 +174,17 @@ function buildTopDoctors(){
       doc = (appt?.doctor||'').trim();
     }
     if(!doc) return;
-    docRev[doc] = (docRev[doc]||0) + (inv.paid||0);
+    // ✅ FIX (باج: "أفضل الأطباء" يظهر رقمًا ناقصًا/خاطئًا): كانت القيمة تُجمع
+    // من inv.paid فقط، وهو دائمًا صفر لفواتير الجلسات المغطاة بباقة (method:'باقة')
+    // لأن الإيراد الفعلي يُسجَّل وقت بيع الباقة نفسها لتفادي الازدواج المحاسبي —
+    // نفس السبب الجذري اللي كان مسبَّبًا لمشكلة "الخدمات الأكثر طلبًا" (أعلى في
+    // نفس الملف). النتيجة: طبيب يقدّم جلسات ضمن باقات طوال الشهر كان يظهر بقيمة
+    // 0 أو أقل بكثير من نشاطه الفعلي. الحل: نستخدم sessionValue (قيمة الجلسة
+    // الحقيقية، سواء من باقة أو فاتورة عادية) مع fallback لـ paid للفواتير
+    // القديمة التي لا تملك هذا الحقل بعد.
+    doc = doc || '';
+    const val = inv.sessionValue != null ? inv.sessionValue : (inv.paid || 0);
+    docRev[doc] = (docRev[doc]||0) + val;
   });
   // أضف الأطباء الذين لديهم مواعيد هذا الشهر حتى لو بدون فواتير
   appointments.filter(a=>(a.date||'').startsWith(thisMonth)).forEach(a=>{
@@ -894,9 +910,17 @@ function buildDonut(elId, segments, totalOverride){
 // ── 1) نظرة عامة على الفواتير (Donut: المدفوع / المتبقي / الخصومات) ──
 function buildInvoiceDonut(){
   const invoices = DB.get('invoices')||[];
-  const totalPaid = invoices.reduce((s,i)=>s+(i.paid||0),0);
-  const totalRemaining = invoices.reduce((s,i)=>s+(i.remaining||0),0);
-  const totalDiscount = invoices.reduce((s,i)=>s+(i.discount||0),0);
+  // ✅ FIX (باج: مربع "الخصومات" منتفخ بشكل وهمي): فواتير الجلسات المغطاة
+  // بباقة (finalizeConsultation → method:'باقة') بتُسجَّل بحقل discount=price
+  // (أي "قيمة الجلسة كاملة") كحيلة تقنية لتصفير الفاتورة وتفادي ازدواج
+  // احتساب الإيراد (الإيراد الحقيقي محسوب فعلاً وقت بيع الباقة نفسها). ده
+  // مش خصم حقيقي اتاح للعميل، فحسابه ضمن "الخصومات" في هذا الرسم يُضخّم
+  // الرقم بشكل كبير (مثال: 3 جلسات × 1,500 ج = 4,500 ج "خصم" وهمي رغم عدم
+  // وجود أي خصم فعلي). نستبعد فواتير الباقات من حساب الخصومات والإجمالي هنا.
+  const realInvoices = invoices.filter(i => i.method !== 'باقة');
+  const totalPaid = realInvoices.reduce((s,i)=>s+(i.paid||0),0);
+  const totalRemaining = realInvoices.reduce((s,i)=>s+(i.remaining||0),0);
+  const totalDiscount = realInvoices.reduce((s,i)=>s+(i.discount||0),0);
   const total = totalPaid+totalRemaining+totalDiscount;
   txt('dash-donut-total', total.toLocaleString());
   buildDonut('dash-donut', [

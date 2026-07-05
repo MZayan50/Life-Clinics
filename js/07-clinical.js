@@ -1095,14 +1095,14 @@ function finalizeConsultation(){
       commission:comm,commissionPct:doc?.commission||0,
       commissionAmount:comm,commissionRecorded:true,branch:a.branch||'',
       notes:`مغطاة بباقة: ${_activePkgCheck.name}`,
-      materialCost:_materialCost
+      materialCost:_materialCost,sessionValue:_sessionValue
     });
   } else {
     DB.push('invoices',{
       patient:a.patient,patId:a.patId,doctor:a.doctor||'',doctorId:doc?.id||a.doctorId||'',service:svcName,
       date:today,originalPrice:price,discount:disc,total:net,paid:net,remaining:0,
       status:'مدفوع',method,fromAppt:apptId,commission:comm,commissionPct:doc?.commission||0,branch:a.branch||'',
-      materialCost:_materialCost
+      materialCost:_materialCost,sessionValue:_sessionValue
     });
   }
   // 3b. خصم تلقائي من باقة العميل النشطة
