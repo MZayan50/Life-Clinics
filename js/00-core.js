@@ -965,6 +965,12 @@ function showScreen(id){
     if (n.getAttribute('onclick')?.includes("'" + id + "'")) n.classList.add('active');
   });
 
+  // مزامنة Bottom Nav (موبايل) — يفعّل الأيقونة المطابقة، وإلا "المزيد"
+  const bnIds = ['dashboard','patients','calendar','invoices'];
+  document.querySelectorAll('.bn-item').forEach(b => b.classList.remove('active'));
+  const activeBn = document.querySelector(`.bn-item[data-bn="${bnIds.includes(id) ? id : 'more'}"]`);
+  if (activeBn && bnIds.includes(id)) activeBn.classList.add('active');
+
   closeSidebar();
   document.getElementById('main-area')?.scrollTo(0, 0);
 
