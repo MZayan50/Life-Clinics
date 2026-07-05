@@ -113,6 +113,13 @@ html.light .main::before{
 @media(max-width:900px){.main::before{right:0;}}
 .screen{display:none;animation:fadeUp .28s ease;}
 .screen.active{display:block;}
+#screen-dashboard{position:relative;}
+/* ── Skeleton loading shimmer (أثناء أول تحميل من Firestore) ── */
+.skel{position:relative;overflow:hidden;background:var(--glass);border-radius:var(--radius-sm);}
+.skel::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.07),transparent);transform:translateX(-100%);animation:skel-shimmer 1.5s infinite;}
+@keyframes skel-shimmer{100%{transform:translateX(100%);}}
+#dash-skeleton{position:absolute;inset:0;z-index:50;background:var(--bg-primary);padding:0;display:none;}
+#dash-skeleton.show{display:block;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
 .card{background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px;transition:background .2s;}
 .card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
@@ -514,12 +521,24 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <!-- DASHBOARD -->
 <div class="screen active" id="screen-dashboard">
 
+  <!-- Skeleton overlay — يظهر أثناء أول تحميل من Firestore فقط -->
+  <div id="dash-skeleton">
+    <div style="display:grid;grid-template-columns:1.35fr 1fr;grid-template-rows:repeat(3,1fr);gap:14px;margin-bottom:18px;height:220px;">
+      <div class="skel" style="grid-row:1/4;"></div>
+      <div class="skel"></div>
+      <div class="skel"></div>
+      <div class="skel"></div>
+    </div>
+    <div class="skel" style="height:210px;margin-bottom:18px;"></div>
+    <div class="skel" style="height:170px;"></div>
+  </div>
+
   <!-- ══ DASHBOARD HEADER ══ -->
   <div style="margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
     <div>
       <h2 style="font-size:19px;font-weight:800;display:flex;align-items:center;gap:9px;">
-        <span style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--gold),var(--teal));display:inline-flex;align-items:center;justify-content:center;font-size:17px;">🌸</span>
-        لوحة التحكم
+        <span id="dash-time-icon" style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--gold),var(--teal));display:inline-flex;align-items:center;justify-content:center;font-size:17px;">🌸</span>
+        <span id="dash-greeting-text">لوحة التحكم</span>
       </h2>
       <p style="color:var(--text-muted);font-size:12px;margin-top:3px;margin-right:45px;" id="dash-sub"></p>
       <p style="color:var(--text-secondary);font-size:13px;font-weight:600;margin-top:6px;margin-right:45px;" id="dash-narrative"></p>
@@ -586,8 +605,8 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
   </div>
 
 
-  <!-- ══ ROW 2: Income Chart (wide) + Donut + Quick Reports ══ -->
-  <div style="display:grid;grid-template-columns:1.8fr 1fr 1fr;gap:16px;margin-bottom:18px;">
+  <!-- ══ ROW 2: Income Chart (wide) + الفواتير/تقارير سريعة (تبويبات) ══ -->
+  <div class="dash-row2" style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:18px;">
 
     <!-- Income Bar Chart -->
     <div class="card" style="padding:18px 20px;">
@@ -602,31 +621,33 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       <div class="clbls" id="dash-income-labels" style="margin-top:6px;"></div>
     </div>
 
-    <!-- Donut Invoice Overview -->
+    <!-- الفواتير + تقارير سريعة (تبويبات بدل كارتين منفصلين) -->
     <div class="card" style="padding:18px 20px;">
       <div class="card-hdr" style="margin-bottom:10px;">
-        <div class="card-title">📊 الفواتير</div>
-        <div class="card-sub">إجمالي</div>
+        <div class="card-title">📊 نظرة سريعة</div>
+        <div style="display:flex;border-radius:8px;overflow:hidden;border:1px solid var(--glass-border);background:var(--glass);">
+          <button class="dash-r2-tab active" onclick="dashRow2Tab('invoices',this)" style="padding:4px 10px;font-size:11px;font-family:'Tajawal',sans-serif;font-weight:600;border:none;cursor:pointer;background:rgba(45,212,191,.15);color:var(--teal);">الفواتير</button>
+          <button class="dash-r2-tab" onclick="dashRow2Tab('reports',this)" style="padding:4px 10px;font-size:11px;font-family:'Tajawal',sans-serif;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--text-muted);">تقارير</button>
+        </div>
       </div>
-      <div class="donut-wrap">
-        <div class="donut-ring" id="dash-donut"></div>
-        <div class="donut-center"><div class="dv" id="dash-donut-total">0</div><div class="dl">إجمالي (ج)</div></div>
-      </div>
-      <div class="dleg" id="dash-donut-legend" style="margin-top:8px;"></div>
-    </div>
 
-    <!-- Quick Reports -->
-    <div class="card" style="padding:18px 20px;">
-      <div class="card-hdr" style="margin-bottom:12px;">
-        <div class="card-title">🗂️ تقارير سريعة</div>
+      <div id="dash-r2-invoices">
+        <div class="donut-wrap">
+          <div class="donut-ring" id="dash-donut"></div>
+          <div class="donut-center"><div class="dv" id="dash-donut-total">0</div><div class="dl">إجمالي (ج)</div></div>
+        </div>
+        <div class="dleg" id="dash-donut-legend" style="margin-top:8px;"></div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div class="rep-card" style="background:rgba(59,130,246,.08);" onclick="showReport('revenue')"><div class="rep-ic" style="background:rgba(59,130,246,.18);color:var(--blue);">📈</div><div class="rep-lbl">الإيرادات</div></div>
-        <div class="rep-card" style="background:rgba(139,92,246,.08);" onclick="showReport('patients')"><div class="rep-ic" style="background:rgba(139,92,246,.18);color:var(--purple);">👥</div><div class="rep-lbl">العملاء</div></div>
-        <div class="rep-card" style="background:rgba(245,158,11,.08);" onclick="showReport('inventory')"><div class="rep-ic" style="background:rgba(245,158,11,.18);color:var(--amber);">📦</div><div class="rep-lbl">المخزون</div></div>
-        <div class="rep-card" style="background:rgba(244,63,94,.08);" onclick="showReport('appointments')"><div class="rep-ic" style="background:rgba(244,63,94,.18);color:var(--rose);">📅</div><div class="rep-lbl">المواعيد</div></div>
-        <div class="rep-card" style="background:rgba(45,212,191,.08);" onclick="showReport('doctors')"><div class="rep-ic" style="background:rgba(45,212,191,.18);color:var(--teal);">🏆</div><div class="rep-lbl">الأطباء</div></div>
-        <div class="rep-card" style="background:rgba(196,168,130,.08);" onclick="showReport('branches')"><div class="rep-ic" style="background:rgba(196,168,130,.18);color:var(--gold-light);">🏢</div><div class="rep-lbl">الفروع</div></div>
+
+      <div id="dash-r2-reports" style="display:none;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="rep-card" style="background:rgba(59,130,246,.08);" onclick="showReport('revenue')"><div class="rep-ic" style="background:rgba(59,130,246,.18);color:var(--blue);">📈</div><div class="rep-lbl">الإيرادات</div></div>
+          <div class="rep-card" style="background:rgba(139,92,246,.08);" onclick="showReport('patients')"><div class="rep-ic" style="background:rgba(139,92,246,.18);color:var(--purple);">👥</div><div class="rep-lbl">العملاء</div></div>
+          <div class="rep-card" style="background:rgba(245,158,11,.08);" onclick="showReport('inventory')"><div class="rep-ic" style="background:rgba(245,158,11,.18);color:var(--amber);">📦</div><div class="rep-lbl">المخزون</div></div>
+          <div class="rep-card" style="background:rgba(244,63,94,.08);" onclick="showReport('appointments')"><div class="rep-ic" style="background:rgba(244,63,94,.18);color:var(--rose);">📅</div><div class="rep-lbl">المواعيد</div></div>
+          <div class="rep-card" style="background:rgba(45,212,191,.08);" onclick="showReport('doctors')"><div class="rep-ic" style="background:rgba(45,212,191,.18);color:var(--teal);">🏆</div><div class="rep-lbl">الأطباء</div></div>
+          <div class="rep-card" style="background:rgba(196,168,130,.08);" onclick="showReport('branches')"><div class="rep-ic" style="background:rgba(196,168,130,.18);color:var(--gold-light);">🏢</div><div class="rep-lbl">الفروع</div></div>
+        </div>
       </div>
     </div>
   </div>
