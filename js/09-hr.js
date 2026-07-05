@@ -530,10 +530,12 @@ function renderSvcs(){
     return sum + ((s.price||0) - mc);
   },0)/allSvcs.length) : 0;
   const withBom = allSvcs.filter(s=>s.recipe && Array.isArray(s.recipe) && s.recipe.length>0).length;
+  const needReview = allSvcs.filter(s => getSvcPriceAlert(s).needsReview).length;
   if(document.getElementById('svc-kpi-total')) txt('svc-kpi-total', allSvcs.length);
   if(document.getElementById('svc-kpi-avg-price')) txt('svc-kpi-avg-price', avgPrice.toLocaleString());
   if(document.getElementById('svc-kpi-avg-profit')) txt('svc-kpi-avg-profit', avgProfit.toLocaleString());
   if(document.getElementById('svc-kpi-with-bom')) txt('svc-kpi-with-bom', withBom);
+  if(document.getElementById('svc-kpi-need-review')) txt('svc-kpi-need-review', needReview);
 
   tb.innerHTML = svcs.map(s => {
     const materialCost = typeof calcServiceMaterialCost === 'function' ? calcServiceMaterialCost(s.id) : (s.cost||0);
@@ -555,6 +557,13 @@ function renderSvcs(){
     } else {
       prodLabel = '<span style="color:var(--text-muted);font-size:11px;">لا مكونات</span>';
     }
+    const alertInfo = getSvcPriceAlert(s);
+    const clinicColor = alertInfo.clinicProfit >= 0 ? 'var(--emerald)' : 'var(--rose)';
+    const clinicProfitCell = `<span style="font-weight:700;color:${clinicColor}">${alertInfo.clinicProfit.toFixed(1)} ج</span>` +
+      (alertInfo.commissionPct > 0 ? `<div style="font-size:10px;color:var(--text-muted)">بعد عمولة د. ${alertInfo.commissionPct}% (${alertInfo.commissionAmt.toFixed(1)} ج)</div>` : '');
+    const alertLabel = alertInfo.needsReview
+      ? `<span class="tag" style="background:rgba(244,63,94,.15);color:var(--rose);font-weight:700;cursor:help;" title="${alertInfo.reasons.join(' | ')}">🔺 ارفع السعر</span>`
+      : `<span style="color:var(--text-muted);font-size:11px;">✓ مناسب</span>`;
     return `<tr>
       <td style="font-weight:700">${s.name}</td>
       <td><span class="tag tg-teal">${s.cat}</span></td>
@@ -563,6 +572,8 @@ function renderSvcs(){
       <td style="color:var(--rose);font-weight:600">${effectiveCost.toFixed(1)} ج</td>
       <td style="color:${profitColor};font-weight:700">${pr.toFixed(1)} ج</td>
       <td style="color:${profitColor};font-size:12px;font-weight:600">${pt}%</td>
+      <td style="font-size:11px">${clinicProfitCell}</td>
+      <td style="font-size:11px">${alertLabel}</td>
       <td style="font-size:11px;max-width:160px">${prodLabel}</td>
       <td><span class="ast ${statusCls}">${status}</span></td>
       <td style="white-space:nowrap">
@@ -570,7 +581,7 @@ function renderSvcs(){
         <button class="btn btn-danger btn-xs" onclick="delSvc('${s.id}')">🗑</button>
       </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:24px">لا توجد خدمات مطابقة</td></tr>';
+  }).join('') || '<tr><td colspan="12" style="text-align:center;color:var(--text-muted);padding:24px">لا توجد خدمات مطابقة</td></tr>';
 }
 
 function delSvc(id){
@@ -616,6 +627,7 @@ function saveSvc(){
   const name = gv('sv-name').trim();
   if(!name){ showToast('warning', '⚠️ اسم الخدمة مطلوب'); return; }
   const id   = gv('sv-id');
+  const existing = id ? DB.get('services').find(x => x.id === id) : null;
   // جمع الوصفة من الصفوف المؤقتة (window._svcRecipe)
   const recipe = (window._svcRecipe || []).filter(r => r.productId && parseFloat(r.qty) > 0);
   // حساب تكلفة المواد تلقائياً من الوصفة
@@ -627,17 +639,25 @@ function saveSvc(){
     const unitCost = prod.costPerConsumeUnit || prod.cost || prod.costPrice || prod.lastPurchasePrice || 0;
     return sum + (parseFloat(ing.qty)||0) * unitCost;
   }, 0);
+  const newPrice = parseFloat(gv('sv-price')) || 0;
+  // ✅ تنبيه رفع السعر: نسجّل تكلفة المواد وتاريخها وقت آخر مرة اتغيّر فيها السعر فعلاً
+  // (مش وقت أي حفظ)، عشان نقدر نقارن لاحقاً ارتفاع التكلفة منذ آخر تسعير حقيقي
+  const priceChanged = !existing || existing.price !== newPrice;
+  const priceSetCost = priceChanged ? autoCost : (existing?.priceSetCost ?? autoCost);
+  const priceSetDate = priceChanged ? new Date().toISOString() : (existing?.priceSetDate ?? new Date().toISOString());
   const data = {
     name,
     cat:      gv('sv-cat'),
     doctor:   gv('sv-doc'),
-    price:    parseFloat(gv('sv-price')) || 0,
+    price:    newPrice,
     cost:     autoCost,     // تُحسب تلقائياً من الوصفة — لا إدخال يدوي
     duration: parseInt(gv('sv-dur'))     || 60,
     room:     gv('sv-room'),
     equipment:gv('sv-equip'),
     status:   gv('sv-status') || 'نشطة',
     recipe,
+    priceSetCost,
+    priceSetDate,
     // legacy fields — محفوظة للتوافق مع البيانات القديمة
     linkedProductId: recipe.length > 0 ? recipe[0].productId : null,
     consumeQty:      recipe.length > 0 ? parseFloat(recipe[0].qty) : 1,
@@ -646,6 +666,48 @@ function saveSvc(){
   else  { DB.push('services', data);    showToast('success', `✅ تم إضافة "${name}"`); }
   closeModal('service-modal');
   // renderSvcs() + fillSvcDropdowns() يُستدعيان تلقائياً عبر services:created / services:updated
+}
+
+// ══════════════════════════════════════════
+// 🔺 تنبيه رفع سعر الجلسات — تلقائي
+// ══════════════════════════════════════════
+// يشتغل على أساسين (حسب إعدادات النظام في شاشة "الإعدادات"):
+//  1) هامش ربح العيادة الصافي (بعد خصم تكلفة المواد المستخدمة + عمولة الطبيب)
+//     أقل من الحد الأدنى المسموح (افتراضي 30%)
+//  2) تكلفة المواد الحالية ارتفعت عن تكلفتها وقت آخر مرة اتحدد/اتغيّر فيها السعر،
+//     بنسبة أكبر من الحد المسموح (افتراضي 15%)
+// ملاحظة: المصاريف العامة (إيجار، رواتب، فواتير...) مش بتتحسب هنا لأنها مصاريف
+// عيادة عامة مش مرتبطة بخدمة بعينها — ده overhead منفصل بيظهر في تقرير الأرباح
+// والخسائر العام، مش في ربحية كل خدمة على حدة.
+function getSvcPriceAlert(s){
+  const settings = DB.get('settings') || {};
+  const marginThreshold = parseFloat(settings.priceAlertMargin) || 30;
+  const costIncreaseThreshold = parseFloat(settings.priceAlertCostIncrease) || 15;
+
+  const materialCost = typeof calcServiceMaterialCost === 'function' ? calcServiceMaterialCost(s.id) : (s.cost||0);
+  const price = s.price || 0;
+  const grossProfit = price - materialCost; // الربح بعد المواد فقط، قبل عمولة الطبيب
+
+  // ✅ عمولة الطبيب: نفس منهجية الحساب المستخدمة فعليًا عند إقفال الجلسة
+  // (calcCdTotal/finalizeConsultation) — نسبة % من صافي الربح بعد خصم تكلفة المواد
+  const doctor = (DB.get('doctors')||[]).find(d => d.name === s.doctor);
+  const commissionPct = doctor?.commission || 0;
+  const commissionAmt = grossProfit > 0 ? Math.round(grossProfit * commissionPct / 100) : 0;
+  const clinicProfit = grossProfit - commissionAmt; // ✅ صافي اللي فعليًا بيفضل للعيادة
+  const margin = price > 0 ? (clinicProfit / price * 100) : 0;
+
+  const reasons = [];
+  if(price > 0 && margin < marginThreshold){
+    reasons.push(`صافي ربح العيادة ${margin.toFixed(0)}% (بعد المواد وعمولة الطبيب ${commissionPct}%) أقل من الحد الأدنى (${marginThreshold}%)`);
+  }
+  const baseCost = s.priceSetCost;
+  if(baseCost && baseCost > 0 && materialCost > baseCost){
+    const increasePct = (materialCost - baseCost) / baseCost * 100;
+    if(increasePct > costIncreaseThreshold){
+      reasons.push(`تكلفة المواد ارتفعت ${increasePct.toFixed(0)}% عن آخر تسعير`);
+    }
+  }
+  return { needsReview: reasons.length > 0, reasons, margin, materialCost, grossProfit, commissionPct, commissionAmt, clinicProfit };
 }
 
 // ══════════════════════════════════════════

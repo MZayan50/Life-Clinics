@@ -5,7 +5,11 @@ function saveSettings(){
   try { if(anthropicKey) localStorage.setItem('ha_anthropic_key', anthropicKey); } catch(e){}
 
   // باقي الإعدادات (بدون anthropicKey) ترفع لـ Firestore
-  const s={clinicName:gv('s-cname'),phone:gv('s-cphone'),managerName:gv('s-mname'),managerRole:gv('s-mrole')};
+  const s={clinicName:gv('s-cname'),phone:gv('s-cphone'),managerName:gv('s-mname'),managerRole:gv('s-mrole'),
+    priceAlertMargin: parseFloat(gv('s-margin-threshold')) || 30,
+    priceAlertCostIncrease: parseFloat(gv('s-cost-increase-threshold')) || 15};
+  // renderSvcs() يعتمد على الحدين الجديدين — أعد رسم شاشة الخدمات لو كانت مفتوحة
+  if(typeof renderSvcs === 'function') renderSvcs();
   // تحديث الاسم/الدور فورًا على الشاشة الرئيسية والشريط الجانبي
   if(s.managerName){txt('user-name',s.managerName);txt('dash-uname',s.managerName);}
   if(s.managerRole)txt('user-role',s.managerRole);
@@ -69,6 +73,9 @@ async function loadSettingsFromFirestore(){
       fill('s-cphone', remote.phone);
       fill('s-mname', remote.managerName);
       fill('s-mrole', remote.managerRole);
+      fill('s-margin-threshold', remote.priceAlertMargin);
+      fill('s-cost-increase-threshold', remote.priceAlertCostIncrease);
+      if(typeof renderSvcs === 'function') renderSvcs();
       // anthropicKey من localStorage فقط (لا يُخزَّن في Firestore)
       const localKey = localStorage.getItem('ha_anthropic_key')||'';
       fill('s-anthropic-key', localKey);
@@ -90,6 +97,7 @@ function loadSettings(){
     (!window._fbReady ? (()=>{ try{ return JSON.parse(localStorage.getItem('ha_settings')||'{}'); }catch{return{};} })() : {});
   // ملاحظة: لا نُحدّث user-name/user-role/dash-uname من هنا، لأنها مرتبطة بحساب المستخدم الفعلي
   ['s-cname','s-cphone','s-mname','s-mrole'].forEach((id,i)=>{const e=document.getElementById(id);if(e)e.value=[s.clinicName,s.phone,s.managerName,s.managerRole][i]||e.value;});
+  ['s-margin-threshold','s-cost-increase-threshold'].forEach((id,i)=>{const e=document.getElementById(id);if(e)e.value=[s.priceAlertMargin,s.priceAlertCostIncrease][i]||e.value;});
   // anthropicKey من localStorage المخصص فقط (لا يُخزَّن في Firestore)
   const akEl=document.getElementById('s-anthropic-key');
   if(akEl){ akEl.value = localStorage.getItem('ha_anthropic_key') || s.anthropicKey || ''; }
