@@ -7,7 +7,8 @@ function saveSettings(){
   // باقي الإعدادات (بدون anthropicKey) ترفع لـ Firestore
   const s={clinicName:gv('s-cname'),phone:gv('s-cphone'),managerName:gv('s-mname'),managerRole:gv('s-mrole'),
     priceAlertMargin: parseFloat(gv('s-margin-threshold')) || 30,
-    priceAlertCostIncrease: parseFloat(gv('s-cost-increase-threshold')) || 15};
+    priceAlertCostIncrease: parseFloat(gv('s-cost-increase-threshold')) || 15,
+    vatRate: parseFloat(gv('s-vat-rate')) || 0};
   // renderSvcs() يعتمد على الحدين الجديدين — أعد رسم شاشة الخدمات لو كانت مفتوحة
   if(typeof renderSvcs === 'function') renderSvcs();
   // تحديث الاسم/الدور فورًا على الشاشة الرئيسية والشريط الجانبي
@@ -75,6 +76,7 @@ async function loadSettingsFromFirestore(){
       fill('s-mrole', remote.managerRole);
       fill('s-margin-threshold', remote.priceAlertMargin);
       fill('s-cost-increase-threshold', remote.priceAlertCostIncrease);
+      fill('s-vat-rate', remote.vatRate);
       if(typeof renderSvcs === 'function') renderSvcs();
       // anthropicKey من localStorage فقط (لا يُخزَّن في Firestore)
       const localKey = localStorage.getItem('ha_anthropic_key')||'';
@@ -98,6 +100,7 @@ function loadSettings(){
   // ملاحظة: لا نُحدّث user-name/user-role/dash-uname من هنا، لأنها مرتبطة بحساب المستخدم الفعلي
   ['s-cname','s-cphone','s-mname','s-mrole'].forEach((id,i)=>{const e=document.getElementById(id);if(e)e.value=[s.clinicName,s.phone,s.managerName,s.managerRole][i]||e.value;});
   ['s-margin-threshold','s-cost-increase-threshold'].forEach((id,i)=>{const e=document.getElementById(id);if(e)e.value=[s.priceAlertMargin,s.priceAlertCostIncrease][i]||e.value;});
+  { const e=document.getElementById('s-vat-rate'); if(e && s.vatRate!==undefined) e.value = s.vatRate; }
   // anthropicKey من localStorage المخصص فقط (لا يُخزَّن في Firestore)
   const akEl=document.getElementById('s-anthropic-key');
   if(akEl){ akEl.value = localStorage.getItem('ha_anthropic_key') || s.anthropicKey || ''; }

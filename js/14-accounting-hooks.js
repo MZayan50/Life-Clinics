@@ -27,6 +27,36 @@
 // من دقة القيود الأساسية أولاً (زي ما بينص مبدأ التنفيذ في الدليل).
 // ══════════════════════════════════════════
 
+// ══════════════════════════════════════════
+// 🧾 ضريبة القيمة المضافة (VAT) — المرحلة 10 من دليل تطوير الطبقة المحاسبية
+// ══════════════════════════════════════════
+// ✅ إضافة صرفة تمامًا: مفيش أي تعديل على شاشات إدخال السعر أو الإجمالي المعروض
+// للعميل. الأسعار الحالية بتتعامل كأسعار "شاملة الضريبة" (Tax-Inclusive) —
+// زي المعتاد في التجزئة بمصر — فبدل ما إيراد الفاتورة الكامل يترحّل بالكامل
+// على حساب الإيراد (4100/4200/4300)، بنفصل نسبة الضريبة منه رياضيًا ونرحّلها
+// على حساب "ضرائب مستحقة" (2200 — موجود بالفعل في دليل الحسابات الافتراضي)،
+// والباقي (صافي الإيراد) يترحّل عادي. مجموع السطرين = نفس المبلغ الأصلي،
+// فتوازن القيد (مدين = دائن) يفضل سليم زي ما هو من غير أي تغيير في postJournalEntry.
+// التفعيل بالكامل اختياري: نسبة الضريبة = صفر (الافتراضي) يعني تعطيل تام،
+// ونفس السلوك القديم يفضل شغّال حرفيًا زي ما كان.
+function _vatRate(){
+  return parseFloat((DB.get('settings')||{}).vatRate) || 0;
+}
+
+// بيرجّع سطر واحد عادي لو الضريبة معطّلة، أو سطرين (صافي الإيراد + الضريبة) لو مفعّلة
+function _revenueLinesWithVat(accountCode, grossAmount, description){
+  const rate = _vatRate();
+  if(rate <= 0 || !(grossAmount > 0)){
+    return [{accountCode, debit:0, credit:grossAmount, description}];
+  }
+  const vatAmount = Math.round(grossAmount * rate / (100 + rate) * 100) / 100;
+  const netAmount  = Math.round((grossAmount - vatAmount) * 100) / 100;
+  return [
+    {accountCode, debit:0, credit:netAmount, description},
+    {accountCode:'2200', debit:0, credit:vatAmount, description:`ضريبة قيمة مضافة ${rate}% — ${description}`}
+  ];
+}
+
 // ── تحديد حساب الإيراد المناسب حسب نوع الفاتورة ──
 function _revenueAccountFor(invoice){
   if(invoice.pkgId) return '4300';                              // فاتورة باقة
@@ -74,7 +104,7 @@ EventBus.on('invoices:created', async (inv)=>{
   }
   const total = (inv.paid||0) + (inv.remaining||0);
   if(total <= 0) return; // فاتورة صفرية — لا داعي لقيد
-  lines.push({accountCode:revAccount, debit:0, credit:total, description:'إيراد فاتورة'});
+  lines.push(..._revenueLinesWithVat(revAccount, total, 'إيراد فاتورة'));
 
   const entry = await postJournalEntry({
     date: inv.date || new Date().toISOString().split('T')[0],
@@ -261,7 +291,7 @@ EventBus.on('cashlog:created', async (c)=>{
       sourceId: c.sessionPlanId || c.refId || null,
       lines: [
         {accountCode:cashAccount, debit:c.amount||0, credit:0, description:'تحصيل نقدي — جلسة'},
-        {accountCode:'4100', debit:0, credit:c.amount||0, description:'إيراد خدمات — جلسة'}
+        ..._revenueLinesWithVat('4100', c.amount||0, 'إيراد خدمات — جلسة')
       ]
     });
     if(entry){
@@ -284,7 +314,7 @@ EventBus.on('cashlog:created', async (c)=>{
       sourceId: c.refId || null,
       lines: [
         {accountCode:cashAccount, debit:c.amount||0, credit:0, description:'تحصيل نقدي — بيع منتج'},
-        {accountCode:'4200', debit:0, credit:c.amount||0, description:'إيراد بيع منتجات'}
+        ..._revenueLinesWithVat('4200', c.amount||0, 'إيراد بيع منتجات')
       ]
     });
     if(entry){
@@ -328,6 +358,12 @@ EventBus.on('cashlog:created', async (c)=>{
     const cashAccount   = (c.method==='فيزا') ? '1120' : '1110';
     const creditAccount = isLinkedToInvoiceOrPkg ? '1130' : '4100';
     const creditDesc    = isLinkedToInvoiceOrPkg ? 'من ذمم العميل — قسط' : 'إيراد قسط مستقل';
+    // ✅ الضريبة بتتفصل بس لما يكون ده أول ظهور فعلي للإيراد (creditAccount==='4100').
+    // لو الذمم كانت مسجّلة بالفعل وقت إنشاء الفاتورة/الباقة (1130)، يبقى الإيراد
+    // (وبالتبعية نصيب الضريبة منه) كان اتسجّل وقتها أصلًا — ملناش داعي نفصلها تاني هنا.
+    const creditLines = isLinkedToInvoiceOrPkg
+      ? [{accountCode:creditAccount, debit:0, credit:c.amount||0, description:creditDesc}]
+      : _revenueLinesWithVat(creditAccount, c.amount||0, creditDesc);
     const entry = await postJournalEntry({
       date: c.date || new Date().toISOString().split('T')[0],
       description: `تحصيل قسط: ${c.notes||c.source}`,
@@ -335,7 +371,7 @@ EventBus.on('cashlog:created', async (c)=>{
       sourceId: c.refId || null,
       lines: [
         {accountCode:cashAccount, debit:c.amount||0, credit:0, description:'تحصيل نقدي — قسط'},
-        {accountCode:creditAccount, debit:0, credit:c.amount||0, description:creditDesc}
+        ...creditLines
       ]
     });
     if(entry){
@@ -391,7 +427,7 @@ EventBus.on('installments:created', async (plan)=>{
     sourceId: plan.fromPkgId,
     lines: [
       {accountCode:'1130', debit:amount, credit:0, description:'ذمم عميل — باقة (مزامنة)'},
-      {accountCode:'4300', debit:0, credit:amount, description:'إيراد باقات (مزامنة)'}
+      ..._revenueLinesWithVat('4300', amount, 'إيراد باقات (مزامنة)')
     ]
   });
   // ⚠️ مفيش createVoucher هنا عمدًا — مفيش حركة كاش فعلية وقت المزامنة نفسها

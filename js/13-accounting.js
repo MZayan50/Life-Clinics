@@ -798,7 +798,43 @@ function validateSystemIntegrity(){
   return issues;
 }
 
-// ── عرض نتيجة الفحص في شاشة الإعدادات (تبويب البيانات) ──
+// ══════════════════════════════════════════
+// 🧾 تقرير ضريبة القيمة المضافة الشهري — المرحلة 10 من دليل تطوير الطبقة المحاسبية
+// ══════════════════════════════════════════
+// منطق التقسيم (صافي إيراد / ضريبة) موجود في _revenueLinesWithVat (14-accounting-hooks.js)
+// وبيترحّل تلقائيًا على حساب 2200 "ضرائب مستحقة" مع كل قيد إيراد. التقرير هنا
+// بيجمع بس رصيد الحساب ده خلال شهر معيّن — نفس مبدأ "رقم واحد من مصدر واحد متوازن".
+function calcVatForMonth(yyyyMm){
+  const entries = (DB.get('journal_entries')||[])
+    .filter(e => e.status==='posted' && (e.date||'').startsWith(yyyyMm));
+  let debit = 0, credit = 0;
+  entries.forEach(e=>{
+    (e.lines||[]).forEach(l=>{
+      if(l.accountCode === '2200'){ debit += (l.debit||0); credit += (l.credit||0); }
+    });
+  });
+  return { debit, credit, net: Math.round((credit - debit) * 100) / 100 };
+}
+
+function showVatReportUI(){
+  const monthEl = document.getElementById('vat-report-month');
+  const box = document.getElementById('vat-report-results');
+  if(!monthEl || !box) return;
+  const ym = monthEl.value;
+  if(!ym){ showToast('warning', '⚠️ اختر الشهر أولاً'); return; }
+  const rate = parseFloat((DB.get('settings')||{}).vatRate) || 0;
+  if(rate <= 0){
+    box.innerHTML = `<div style="padding:14px;background:rgba(212,175,55,.1);border-radius:var(--radius-sm);color:var(--gold);font-size:12.5px;">⚠️ نسبة الضريبة في الإعدادات = 0 (معطّلة) — مفيش أي مبلغ ضريبة مسجّل في القيود.</div>`;
+    return;
+  }
+  const r = calcVatForMonth(ym);
+  box.innerHTML = `<div style="padding:14px;background:var(--glass);border-radius:var(--radius-sm);">
+    <div style="font-size:12.5px;margin-bottom:6px;">نسبة الضريبة الحالية: <strong>${rate}%</strong></div>
+    <div style="font-size:13px;margin-bottom:6px;">ضريبة محصّلة من العملاء (دائن): <strong style="color:var(--emerald)">${r.credit.toLocaleString()} ج</strong></div>
+    <div style="font-size:13px;margin-bottom:6px;">تعديلات/عكس قيود خلال الشهر (مدين): <strong style="color:var(--rose)">${r.debit.toLocaleString()} ج</strong></div>
+    <div style="font-size:14.5px;font-weight:800;border-top:1px solid var(--glass-border);padding-top:8px;margin-top:6px;">صافي الضريبة المستحقة للشهر: <span style="color:var(--gold-light)">${r.net.toLocaleString()} ج</span></div>
+  </div>`;
+}
 function runSystemIntegrityCheckUI(){
   const box = document.getElementById('integrity-check-results');
   if(!box) return;
