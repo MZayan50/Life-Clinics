@@ -123,3 +123,4 @@ async function _runPatientCleanup(patientName){
   showToast('success', `✅ تم حذف ${deleted} سجل مرتبط بـ "${patientName}"`);
   console.table(Object.entries(plan).map(([k,v]) => ({collection:k, count:v.length})));
 }
+
