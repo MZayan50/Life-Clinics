@@ -710,3 +710,115 @@ ${bodyHtml}
   showToast('success', '📄 جاهز للتحميل أو الطباعة');
 }
 
+// ══════════════════════════════════════════
+// 🩺 فحوصات سلامة البيانات — المرحلة 13 من دليل تطوير الطبقة المحاسبية
+// ══════════════════════════════════════════
+// كل فحص بيرجع { severity: 'error'|'warning', category, message, recordId? }
+// error = خلل محاسبي/مالي فعلي (رقم غلط). warning = يستاهل مراجعة لكن مش بالضرورة خطأ.
+
+function validateSystemIntegrity(){
+  const issues = [];
+
+  // 1. مخزون بكمية سالبة — يعني حصل بيع/استهلاك أكتر مما هو متاح فعليًا
+  (DB.get('inventory')||[]).forEach(i=>{
+    if((i.qty||0) < 0){
+      issues.push({severity:'error', category:'المخزون', message:`مخزون سالب: "${i.name}" (${i.qty})`, recordId:i.id});
+    }
+  });
+
+  // 2. قيود محاسبية غير متوازنة (مدين ≠ دائن) — مايفترضش يحصل لأن postJournalEntry بيرفضها،
+  // لكن الفحص هنا شبكة أمان ضد أي بيانات دخلت بطريقة تانية (استيراد يدوي مثلاً)
+  (DB.get('journal_entries')||[]).forEach(e=>{
+    const d = (e.lines||[]).reduce((s,l)=>s+(l.debit||0),0);
+    const c = (e.lines||[]).reduce((s,l)=>s+(l.credit||0),0);
+    if(Math.abs(d-c) > 0.01){
+      issues.push({severity:'error', category:'القيود المحاسبية', message:`قيد غير متوازن: ${e.entryNumber} (مدين ${d.toFixed(2)} / دائن ${c.toFixed(2)})`, recordId:e.id});
+    }
+  });
+
+  // 3. ميزان المراجعة الإجمالي — لازم إجمالي المدين = إجمالي الدائن على مستوى النظام كله
+  if(typeof calcTrialBalance === 'function'){
+    const tb = calcTrialBalance(null);
+    if(!tb.isBalanced){
+      issues.push({severity:'error', category:'ميزان المراجعة', message:`الميزان غير متوازن إجماليًا: مدين ${tb.totalDebit.toLocaleString()} ج / دائن ${tb.totalCredit.toLocaleString()} ج`});
+    }
+  }
+
+  // 4. مدفوعات أكبر من قيمة الفاتورة
+  (DB.get('invoices')||[]).forEach(i=>{
+    if((i.paid||0) > (i.total||0) + 0.01){
+      issues.push({severity:'error', category:'الفواتير', message:`دفعة أكبر من الفاتورة: #${i.id} (مدفوع ${i.paid} من إجمالي ${i.total})`, recordId:i.id});
+    }
+  });
+
+  // 5. فواتير بإجمالي صفر أو سالب — غالبًا بيانات اختبار أو خطأ إدخال (كانت سبب فروق سابقة)
+  (DB.get('invoices')||[]).forEach(i=>{
+    if(!(i.total > 0)){
+      issues.push({severity:'warning', category:'الفواتير', message:`فاتورة بإجمالي صفر/غير صحيح: #${i.id} — ${i.patient||'—'}`, recordId:i.id});
+    }
+  });
+
+  // 6. خطط أقساط مكررة على نفس الفاتورة (fromInvId) — كانت سبب تضاعف "المتبقي" في ملف العميل
+  const instByInv = {};
+  (DB.get('installments')||[]).forEach(p=>{
+    if(!p.fromInvId) return;
+    (instByInv[p.fromInvId] = instByInv[p.fromInvId] || []).push(p);
+  });
+  Object.entries(instByInv).forEach(([invId, plans])=>{
+    if(plans.length > 1){
+      issues.push({severity:'error', category:'الأقساط', message:`${plans.length} خطط أقساط مكررة على نفس الفاتورة #${invId}`, recordId:invId});
+    }
+  });
+
+  // 7. قيود محاسبية "يتيمة" — مصدرها (فاتورة/مصروف) اتحذف حذفًا فعليًا (مش Soft Delete) فمابقاش موجود
+  const liveInvoiceIds = new Set((DB.get('invoices')||[]).map(i=>String(i.id)));
+  const liveExpenseIds = new Set((DB.get('expenses')||[]).map(e=>String(e.id))); // شاملة الـ soft-deleted لو DB.get بيرجعها
+  (DB.get('journal_entries')||[]).forEach(e=>{
+    if(e.status==='reversed') return;
+    if(e.sourceType==='invoice' && e.sourceId && !liveInvoiceIds.has(String(e.sourceId))){
+      issues.push({severity:'warning', category:'القيود المحاسبية', message:`قيد مرتبط بفاتورة محذوفة نهائيًا: ${e.entryNumber}`, recordId:e.id});
+    }
+    if(e.sourceType==='expense' && e.sourceId && !liveExpenseIds.has(String(e.sourceId))){
+      issues.push({severity:'warning', category:'القيود المحاسبية', message:`قيد مرتبط بمصروف محذوف نهائيًا: ${e.entryNumber}`, recordId:e.id});
+    }
+  });
+
+  // 8. سندات لسه شغالة (غير مبطلة) رغم إن القيد المرتبط بيها اتعكس بالفعل
+  const reversedEntryIds = new Set((DB.get('journal_entries')||[]).filter(e=>e.status==='reversed').map(e=>String(e.id)));
+  (DB.get('vouchers')||[]).forEach(v=>{
+    if(v.status!=='voided' && v.linkedEntryId && reversedEntryIds.has(String(v.linkedEntryId))){
+      issues.push({severity:'warning', category:'السندات', message:`سند ${v.voucherNumber||v.id} مرتبط بقيد معكوس ولسه مش مبطّل — استخدم "إصلاح السندات القديمة"`, recordId:v.id});
+    }
+  });
+
+  return issues;
+}
+
+// ── عرض نتيجة الفحص في شاشة الإعدادات (تبويب البيانات) ──
+function runSystemIntegrityCheckUI(){
+  const box = document.getElementById('integrity-check-results');
+  if(!box) return;
+  const issues = validateSystemIntegrity();
+  const errors = issues.filter(i=>i.severity==='error');
+  const warnings = issues.filter(i=>i.severity==='warning');
+
+  if(!issues.length){
+    box.innerHTML = `<div style="padding:14px;background:rgba(52,211,153,.1);border-radius:var(--radius-sm);color:var(--emerald);font-weight:700;">✅ مفيش أي مشاكل — البيانات سليمة 100%</div>`;
+    showToast('success', '✅ فحص السلامة تمّ — لا توجد مشاكل');
+    return;
+  }
+
+  const row = it => `<div style="padding:9px 12px;border-radius:var(--radius-sm);margin-bottom:6px;background:${it.severity==='error'?'rgba(244,63,94,.1)':'rgba(212,175,55,.1)'};border-inline-start:3px solid ${it.severity==='error'?'var(--rose)':'var(--gold)'};">
+    <span style="font-size:11px;font-weight:700;color:${it.severity==='error'?'var(--rose)':'var(--gold)'};">${it.severity==='error'?'❌ خطأ':'⚠️ تنبيه'} — ${it.category}</span>
+    <div style="font-size:12.5px;margin-top:2px;">${it.message}</div>
+  </div>`;
+
+  box.innerHTML = `<div style="font-size:12.5px;font-weight:700;margin-bottom:10px;">
+      ${errors.length ? `<span style="color:var(--rose)">${errors.length} خطأ</span>` : ''}
+      ${errors.length && warnings.length ? ' · ' : ''}
+      ${warnings.length ? `<span style="color:var(--gold)">${warnings.length} تنبيه</span>` : ''}
+    </div>` + issues.map(row).join('');
+  showToast(errors.length ? 'error' : 'warning',
+    errors.length ? `❌ فيه ${errors.length} خطأ محاسبي محتاج مراجعة` : `⚠️ فيه ${warnings.length} تنبيه يستاهل مراجعة`);
+}
+
