@@ -387,10 +387,19 @@ function recordDoctorCommission(invId, paymentAmount){
            || doctors.find(d => d.name === inv.doctor);
   if(!doc || !(doc.commission > 0)) return;
   
-  // ✅ FIX (مشكلة #8): حساب العمولة من المبلغ المدفوع مباشرة
-  // paymentAmount هو بالفعل المبلغ بعد تطبيق الخصم (إن وجد)
-  // العمولة = paymentAmount × (نسبة العمولة) ÷ 100
-  const commDelta = Math.round(paymentAmount * (doc.commission / 100));
+  // ✅ FIX (بطلب المستخدم): العمولة تُحسب من صافي الربح (بعد خصم تكلفة
+  // المنتجات/المواد المستهلكة فعليًا — inv.materialCost)، وليس من إجمالي
+  // المبلغ المدفوع. لو الفاتورة بتتحصّل على دفعات (paymentAmount جزء من
+  // inv.total)، نوزّع تكلفة المواد بالتناسب مع نسبة هذه الدفعة من إجمالي
+  // الفاتورة، حتى لا تُخصم تكلفة المواد بالكامل من أول قسط فقط.
+  const materialCost = inv.materialCost || 0;
+  const invTotal = inv.total || 0;
+  const materialShare = materialCost > 0
+    ? (invTotal > 0 ? materialCost * (paymentAmount / invTotal) : materialCost)
+    : 0;
+  const netProfitBase = Math.max(0, paymentAmount - materialShare);
+  // العمولة = صافي الربح المقابل لهذه الدفعة × (نسبة العمولة) ÷ 100
+  const commDelta = Math.round(netProfitBase * (doc.commission / 100));
   if(commDelta <= 0) return;
   const prevComm = inv.commissionAmount || 0;
   DB.upd('invoices', invId, {

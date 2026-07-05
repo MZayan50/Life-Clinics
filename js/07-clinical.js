@@ -1008,11 +1008,21 @@ function calcCdTotal(){
   const price=parseFloat(document.getElementById('cd-price')?.value)||0;
   const disc=parseFloat(document.getElementById('cd-disc')?.value)||0;
   const net=Math.max(0,price-disc);
-  const comm=Math.round(net*(doc?.commission||0)/100);
+  // ✅ عمولة الطبيب تُحسب من صافي الربح (بعد خصم تكلفة المنتجات/المواد المستخدمة
+  // في الخدمة)، وليس من إجمالي سعر الخدمة — نفس منهجية "صافي الربح" المستخدمة
+  // في شاشة الخدمات وشاشة الباقات (calcServiceMaterialCost). هذا مجرد استعراض
+  // (preview) بدون خصم فعلي من المخزون؛ الخصم الحقيقي والقيمة النهائية للعمولة
+  // يحدثان في finalizeConsultation() عند الإنهاء الفعلي.
+  const svcSel=document.getElementById('cd-svc');
+  const svcName=svcSel?.options[svcSel?.selectedIndex]?.value||a?.service||'';
+  const svcRecord=DB.get('services').find(s=>s.name===svcName);
+  const matCost=svcRecord&&typeof calcServiceMaterialCost==='function'?calcServiceMaterialCost(svcRecord.id):0;
+  const netProfit=Math.max(0,net-matCost);
+  const comm=Math.round(netProfit*(doc?.commission||0)/100);
   const netEl=document.getElementById('cd-net');
   const commEl=document.getElementById('cd-comm-display');
   if(netEl)netEl.textContent=net.toLocaleString()+' ج';
-  if(commEl)commEl.textContent=comm.toLocaleString()+' ج ('+(doc?.commission||0)+'%)';
+  if(commEl)commEl.textContent=comm.toLocaleString()+' ج ('+(doc?.commission||0)+'% من صافي الربح'+(matCost?' — بعد خصم تكلفة مواد '+matCost.toFixed(1)+' ج':'')+')';
 }
 
 function finalizeConsultation(){
@@ -1031,7 +1041,6 @@ function finalizeConsultation(){
   const doc=DB.get('doctors').find(d=>d.name===a.doctor);
   const pat=DB.get('patients').find(p=>String(p.id)===String(a.patId));
   const today=new Date().toISOString().split('T')[0];
-  const comm=Math.round(net*(doc?.commission||0)/100);
   const startMin=a.consultStart?_timeToMin(a.consultStart):_timeToMin(a.time);
   const durMin=Math.max(0,_timeToMin(now)-startMin);
   // 1. Complete appointment
@@ -1047,13 +1056,25 @@ function finalizeConsultation(){
   // 14-accounting-hooks.js (بطلب المستخدم: صافي الربح يعكس تكلفة المواد فعليًا).
   const svcRecord = DB.get('services').find(s => s.name === svcName) || DB.get('services').find(s => s.id === a.serviceId);
   const _materialCost = deductInventory(svcRecord?.id || a.serviceId, 1) || 0;
+  // ✅ FIX (بطلب المستخدم): عمولة الطبيب تُحسب من صافي الربح — أي سعر الخدمة
+  // بعد الخصم (net) مطروحًا منه تكلفة المنتجات/المواد المستهلكة فعليًا في هذه
+  // الجلسة (_materialCost) — وليس من إجمالي سعر الخدمة كما كان سابقًا. تنطبق
+  // نفس القاعدة سواء الفاتورة مدفوعة مباشرة أو مغطاة بباقة (راجع فرعي الشرط تحت).
+  const _netProfit = Math.max(0, net - _materialCost);
+  const comm = Math.round(_netProfit * (doc?.commission || 0) / 100);
   if(_coveredByPkg){
+    // ✅ FIX: كانت الفاتورة المغطاة بباقة تُسجَّل بعمولة صفر للطبيب لأن total/paid=0
+    // (تجنبًا للمحاسبة المزدوجة على الإيراد). لكن الطبيب لا يزال يقدّم الخدمة فعليًا،
+    // فعمولته يجب أن تُحتسب من صافي ربح الجلسة (قيمة الخدمة − تكلفة المواد)
+    // رغم عدم وجود تحصيل نقدي مباشر. نسجّل commissionAmount هنا مباشرة لأن
+    // recordDoctorCommission (00-core.js) لا يعمل إلا لو paid>0.
     DB.push('invoices',{
       patient:a.patient,patId:a.patId,doctor:a.doctor||'',service:svcName,
       date:today,originalPrice:price,discount:price,total:0,paid:0,remaining:0,
       status:'مدفوع',method:'باقة',fromAppt:apptId,
       pkgId:_activePkgCheck.id,pkgName:_activePkgCheck.name,
-      commission:0,commissionPct:0,branch:a.branch||'',
+      commission:comm,commissionPct:doc?.commission||0,
+      commissionAmount:comm,commissionRecorded:true,branch:a.branch||'',
       notes:`مغطاة بباقة: ${_activePkgCheck.name}`,
       materialCost:_materialCost
     });
@@ -1087,7 +1108,7 @@ function finalizeConsultation(){
   if(document.getElementById('screen-waitlist')?.classList.contains('active')) renderWaitlist();
   closeModal('consult-done-modal');
   const _toastMsg = _coveredByPkg
-    ? `مغطاة بباقة "${_activePkgCheck.name}" 🎁`
+    ? `مغطاة بباقة "${_activePkgCheck.name}" 🎁 · عمولة ${comm.toLocaleString()} ج`
     : `فاتورة ${net.toLocaleString()} ج · عمولة ${comm.toLocaleString()} ج`;
   showToast('success',`✅ اكتملت استشارة ${a.patient}`, _toastMsg);
 }
