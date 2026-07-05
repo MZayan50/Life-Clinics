@@ -428,6 +428,14 @@ function _triggerFullSync() {
     const svcId  = svcIds[0] || pkg.serviceId || null;
     const svc    = svcId ? (DB.get('services') || []).find(s => s.id === svcId) : null;
 
+    // ✅ FIX (نفس باج "ربح الجلسات اليوم" في _patchFinalizeConsultation أعلاه):
+    // تسجيل الإيراد كـ 0 هنا كان يخلي كل جلسة باقة تُسجَّل من هذا الزر تظهر
+    // كخسارة صافية (تكلفة مواد فقط بدون أي إيراد مقابل) في KPI "تكلفة/ربح
+    // الجلسات اليوم" بالداشبورد والتقارير رغم إن العميل دفع مقدَّمًا. نستخدم
+    // نصيب الجلسة من سعر بيع الباقة (نفس منطق pkgSessionValue في finalizeConsultation)
+    // بدل الصفر، عشان الأرقام تتطابق في كل شاشات التطبيق.
+    const pkgSessionValue = Math.max(0, ((pkg.price || 0) - (pkg.discount || 0)) / (sessTotal || 1));
+
     // §1-2-3-4-5: تسجيل الإتمام مع كامل الحسابات
     const result = _recordSessionCompletion({
       sessionPlanId: null,
@@ -438,7 +446,7 @@ function _triggerFullSync() {
       serviceName: svc?.name || pkg.services || pkg.name || '—',
       sessionNo: newUsed,
       sessionTotal: sessTotal,
-      revenue: 0, // الباقة مدفوعة مقدماً — لا إيراد إضافي لكل جلسة
+      revenue: pkgSessionValue, // نصيب الجلسة من سعر الباقة المدفوع مقدماً — بدل 0
       date: today
     });
 
@@ -498,6 +506,21 @@ function _triggerFullSync() {
       (!activePkgBefore.services || !activePkgBefore.services.trim() ||
        activePkgBefore.services.includes(svcName));
     const coveredPkgId = coveredByPkg ? activePkgBefore.id : null;
+    // ✅ FIX (باج: "ربح الجلسات (اليوم)" في الداشبورد يظهر خسارة وهمية):
+    // كانت الجلسات المغطاة بباقة تُسجَّل هنا بإيراد=0 دائماً (لأن الفاتورة
+    // المرتبطة بها paid=0 فعلاً، تفاديًا لازدواج الإيراد). لكن العميل بالفعل
+    // دفع مقدَّمًا وقت شراء الباقة، ونصيب هذه الجلسة تحديدًا من سعر البيع هو
+    // نفس القيمة (pkgSessionValue) المحسوبة والمخزَّنة فعليًا في invoice.sessionValue
+    // (راجع 07-clinical.js → finalizeConsultation) والتي تعتمد عليها بالفعل
+    // لوحة "أفضل الأطباء" في الداشبورد (buildTopDoctors، 01-app.js). استخدام
+    // 0 هنا بدل هذه القيمة كان يخلي كل جلسة ضمن باقة تظهر كخسارة صافية
+    // (تكلفة المواد فقط، بلا أي إيراد مقابل) في KPI "تكلفة/ربح الجلسات اليوم"
+    // بالداشبورد والتقارير، رغم إن ربح الباقة الفعلي (سعر البيع − التكلفة)
+    // موجب. نستخدم نفس منطق نصيب الجلسة من سعر الباقة لضمان تطابق الأرقام
+    // في كل شاشات التطبيق.
+    const pkgSessionValue = coveredByPkg
+      ? Math.max(0, ((activePkgBefore.price || 0) - (activePkgBefore.discount || 0)) / (activePkgBefore.sessionsCount || 1))
+      : 0;
 
     // استدعاء الدالة الأصلية (تتولى الفاتورة + خصم المخزون + خصم جلسة الباقة)
     _orig.apply(this, arguments);
@@ -517,7 +540,11 @@ function _triggerFullSync() {
 
     if (!alreadyRecorded) {
       const actualMaterialCost = _calcActualSessionCost(svcRecord?.id || a.serviceId);
-      const actualProfit       = net - actualMaterialCost;
+      // ✅ FIX: الإيراد الحقيقي للجلسة = نصيبها من سعر الباقة لو مغطاة بباقة،
+      // أو صافي سعر الفاتورة العادي لو مش مغطاة — بدل تصفير الإيراد دايمًا
+      // للجلسات المغطاة بباقة (راجع شرح الفكس فوق عند تعريف pkgSessionValue).
+      const sessionRevenue     = coveredByPkg ? pkgSessionValue : net;
+      const actualProfit       = sessionRevenue - actualMaterialCost;
 
       DB.push('session_completions', {
         apptId,
@@ -529,9 +556,9 @@ function _triggerFullSync() {
         serviceName: svcName || '—',
         sessionNo: 1,
         date: today,
-        revenue: coveredByPkg ? 0 : net,
+        revenue: sessionRevenue,
         actualMaterialCost,
-        actualProfit: coveredByPkg ? -actualMaterialCost : actualProfit,
+        actualProfit,
         inventoryDeducted: true,
         _protected: true
       });
