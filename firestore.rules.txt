@@ -34,7 +34,8 @@ service cloud.firestore {
         'product_sales', 'session_completions',
         'photos', 'installments', 'cashlog', 'settings', 'config', 'users', 'advances',
         'call_queue',
-        'chart_of_accounts', 'journal_entries', 'accounting_periods', 'vouchers'
+        'chart_of_accounts', 'journal_entries', 'accounting_periods', 'vouchers',
+        'fiscal_years'
       ];
     }
 
@@ -122,6 +123,13 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.resource.data.keys().hasAll(['voucherNumber', 'type', 'amount'])
                     && isReasonableSize(request.resource.data);
+      allow update: if isReasonableSize(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /fiscal_years/{docId} {
+      allow read: if true;
+      allow create: if isReasonableSize(request.resource.data);
       allow update: if isReasonableSize(request.resource.data);
       allow delete: if true;
     }
