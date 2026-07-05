@@ -1141,7 +1141,7 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="kpi-card kc-purple"><div class="kpi-icon">🧪</div><div class="kpi-value" id="svc-kpi-with-bom">0</div><div class="kpi-label">خدمات بمكونات</div></div>
     <div class="kpi-card kc-rose"><div class="kpi-icon">🔺</div><div class="kpi-value" id="svc-kpi-need-review">0</div><div class="kpi-label">تحتاج رفع سعر</div></div>
   </div>
-  <div class="card"><div class="table-wrap"><table><thead><tr><th>الخدمة</th><th>القسم</th><th>سعر البيع</th><th>المدة</th><th>تكلفة المواد</th><th>الربح المتوقع</th><th>هامش الربح</th><th>تنبيه السعر</th><th>المكونات</th><th>الحالة</th><th></th></tr></thead><tbody id="svc-tbody"></tbody></table></div></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>الخدمة</th><th>القسم</th><th>سعر البيع</th><th>المدة</th><th>تكلفة المواد</th><th>الربح المتوقع</th><th>هامش الربح</th><th>صافي ربح العيادة</th><th>تنبيه السعر</th><th>المكونات</th><th>الحالة</th><th></th></tr></thead><tbody id="svc-tbody"></tbody></table></div></div>
 
 </div>
 
@@ -1411,6 +1411,14 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     </div>
   </div>
   <div id="se-data" style="display:none;">
+    <div class="card"><div class="card-hdr"><div class="card-title">🩺 فحص سلامة النظام</div>
+        <button class="btn btn-primary btn-sm" onclick="runSystemIntegrityCheckUI()">🩺 تشغيل الفحص</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+        المرحلة 13 — فحص شامل لسلامة البيانات: مخزون سالب، قيود غير متوازنة، ميزان مراجعة غير متوازن إجماليًا، مدفوعات أكبر من الفاتورة، فواتير بإجمالي صفر، خطط أقساط مكررة على نفس الفاتورة، قيود مرتبطة بسجلات محذوفة، وسندات محتاجة إبطال. شغّله بشكل دوري (مثلاً كل أسبوع) للاطمئنان على دقة الأرقام.
+      </div>
+      <div id="integrity-check-results"></div>
+    </div>
     <div class="card"><div class="card-hdr"><div class="card-title">💼 دليل الحسابات (Chart of Accounts)</div>
         <button class="btn btn-primary btn-sm" onclick="seedChartOfAccounts()">🌱 إنشاء دليل الحسابات</button>
       </div>
