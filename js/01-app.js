@@ -709,14 +709,19 @@ function buildDashActivities(){
       });
 
   // آخر عميل مسجَّل خلال 7 أيام
-  pats.filter(p => (p.created||'') >= cutStr)
-      .sort((a,b) => (b.created||'').localeCompare(a.created||''))
+  // ✅ FIX (باج: "عميل جديد" مايظهرش أبداً في النشاطات الأخيرة): كان الفلتر
+  // بيقرا حقل p.created، وهو حقل غير موجود أصلاً في سجل العميل (DB.push بيحفظ
+  // تاريخ الإنشاء في createdAt تلقائياً — راجع _audit() في 00-core.js). فالقيمة
+  // كانت دايمًا '' (فاضية)، و''>=cutStr شرط كاذب دايمًا، فمفيش عميل جديد كان
+  // بيظهر في هذه القائمة أبداً مهما كان عدد التسجيلات الجديدة فعليًا.
+  pats.filter(p => (p.createdAt||'') >= cutStr)
+      .sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''))
       .slice(0,1)
       .forEach(p => {
         activities.push({
           icon:'👥', color:'var(--emerald),var(--teal)',
           text:`عميل جديد: ${p.name}`,
-          time: p.created||'—'
+          time: (p.createdAt||'').split('T')[0] || '—'
         });
       });
 
@@ -989,9 +994,17 @@ function buildDashTaskCards(){
 
 // ── 4) صافي الربح (Profit line chart — آخر 6 شهور، نفس معادلة شاشة التقارير) ──
 function buildProfitChart(){
-  const invoices  = DB.get('invoices')||[];
   const cashlog   = DB.get('cashlog')||[];
-  const purchases = DB.get('purchases')||[];
+  // ✅ FIX (باج: "صافي الربح" في الداشبورد بيتناقض مع نفس الرقم في شاشة
+  // التقارير لنفس الشهر بالظبط): كانت المعادلة هنا بتطرح "قيمة المشتريات
+  // المستلمة" (purchases.total) كمصروف مباشر، بينما شاشة التقارير (10-reports.js)
+  // فيها تصحيح موثَّق بالفعل بيقول إن المشتريات مجرد تحويل أصول (كاش → مخزون)
+  // ومش مصروف مباشر إلا لما تُباع فعليًا (COGS). خصم قيمة المشتريات هنا زي
+  // ما كان بيحصل، مع خصم مصروفات الخزينة (exp) اللي ممكن أصلاً تشمل نفس دفعة
+  // المورد، كان بيضخّم الخسارة وهميًا ويعرض رقمين مختلفين تمامًا لنفس الشهر
+  // في نفس التطبيق. الحل: نفس منهجية COGS المستخدمة فعليًا في شاشة التقارير.
+  const inventory = DB.get('inventory') || [];
+  const invTrans  = DB.get('inventory_transactions') || [];
   const now = new Date();
   const months = Array.from({length:6},(_,i)=>{
     const d = new Date(now.getFullYear(), now.getMonth()-5+i, 1);
@@ -1000,8 +1013,16 @@ function buildProfitChart(){
   const data = months.map(key=>{
     const rev = _dashCashRevenue({monthKey:key});
     const exp = cashlog.filter(c=>c.type==='صادر'&&(c.date||'').startsWith(key)).reduce((s,c)=>s+(c.amount||0),0);
-    const pur = purchases.filter(p=>(p.orderDate||'').startsWith(key)&&p.status==='مستلم').reduce((s,p)=>s+(p.total||0),0);
-    return rev-exp-pur;
+    const cogs = invTrans
+      .filter(t => (t.type==='صرف' || t.type==='صادر') &&
+                   (t.refType==='invoice' || t.refType==='session') &&
+                   (t.date||'').startsWith(key))
+      .reduce((s,t) => {
+        const prod = inventory.find(i => i.id === t.productId);
+        const unitCost = prod?.costPerConsumeUnit || 0;
+        return s + unitCost * (t.qty||0);
+      }, 0);
+    return rev-exp-cogs;
   });
   const curProfit = data[data.length-1];
   const valEl = document.getElementById('dash-profit-val');
