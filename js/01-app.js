@@ -815,16 +815,16 @@ function buildDashboard(){
 
   // ── KPI 1: Total Patients ──
   const pats = filterBranch(allPats);
-  txt('kpi-pat', pats.length.toLocaleString());
+  animateCount('kpi-pat', pats.length);
 
   // ── KPI 2: Today Appointments ──
   const todayApts = filterBranch(allApts.filter(a=>a.date===today));
-  txt('kpi-appt', todayApts.length.toLocaleString());
+  animateCount('kpi-appt', todayApts.length);
 
   // ── KPI 3: Today Revenue (✅ من cashlog — يشمل خطط الجلسات أيضاً) ──
   const todayRevInvs = filterBranch(allInvs.filter(i=>i.date===today));
   const todayRev = _dashCashRevenue({date: today, branch});
-  txt('kpi-rev', todayRev.toLocaleString());
+  animateCount('kpi-rev', todayRev);
 
   // ── KPI 4: Cash Balance from cashlog (وارد/صادر هي القيم الحقيقية المُخزَّنة) ──
   const cashBal = cashlog.reduce((s,e)=>{
@@ -832,7 +832,31 @@ function buildDashboard(){
     if(e.type==='صادر') return s-(e.amount||0);
     return s;
   },0);
-  txt('kpi-mrev', cashBal.toLocaleString());
+  animateCount('kpi-mrev', cashBal);
+
+  // ── سطر سردي: ملخص اليوم بلغة بشرية ──
+  (function(){
+    const narrEl = document.getElementById('dash-narrative'); if(!narrEl) return;
+    let narrative;
+    if(!todayApts.length){
+      narrative = 'مفيش مواعيد مجدولة النهاردة';
+    } else {
+      const sorted = todayApts.slice().sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+      narrative = `عندك ${todayApts.length} ${todayApts.length===1?'موعد':'مواعيد'} النهاردة`;
+      if(sorted[0] && sorted[0].time) narrative += `، أول واحد الساعة ${sorted[0].time}`;
+    }
+    const yest = new Date(); yest.setDate(yest.getDate()-1);
+    const yestStr = yest.toISOString().split('T')[0];
+    const yestRev = _dashCashRevenue({date: yestStr, branch});
+    if(yestRev > 0){
+      const pct = Math.round(((todayRev - yestRev) / yestRev) * 100);
+      if(pct !== 0) narrative += ` — الإيراد ${pct>0?'أعلى':'أقل'} من أمس بـ${Math.abs(pct)}%`;
+      else narrative += ' — الإيراد مطابق لأمس';
+    } else if(todayRev > 0){
+      narrative += ' — أول إيراد مسجل اليوم 🎉';
+    }
+    narrEl.textContent = narrative;
+  })();
 
   // ── Sparklines ──
   const now = new Date();
@@ -958,7 +982,37 @@ function buildIncomeOverview(){
   const max = Math.max(...monthsData,1);
   const curMonthIdx = (year===curYear) ? new Date().getMonth() : -1;
   const chart = document.getElementById('dash-income-chart');
-  if(chart) chart.innerHTML = monthsData.map((v,i)=>`<div class="bar" style="background:${i===curMonthIdx?'var(--gold)':'var(--teal)'};opacity:${i===curMonthIdx?1:.55};height:${Math.max(v/max*100,3)}%;" title="${MN[i]}: ${v.toLocaleString()} ج" onclick="showToast('info','📅 ${MN[i]} ${year}: '+(${v}).toLocaleString()+' ج')"></div>`).join('');
+  if(chart){
+    const W=600,H=130,PAD=8;
+    const n=monthsData.length;
+    const stepX=(W-2*PAD)/(n-1);
+    const pts=monthsData.map((v,i)=>({x:PAD+i*stepX,y:H-PAD-((v/max)*(H-2*PAD)),v,i}));
+    function smoothPath(p){
+      if(p.length<2) return `M ${p[0].x},${p[0].y}`;
+      let d=`M ${p[0].x},${p[0].y}`;
+      for(let i=0;i<p.length-1;i++){
+        const p0=p[i===0?i:i-1], p1=p[i], p2=p[i+1], p3=p[i+2>p.length-1?p.length-1:i+2];
+        const c1x=p1.x+(p2.x-p0.x)/6, c1y=p1.y+(p2.y-p0.y)/6;
+        const c2x=p2.x-(p3.x-p1.x)/6, c2y=p2.y-(p3.y-p1.y)/6;
+        d+=` C ${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`;
+      }
+      return d;
+    }
+    const linePath=smoothPath(pts);
+    const areaPath=`${linePath} L ${pts[pts.length-1].x},${H-PAD} L ${pts[0].x},${H-PAD} Z`;
+    const dots=pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="${p.i===curMonthIdx?4.5:3}" fill="${p.i===curMonthIdx?'var(--gold)':'var(--teal)'}" stroke="var(--bg-card)" stroke-width="1.5" style="cursor:pointer" onclick="showToast('info','📅 ${MN[p.i]} ${year}: '+(${p.v}).toLocaleString()+' ج')"><title>${MN[p.i]}: ${p.v.toLocaleString()} ج</title></circle>`).join('');
+    chart.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:100%;overflow:visible;">
+      <defs>
+        <linearGradient id="incomeAreaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--teal)" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="var(--teal)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="${areaPath}" fill="url(#incomeAreaGrad)"/>
+      <path d="${linePath}" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linecap="round"/>
+      ${dots}
+    </svg>`;
+  }
   const labels = document.getElementById('dash-income-labels');
   if(labels) labels.innerHTML = MN.map((m,i)=>`<div class="blbl" style="flex:1;color:${i===curMonthIdx?'var(--gold-light)':'var(--text-muted)'}">${m}</div>`).join('');
   const subEl = document.getElementById('dash-income-sub');
@@ -1203,6 +1257,22 @@ function openEditAppt(id){
 
 // HELPERS
 function txt(id,v){const el=document.getElementById(id);if(el)el.textContent=v;}
+// عدّاد متحرك للأرقام الرئيسية في الداشبورد (count-up)
+function animateCount(id, target){
+  const el = document.getElementById(id); if(!el) return;
+  target = Number(target)||0;
+  const start = parseFloat(String(el.textContent||'0').replace(/[^0-9.-]/g,'')) || 0;
+  if(start === target){ el.textContent = target.toLocaleString(); return; }
+  const dur = 650, t0 = performance.now();
+  function step(now){
+    const p = Math.min((now - t0) / dur, 1);
+    const eased = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(start + (target - start) * eased).toLocaleString();
+    if(p < 1) requestAnimationFrame(step);
+    else el.textContent = target.toLocaleString();
+  }
+  requestAnimationFrame(step);
+}
 function setDate(){const el=document.getElementById('topbar-date');if(el)el.textContent=new Date().toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'});}
 
 // INIT
