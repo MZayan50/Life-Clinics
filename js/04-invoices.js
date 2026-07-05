@@ -331,6 +331,11 @@ function buildInvoiceHTML(inv, clinicName, clinicPhone, idx){
   if(!clinicName) clinicName = DB.obj('settings').clinicName || 'عيادات الحياة للتجميل';
   if(!clinicPhone) clinicPhone = DB.obj('settings').phone || '';
   const invNum = idx !== undefined ? String(idx+1).padStart(3,'0') : inv.id;
+  // ✅ FIX: الفاتورة المغطاة بباقة (method==='باقة') ماينفعش تتعرض للعميل
+  // بسعر أصلي + خصم = صفر (بيبان كأنه سعر ومنه خصم كامل رغم إنه أصلاً مفيش
+  // تحصيل نقدي). المطلوب إنها توضح إن دي الجلسة رقم كذا من الباقة كذا، من غير
+  // أي أرقام سعرية تخلط العميل.
+  const _isPkgInvoice = inv.method==='باقة' && !!inv.pkgId;
   return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -386,11 +391,24 @@ function buildInvoiceHTML(inv, clinicName, clinicPhone, idx){
   </div>
   <div class="section">
     <div class="section-title">بيانات الدفع</div>
-    <div class="info-row"><span>طريقة الدفع:</span><strong>${inv.method||'كاش'}</strong></div>
-    <div class="info-row"><span>الحالة:</span><span class="status-badge ${inv.status==='مدفوع'?'status-paid':'status-partial'}">${inv.status}</span></div>
+    <div class="info-row"><span>طريقة الدفع:</span><strong>${_isPkgInvoice?'ضمن باقة مدفوعة مسبقاً':(inv.method||'كاش')}</strong></div>
+    <div class="info-row"><span>الحالة:</span><span class="status-badge ${inv.status==='مدفوع'?'status-paid':'status-partial'}">${_isPkgInvoice?'مغطاة بالباقة':inv.status}</span></div>
   </div>
 </div>
 
+${_isPkgInvoice ? `
+<table>
+  <thead><tr><th>الخدمة</th><th>الجلسة</th><th>الباقة</th></tr></thead>
+  <tbody>
+    <tr><td>${inv.service}</td><td>${inv.sessionNumber||'—'} / ${inv.sessionsTotal||'—'}</td><td>${inv.pkgName||'—'}</td></tr>
+  </tbody>
+</table>
+
+<div class="total-box">
+  <div class="total-row final" style="border-top:none;padding-top:0;justify-content:center;">
+    <strong style="color:#C4A882">🎁 هذه الجلسة رقم ${inv.sessionNumber||'—'} من ${inv.sessionsTotal||'—'} — مغطاة بالكامل ضمن باقة "${inv.pkgName||''}"</strong>
+  </div>
+</div>` : `
 <table>
   <thead><tr><th>الخدمة / المنتج</th><th>الكمية</th><th>السعر الأصلي</th><th>الإجمالي</th></tr></thead>
   <tbody>
@@ -404,7 +422,7 @@ function buildInvoiceHTML(inv, clinicName, clinicPhone, idx){
   <div class="total-row final"><span>الإجمالي المستحق:</span><strong style="color:#C4A882">${inv.total} ج</strong></div>
   <div class="total-row"><span>المدفوع:</span><span style="color:#166534">${inv.paid} ج</span></div>
   ${inv.remaining>0?`<div class="total-row"><span>المتبقي:</span><span style="color:#dc2626">${inv.remaining} ج</span></div>`:''}
-</div>
+</div>`}
 
 <div class="footer">
   شكراً لثقتكم في ${clinicName}<br>
@@ -469,7 +487,12 @@ function sendInvoiceWA(id){
   const clinicName=DB.obj('settings').clinicName||'عيادات الحياة للتجميل';
   const clinicPhone2=DB.obj('settings').phone||'';
   const idx=DB.get('invoices').findIndex(x=>String(x.id)===String(id));
-  const waMsg=`مرحباً ${inv.patient} 😊\nإليك تفاصيل فاتورتك من ${clinicName}\n🧾 رقم الفاتورة: #INV-${String(idx+1).padStart(3,'0')}\n💆 الخدمة: ${inv.service||'—'}\n💰 الإجمالي: ${inv.total} ج\n✅ المدفوع: ${inv.paid} ج${inv.remaining>0?`\n⏳ المتبقي: ${inv.remaining} ج`:''}\n💳 طريقة الدفع: ${inv.method||'—'}\n📅 التاريخ: ${inv.date}\n\nشكراً لثقتكم بـ ${clinicName}`;
+  // ✅ FIX: نفس منطق buildInvoiceHTML — فاتورة الباقة تتبعت للعميل بدون أرقام
+  // سعرية (0 ج / خصم كامل)، وبدل كده توضح رقم الجلسة من الباقة.
+  const _isPkgInv = inv.method==='باقة' && !!inv.pkgId;
+  const waMsg = _isPkgInv
+    ? `مرحباً ${inv.patient} 😊\nإليك تفاصيل جلستك من ${clinicName}\n🧾 رقم الفاتورة: #INV-${String(idx+1).padStart(3,'0')}\n💆 الخدمة: ${inv.service||'—'}\n🎁 هذه الجلسة رقم ${inv.sessionNumber||'—'} من ${inv.sessionsTotal||'—'} — مغطاة بالكامل ضمن باقة "${inv.pkgName||''}"\n📅 التاريخ: ${inv.date}\n\nشكراً لثقتكم بـ ${clinicName}`
+    : `مرحباً ${inv.patient} 😊\nإليك تفاصيل فاتورتك من ${clinicName}\n🧾 رقم الفاتورة: #INV-${String(idx+1).padStart(3,'0')}\n💆 الخدمة: ${inv.service||'—'}\n💰 الإجمالي: ${inv.total} ج\n✅ المدفوع: ${inv.paid} ج${inv.remaining>0?`\n⏳ المتبقي: ${inv.remaining} ج`:''}\n💳 طريقة الدفع: ${inv.method||'—'}\n📅 التاريخ: ${inv.date}\n\nشكراً لثقتكم بـ ${clinicName}`;
   const waUrl = phone ? `https://wa.me/${phone.replace('+','')}?text=${encodeURIComponent(waMsg)}` : null;
   const html = buildInvoiceHTML(inv, clinicName, clinicPhone2, idx);
   openInvoiceWindow(html, inv, waUrl);

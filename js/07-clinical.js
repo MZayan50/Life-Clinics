@@ -1087,11 +1087,18 @@ function finalizeConsultation(){
     // فعمولته يجب أن تُحتسب من صافي ربح الجلسة (قيمة الخدمة − تكلفة المواد)
     // رغم عدم وجود تحصيل نقدي مباشر. نسجّل commissionAmount هنا مباشرة لأن
     // recordDoctorCommission (00-core.js) لا يعمل إلا لو paid>0.
+    // ✅ FIX: رقم الجلسة الحالية داخل الباقة (لعرضها في الفاتورة بدل السعر/الخصم
+    // بصفر، اللي كان بيظهر للعميل كأنه فاتورة بسعر وخصم كامل). نحسبها هنا قبل
+    // استدعاء deductPackageSession (اللي بيحصل بعدين في الخطوة 3ب) عشان نمسك
+    // رقم الجلسة الصحيح (sessionsUsed الحالي + 1).
+    const _pkgSessionNumber = (_activePkgCheck.sessionsUsed||0) + 1;
+    const _pkgSessionsTotal = _activePkgCheck.sessionsCount||1;
     DB.push('invoices',{
       patient:a.patient,patId:a.patId,doctor:a.doctor||'',doctorId:doc?.id||a.doctorId||'',service:svcName,
       date:today,originalPrice:price,discount:price,total:0,paid:0,remaining:0,
       status:'مدفوع',method:'باقة',fromAppt:apptId,
       pkgId:_activePkgCheck.id,pkgName:_activePkgCheck.name,
+      sessionNumber:_pkgSessionNumber,sessionsTotal:_pkgSessionsTotal,
       commission:comm,commissionPct:doc?.commission||0,
       commissionAmount:comm,commissionRecorded:true,branch:a.branch||'',
       notes:`مغطاة بباقة: ${_activePkgCheck.name}`,
