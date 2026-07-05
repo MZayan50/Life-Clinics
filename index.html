@@ -1139,8 +1139,10 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="kpi-card kc-gold"><div class="kpi-icon">💰</div><div class="kpi-value" id="svc-kpi-avg-price">0</div><div class="kpi-label">متوسط السعر (ج)</div></div>
     <div class="kpi-card kc-emerald"><div class="kpi-icon">📈</div><div class="kpi-value" id="svc-kpi-avg-profit">0</div><div class="kpi-label">متوسط الربح (ج)</div></div>
     <div class="kpi-card kc-purple"><div class="kpi-icon">🧪</div><div class="kpi-value" id="svc-kpi-with-bom">0</div><div class="kpi-label">خدمات بمكونات</div></div>
+    <div class="kpi-card kc-rose"><div class="kpi-icon">🔺</div><div class="kpi-value" id="svc-kpi-need-review">0</div><div class="kpi-label">تحتاج رفع سعر</div></div>
   </div>
-  <div class="card"><div class="table-wrap"><table><thead><tr><th>الخدمة</th><th>القسم</th><th>سعر البيع</th><th>المدة</th><th>تكلفة المواد</th><th>الربح المتوقع</th><th>هامش الربح</th><th>المكونات</th><th>الحالة</th><th></th></tr></thead><tbody id="svc-tbody"></tbody></table></div></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>الخدمة</th><th>القسم</th><th>سعر البيع</th><th>المدة</th><th>تكلفة المواد</th><th>الربح المتوقع</th><th>هامش الربح</th><th>تنبيه السعر</th><th>المكونات</th><th>الحالة</th><th></th></tr></thead><tbody id="svc-tbody"></tbody></table></div></div>
+
 </div>
 
 <!-- INVENTORY -->
@@ -1331,6 +1333,14 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
           <div class="fgrp"><label class="flbl">اسم المدير</label><input class="fctl" id="s-mname" value="د. سارة محمد"></div>
           <div class="fgrp"><label class="flbl">الدور</label><input class="fctl" id="s-mrole" value="مدير النظام"></div>
           <div class="fgrp full"><label class="flbl">🤖 مفتاح Anthropic API <span style="font-size:10px;color:var(--text-muted);">(للمساعد الذكي)</span></label><input class="fctl" id="s-anthropic-key" type="password" placeholder="sk-ant-api03-..."></div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:14px;" onclick="saveSettings()">💾 حفظ</button>
+      </div>
+      <div class="card"><div class="card-hdr"><div class="card-title">🔺 تنبيه رفع أسعار الجلسات</div></div>
+        <div class="fg" style="gap:12px;">
+          <div class="fgrp"><label class="flbl">أقل هامش ربح مقبول (%)</label><input class="fctl" id="s-margin-threshold" type="number" value="30"></div>
+          <div class="fgrp"><label class="flbl">نسبة ارتفاع تكلفة المواد المُنبِّهة (%)</label><input class="fctl" id="s-cost-increase-threshold" type="number" value="15"></div>
+          <div class="fgrp full" style="font-size:11.5px;color:var(--text-muted);">النظام هيحط علامة 🔺 على أي خدمة هامش ربحها أقل من النسبة الأولى، أو تكلفة موادها ارتفعت عن آخر مرة اتسعّرت فيها بنسبة أكبر من النسبة التانية.</div>
         </div>
         <button class="btn btn-primary" style="margin-top:14px;" onclick="saveSettings()">💾 حفظ</button>
       </div>
