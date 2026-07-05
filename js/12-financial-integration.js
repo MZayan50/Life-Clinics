@@ -653,6 +653,54 @@ window.getSessionFinancialSummary = function(filter) {
 })();
 
 // ════════════════════════════════════════════════════════
+// §11. تصحيح رجعي (Backfill) لسجلات session_completions القديمة
+// المسجَّلة قبل الإصلاح بإيراد=0 للجلسات المغطاة بباقة
+// ════════════════════════════════════════════════════════
+// ✅ FIX (باج: "ربح الجلسات (اليوم)" لسه بيظهر خسارة وهمية بعد الإصلاح):
+// الإصلاح في _patchFinalizeConsultation و_patchUsePackageSession بيمنع
+// تسجيل إيراد=0 لأي جلسة جديدة تُتمّ من الآن فصاعدًا، لكنه ما بيرجعش يصحّح
+// السجلات القديمة اللي كانت اتسجّلت *قبل* هذا التحديث بإيراد=0 (وهي معلَّمة
+// _protected:true لمنع التعديل اليدوي من الشاشات، مش لمنع تصحيح باج برمجي).
+// من غير هذا التصحيح، أي جلسة باقة سبق إتمامها هتفضل تظهر كخسارة صافية في
+// كل الشاشات (الداشبورد + التقارير) للأبد. نمرّ مرة واحدة على كل السجلات،
+// ونصحّح بس اللي إيرادها المسجَّل = 0 (أو مفقود) رغم إنها مرتبطة بباقة،
+// باستخدام نفس نصيب الجلسة من سعر بيع الباقة، ثم نُحدّث إجماليات الباقة.
+(function _backfillPackageSessionRevenue() {
+  try {
+    const packages    = DB.get('packages') || [];
+    const completions = DB.get('session_completions') || [];
+    const touchedPkgIds = new Set();
+
+    completions.forEach(c => {
+      if (!c.pkgId) return;
+      if ((c.revenue || 0) > 0) return; // مُصحَّحة بالفعل أو غير مغطاة بباقة أصلاً
+      const pkg = packages.find(p => p.id === c.pkgId);
+      if (!pkg) return;
+      const pkgSessionValue = Math.max(0, ((pkg.price || 0) - (pkg.discount || 0)) / (pkg.sessionsCount || 1));
+      if (pkgSessionValue <= 0) return;
+      const fixedProfit = pkgSessionValue - (c.actualMaterialCost || 0);
+      DB.upd('session_completions', c.id, {
+        revenue: pkgSessionValue,
+        actualProfit: fixedProfit
+      });
+      touchedPkgIds.add(c.pkgId);
+    });
+
+    if (touchedPkgIds.size) {
+      touchedPkgIds.forEach(id => _updatePackageFinancials(id));
+      setTimeout(() => {
+        if (typeof buildDashboard === 'function') {
+          const active = document.querySelector('.screen.active')?.id;
+          if (active === 'screen-dashboard') buildDashboard();
+        }
+      }, 300);
+    }
+  } catch(e) {
+    console.warn('[FinancialIntegration] Backfill session revenue error:', e);
+  }
+})();
+
+// ════════════════════════════════════════════════════════
 // تم تحميل الوحدة
 // ════════════════════════════════════════════════════════
 console.log('✅ [FinancialIntegration] Module loaded — v1.0');
