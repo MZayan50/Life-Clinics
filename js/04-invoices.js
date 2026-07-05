@@ -894,12 +894,21 @@ function saveQuickSell(){
 
   const status = rem===0 ? 'مدفوع' : paid>0 ? 'جزئي' : 'معلق';
 
+  // ✅ FIX: تكلفة المنتج الفعلية — كانت غايبة تمامًا هنا، فقيد COGS
+  // (14-accounting-hooks.js) ما كانش بيتسجل خالص وحساب المخزون (1140) في
+  // الميزان كان فاضل زي ما هو رغم إن الكمية الفعلية اتخصمت من شاشة المخزون.
+  const unitCost = prod.costPerConsumeUnit || prod.cost || prod.costPrice || prod.lastPurchasePrice || 0;
+  const materialCost = unitCost * qty;
+
   // ── 1. إنشاء فاتورة بيع منتج ──
   // _noAutoInstallment=true لأننا بنعمل القسط يدوياً في الأسفل لو فيه متبقي
   const newInv = DB.push('invoices',{
     patId, patientId: patId,
     patient: pat?.name||'—',
-    service: '',
+    // ✅ FIX: كان فاضي '' فمنطق تصنيف الإيراد (_revenueAccountFor في
+    // 14-accounting-hooks.js) ما كانش يقدر يعرف إنها فاتورة منتج، فكانت
+    // بتترحّل غلط كـ"إيراد خدمات" (4100) بدل "إيراد بيع منتجات" (4200).
+    service: `منتج: ${prod.name}`,
     serviceId: '',
     products: [{ productId, productName: prod.name, qty, price, total }],
     originalPrice: 0,
@@ -907,6 +916,7 @@ function saveQuickSell(){
     total, paid, remaining: rem,
     status, method, date,
     notes: `بيع منتج: ${prod.name} × ${qty}`,
+    materialCost,
     _noAutoInstallment: rem > 0
   });
 
