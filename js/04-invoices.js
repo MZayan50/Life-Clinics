@@ -532,8 +532,45 @@ function renderInvs(){
       ${(inv.remaining||0)>0?`<button class="btn btn-teal btn-xs" onclick="openSmartPay('${inv.id}')">💳 دفع</button>`:'<span style="color:var(--emerald);font-size:11px;font-weight:700">✅ مكتمل</span>'}
       <button class="btn btn-ghost btn-xs" onclick="printInvoice('${inv.id}')">🖨️</button>
       <button class="btn btn-ghost btn-xs" onclick="sendInvoiceWA('${inv.id}')">💬</button>
+      <button class="btn btn-danger btn-xs" onclick="deleteInvoice('${inv.id}')">🗑</button>
     </td>
   </tr>`).join('')||'<tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:24px">لا توجد فواتير بعد — ستُنشأ تلقائياً عند اكتمال الاستشارات</td></tr>';
+}
+
+// ✅ جديد: حذف فاتورة مستقل — لم يكن موجودًا من الأساس (الفواتير كانت تُحذف
+// فقط كجزء من حذف العميل بالكامل). بيرجّع أي منتجات اتخصمت من المخزون،
+// يحذف القسط المرتبط لو موجود، وبعدين يحذف الفاتورة نفسها — الحذف ده بيبقّي
+// إشارة invoices:deleted فتتصلح تلقائيًا كل القيود المحاسبية المرتبطة
+// (الإيراد + COGS) عن طريق الهوك الموجود في 14-accounting-hooks.js.
+function deleteInvoice(id){
+  const inv = (DB.get('invoices')||[]).find(i=>String(i.id)===String(id));
+  if(!inv){ showToast('error','❌ الفاتورة غير موجودة'); return; }
+  if(!confirm(`حذف الفاتورة #${inv.service||inv.patient||''} نهائيًا؟\nهيترجّع أي منتج اتخصم من المخزون، ويحذف حركة الخزينة المرتبطة، ويعكس القيود المحاسبية تلقائيًا.`)) return;
+
+  // 1) استرجاع كمية أي منتجات اتباعت ضمن الفاتورة دي (بيع سريع/مباشر)
+  if(Array.isArray(inv.products)){
+    inv.products.forEach(p=>{
+      const item = DB.get('inventory').find(i=>i.id===p.productId);
+      if(item){
+        const newQty = (item.qty||0) + (p.qty||0);
+        const newStatus = newQty<=0?'نفذ':newQty<=(item.reorder||5)?'منخفض':'متوفر';
+        DB.upd('inventory', item.id, { qty:newQty, status:newStatus });
+      }
+    });
+  }
+
+  // 2) حذف حركة/حركات الخزينة المرتبطة (أي دفعة اتسجلت على الفاتورة دي —
+  // الدفعة الأولى وقت الإنشاء + أي تحصيل جزئي لاحق، كلهم بـ refId=inv.id)
+  (DB.get('cashlog')||[]).filter(c=>String(c.refId)===String(inv.id)).forEach(c=>DB.del('cashlog', c.id));
+
+  // 3) حذف أي قسط اتعمل تلقائي مرتبط بالفاتورة دي (لو فيه متبقي كان اتقسّط)
+  (DB.get('installments')||[]).filter(x=>x.fromInvId===inv.id).forEach(x=>DB.del('installments', x.id));
+
+  // 4) حذف الفاتورة نفسها — بيشغّل invoices:deleted فتتعكس القيود تلقائيًا
+  DB.del('invoices', inv.id);
+
+  renderInvs();
+  showToast('info','🗑️ تم حذف الفاتورة وعكس كل الأثر المرتبط بيها (المخزون + الخزينة + القيود)');
 }
 
 function filterInvs(q){
