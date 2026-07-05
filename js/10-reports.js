@@ -87,8 +87,16 @@ function renderReports(){
   // لا تستخدم costPrice المباشرة أو lastPurchasePrice لأنها قد تكون قديمة
   const inventory = DB.get('inventory') || [];
   const invTrans  = DB.get('inventory_transactions') || [];
+  // ✅ FIX (باج: صافي الربح لا يشمل تكلفة مواد الجلسات): كان الفلتر يقتصر على
+  // type==='صرف' && refType==='invoice' (خصم بيع المنتجات المباشر فقط)، بينما
+  // deductInventory() (تُستدعى من finalizeConsultation مع كل جلسة/استشارة) تسجّل
+  // حركاتها بـ type:'صادر' و refType:'session' — قيمة مختلفة تمامًا فكانت تُستبعد
+  // بالكامل من COGS وبالتالي من صافي الربح، رغم ظهورها في مربع "تكاليف وأرباح
+  // الجلسات" ضمن نفس الشاشة (تناقض بين رقمين في نفس الصفحة).
   const monthCOGS = invTrans
-    .filter(t => t.type==='صرف' && t.refType==='invoice' && (t.date||'').startsWith(thisMonth))
+    .filter(t => (t.type==='صرف' || t.type==='صادر') &&
+                 (t.refType==='invoice' || t.refType==='session') &&
+                 (t.date||'').startsWith(thisMonth))
     .reduce((s,t) => {
       const prod = inventory.find(i => i.id === t.productId);
       // ✅ استخدام costPerConsumeUnit فقط (اللي محدثة دائماً من الشراء الأخير)
