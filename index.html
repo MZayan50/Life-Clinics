@@ -2193,7 +2193,9 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
     <div class="tab" onclick="stab(this,'acc-tabs','acc-tb')">⚖️ ميزان المراجعة</div>
   </div>
   <div id="acc-pl">
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;">
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <input type="month" class="selbox" id="acc-pl-month" onchange="renderAccounts()">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('acc-pl-month').value=new Date().toISOString().slice(0,7);renderAccounts()">الشهر الحالي</button>
       <button class="btn btn-ghost btn-sm" onclick="exportAccountingCSV('pl')">📊 CSV</button>
       <button class="btn btn-primary btn-sm" onclick="exportAccountingPDF('pl')">📄 PDF</button>
     </div>
@@ -2998,15 +3000,15 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 <script src="js/03-appointments.js"></script>
 <script src="js/04-invoices.js?v=2"></script>
 <script src="js/05-inventory.js?v=2"></script>
-<script src="js/06-finance.js?v=2"></script>
+<script src="js/06-finance.js?v=3"></script>
 <script src="js/07-clinical.js?v=4"></script>
 <script src="js/08-crm.js"></script>
-<script src="js/09-hr.js"></script>
+<script src="js/09-hr.js?v=2"></script>
 <script src="js/10-reports.js?v=2"></script>
 <script src="js/11-settings.js"></script>
 <script src="js/12-financial-integration.js?v=2"></script>
-<script src="js/13-accounting.js?v=8"></script>
-<script src="js/14-accounting-hooks.js?v=4"></script>
+<script src="js/13-accounting.js?v=9"></script>
+<script src="js/14-accounting-hooks.js?v=5"></script>
 <script src="js/15-accounting-backfill.js?v=2"></script>
 <script src="js/16-periods.js?v=1"></script>
 <script src="js/17-cleanup-tools.js?v=1"></script>
