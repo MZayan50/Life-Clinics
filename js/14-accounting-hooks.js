@@ -30,7 +30,15 @@
 // ── تحديد حساب الإيراد المناسب حسب نوع الفاتورة ──
 function _revenueAccountFor(invoice){
   if(invoice.pkgId) return '4300';                              // فاتورة باقة
-  if((invoice.service||'').includes('منتج')) return '4200';     // بيع منتج
+  // ✅ FIX: كان بيدوّر على كلمة "منتج" حرفيًا في اسم الخدمة بس — أي فاتورة
+  // لمنتج فعلي من المخزون (زي "لوشن للتحكم في تساقط الشعر") كان بيصنّفها
+  // غلط كـ"إيراد خدمات" (4100) بدل "إيراد بيع منتجات" (4200) لأنها مالهاش
+  // كلمة "منتج" في الاسم. دلوقتي بنتحقق من اسم الخدمة/الصنف مقابل أسماء
+  // المنتجات الفعلية المسجّلة في المخزون.
+  const svcName = (invoice.service||'').trim();
+  if(svcName.includes('منتج')) return '4200';
+  const inv = DB.get('inventory')||[];
+  if(inv.some(p => p.name && svcName && p.name.trim() === svcName)) return '4200';
   return '4100';                                                 // خدمة عادية
 }
 

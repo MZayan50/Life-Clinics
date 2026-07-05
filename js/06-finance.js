@@ -413,9 +413,15 @@ function renderAccounts(){
   const revEl=document.getElementById('acc-revenues');
   if(revEl) revEl.innerHTML=Object.entries(revByService).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--glass-border);"><span style="color:var(--text-muted)">${k}</span><span style="font-weight:700;color:var(--emerald)">${v.toLocaleString()} ج</span></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px">لا توجد إيرادات</div>';
 
-  // Expense breakdown — من expenses فقط (الرواتب المصروفة مسجَّلة هنا تلقائياً)
+  // Expense breakdown — من expenses (الرواتب/الإيجار المسجَّلة يدويًا)
+  // + بند "تكلفة المواد" (COGS) من ميزان المراجعة صراحة، لأنه بيُحسب تلقائيًا
+  // في journal_entries (حساب 5100) ومبيتسجّلش في مجموعة expenses خالص — من
+  // غيره، totalExpense (فوق) كان بيشمله في الإجمالي لكن القائمة المعروضة هنا
+  // كانت بتفضل ناقصة بنفس قيمته، فيبان إن الإجمالي "مش متطابق" مع تفاصيله.
   const expByType={};
   expenses.forEach(e=>{expByType[e.type||e.category||'أخرى']=(expByType[e.type||e.category||'أخرى']||0)+(e.amount||0);});
+  const cogsBalance = tb ? (tb.rows.find(r=>r.code==='5100')?.balance||0) : 0;
+  if(cogsBalance > 0) expByType['تكلفة المواد (COGS)'] = cogsBalance;
   const expEl=document.getElementById('acc-expenses-list');
   if(expEl) expEl.innerHTML=Object.entries(expByType).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--glass-border);"><span style="color:var(--text-muted)">${k}</span><span style="font-weight:700;color:var(--rose)">${v.toLocaleString()} ج</span></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px">لا توجد مصروفات</div>';
 
