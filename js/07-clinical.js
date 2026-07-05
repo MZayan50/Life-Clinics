@@ -1088,7 +1088,7 @@ function finalizeConsultation(){
     // رغم عدم وجود تحصيل نقدي مباشر. نسجّل commissionAmount هنا مباشرة لأن
     // recordDoctorCommission (00-core.js) لا يعمل إلا لو paid>0.
     DB.push('invoices',{
-      patient:a.patient,patId:a.patId,doctor:a.doctor||'',service:svcName,
+      patient:a.patient,patId:a.patId,doctor:a.doctor||'',doctorId:doc?.id||a.doctorId||'',service:svcName,
       date:today,originalPrice:price,discount:price,total:0,paid:0,remaining:0,
       status:'مدفوع',method:'باقة',fromAppt:apptId,
       pkgId:_activePkgCheck.id,pkgName:_activePkgCheck.name,
@@ -1099,7 +1099,7 @@ function finalizeConsultation(){
     });
   } else {
     DB.push('invoices',{
-      patient:a.patient,patId:a.patId,doctor:a.doctor||'',service:svcName,
+      patient:a.patient,patId:a.patId,doctor:a.doctor||'',doctorId:doc?.id||a.doctorId||'',service:svcName,
       date:today,originalPrice:price,discount:disc,total:net,paid:net,remaining:0,
       status:'مدفوع',method,fromAppt:apptId,commission:comm,commissionPct:doc?.commission||0,branch:a.branch||'',
       materialCost:_materialCost

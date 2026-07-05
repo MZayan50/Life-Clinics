@@ -347,8 +347,14 @@ function _recalcPatFinancials(patId){
 // وتُحرّف كل العمولات السابقة بأثر رجعي إذا اعتمدنا على النسبة الحالية).
 // تحل محل أي إعادة حساب يدوي في أي شاشة (09-hr.js، 07-clinical.js).
 function getDoctorCommissionDue(doctorId, doctorName){
+  // ✅ FIX (باج: عمولة الطبيب تظهر صفر بعد إنهاء الاستشارة): الفواتير الناتجة من
+  // finalizeConsultation() (شاشة الطبيب) لا تحمل حقل doctorId، فقط doctor (الاسم).
+  // الشرط القديم كان يمنع تجربة المطابقة بالاسم كلما تم تمرير doctorId، حتى لو
+  // الفاتورة لا تملك doctorId أصلاً، فتُستبعد هذه الفواتير بالكامل من الإجمالي.
+  // الحل: نفس منطق docRevenue في 09-hr.js — نطابق بـ doctorId لو موجود في الفاتورة،
+  // وإلا نقع على مطابقة الاسم كـ fallback بدون شرط استبعادي.
   const invoices = DB.get('invoices').filter(i =>
-    (doctorId && i.doctorId === doctorId) || (!doctorId && i.doctor === doctorName)
+    (doctorId && i.doctorId === doctorId) || i.doctor === doctorName
   );
   return invoices.reduce((s, i) => s + (i.commissionAmount || 0), 0);
 }
