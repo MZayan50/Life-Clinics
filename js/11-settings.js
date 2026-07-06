@@ -1313,6 +1313,55 @@ function umApplyRole(){
   });
 }
 
+function usernameToFakeEmail(username) {
+  // نفس المنطق بالظبط الموجود في login.html (usernameToFakeEmail) —
+  // أي تعديل هنا لازم يتنقل هناك برضه عشان يفضلوا متوافقين
+  const clean = String(username).trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+  return clean + '@clinic.local';
+}
+
+// ══════════════════════════════════════════════════════════
+// 🔐 إنشاء حساب Firebase Auth لمستخدم جديد وقت إضافته من شاشة
+// الإعدادات — بدل ما ننتظر أول دخول ليه (الهجرة الكسولة القديمة).
+//
+// ⚠️ تفصيلة مهمة جدًا: لو استخدمنا نفس Firebase App instance اللي
+// الأدمن مسجّل دخول عليه دلوقتي ونادينا عليه createUserWithEmailAndPassword،
+// الـ Firebase Auth Client SDK هيعمل حاجة خطيرة: هيسجّل خروج الأدمن
+// تلقائيًا ويسجّل دخول بالحساب الجديد بدل منه (ده سلوك موثّق ومقصود
+// في الـ SDK، مش باج) — يعني الأدمن هيلاقي نفسه اتسحب من حسابه فجأة
+// من غير أي تنبيه، وأي كتابة بعد كده هتتسجل باسم المستخدم الجديد.
+//
+// الحل: نستخدم Firebase App ثانوي منفصل (secondary app instance) بنفس
+// الـ config بس باسم مختلف، ننشئ الحساب عليه، وبعدين نعمل signOut()
+// للـ app الثانوي فورًا — الأدمن يفضل مسجّل دخول عادي طول الوقت على
+// الـ app الأساسي من غير ما يحس بأي حاجة.
+// ══════════════════════════════════════════════════════════
+async function createFirebaseAuthAccountForNewUser(username, password) {
+  if (!window.firebase || !window._fbReady) {
+    return { ok: false, reason: 'firebase-not-connected' };
+  }
+  try {
+    if (!window._fbAuthCompatLoaded) {
+      await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js');
+      window._fbAuthCompatLoaded = true;
+    }
+    let secondaryApp = window.firebase.apps.find(a => a.name === 'userCreationApp');
+    if (!secondaryApp) {
+      const cfg = JSON.parse(localStorage.getItem('ha_fb_config') || localStorage.getItem('ha_firebase_config') || '{}');
+      if (!cfg.apiKey) return { ok: false, reason: 'no-config' };
+      secondaryApp = window.firebase.initializeApp(cfg, 'userCreationApp');
+    }
+    const secondaryAuth = secondaryApp.auth();
+    const fakeEmail = usernameToFakeEmail(username);
+    await secondaryAuth.createUserWithEmailAndPassword(fakeEmail, password);
+    await secondaryAuth.signOut();
+    return { ok: true };
+  } catch (e) {
+    console.warn('createFirebaseAuthAccountForNewUser failed:', e.code || e.message);
+    return { ok: false, reason: e.code || e.message };
+  }
+}
+
 async function saveUser(){
   const username = (document.getElementById('um-id').value || document.getElementById('um-username').value).trim().toLowerCase();
   const name     = document.getElementById('um-name').value.trim();
@@ -1361,6 +1410,20 @@ async function saveUser(){
     const uRole=document.getElementById('user-role');if(uRole)uRole.textContent=RLBL[role]||role;
   }
   showToast('success', isNew ? `✅ تم إضافة ${name}` : `✅ تم تحديث ${name}`);
+
+  // ── مستخدم جديد: ننشئله حساب Firebase Auth فورًا (بدل انتظار أول دخول) ──
+  // كده بيبقى "مُهاجَر" من أول لحظة زي باقي المستخدمين، ومينفعش يتقفل
+  // قدامه أول دخول لو firestore.rules بقت تشترط request.auth != null.
+  if(isNew && pass){
+    const result = await createFirebaseAuthAccountForNewUser(username, pass);
+    if(result.ok){
+      db[username].fbAuthMigrated = true;
+      saveUsersDB(db);
+      renderUsers();
+    } else if(result.reason !== 'firebase-not-connected'){
+      showToast('warning', `⚠️ اتحفظ المستخدم، لكن فشل إنشاء حساب Firebase Auth (${result.reason}) — هيتهاجر تلقائيًا أول ما يسجّل دخول عادي.`);
+    }
+  }
 }
 
 function deleteUser(){
