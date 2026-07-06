@@ -47,49 +47,55 @@ service cloud.firestore {
     // ══════════════════════════════════════════════════════════════
 
     match /patients/{docId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['name', 'phone'])
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['name', 'phone'])
                     && isReasonableSize(request.resource.data);
-      allow update: if request.resource.data.keys().size() > 0
+      allow update: if request.auth != null
+                    && request.resource.data.keys().size() > 0
                     && isReasonableSize(request.resource.data);
-      allow delete: if true;
+      allow delete: if request.auth != null;
     }
 
     match /appointments/{docId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['patId', 'date', 'time'])
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['patId', 'date', 'time'])
                     && isReasonableSize(request.resource.data);
-      allow update: if isReasonableSize(request.resource.data);
-      allow delete: if true;
+      allow update: if request.auth != null && isReasonableSize(request.resource.data);
+      allow delete: if request.auth != null;
     }
 
     match /invoices/{docId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['patId', 'total', 'date'])
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['patId', 'total', 'date'])
                     && request.resource.data.total is number
                     && request.resource.data.total >= 0
                     && isReasonableSize(request.resource.data);
-      allow update: if isReasonableSize(request.resource.data);
-      allow delete: if true;
+      allow update: if request.auth != null && isReasonableSize(request.resource.data);
+      allow delete: if request.auth != null;
     }
 
     match /inventory/{docId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['name', 'qty'])
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['name', 'qty'])
                     && request.resource.data.qty is number
                     && isReasonableSize(request.resource.data);
-      allow update: if isReasonableSize(request.resource.data);
-      allow delete: if true;
+      allow update: if request.auth != null && isReasonableSize(request.resource.data);
+      allow delete: if request.auth != null;
     }
 
     match /expenses/{docId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['name', 'amount', 'date'])
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['name', 'amount', 'date'])
                     && request.resource.data.amount is number
                     && request.resource.data.amount >= 0
                     && isReasonableSize(request.resource.data);
-      allow update: if isReasonableSize(request.resource.data);
-      allow delete: if true;
+      allow update: if request.auth != null && isReasonableSize(request.resource.data);
+      allow delete: if request.auth != null;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -97,55 +103,60 @@ service cloud.firestore {
     // ══════════════════════════════════════════════════════════════
 
     match /chart_of_accounts/{docId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['code', 'name', 'type', 'normalBalance'])
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['code', 'name', 'type', 'normalBalance'])
                     && isReasonableSize(request.resource.data);
-      allow update: if isReasonableSize(request.resource.data);
-      allow delete: if true;
+      allow update: if request.auth != null && isReasonableSize(request.resource.data);
+      allow delete: if request.auth != null;
     }
 
     match /journal_entries/{docId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['entryNumber', 'date', 'lines'])
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['entryNumber', 'date', 'lines'])
                     && isReasonableSize(request.resource.data);
-      allow update: if isReasonableSize(request.resource.data);
-      allow delete: if true;
+      allow update: if request.auth != null && isReasonableSize(request.resource.data);
+      allow delete: if request.auth != null;
     }
 
     match /accounting_periods/{docId} {
-      allow read: if true;
-      allow create: if isReasonableSize(request.resource.data);
-      allow update: if isReasonableSize(request.resource.data);
-      allow delete: if true;
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && isReasonableSize(request.resource.data);
+      allow update: if request.auth != null && isReasonableSize(request.resource.data);
+      allow delete: if request.auth != null;
     }
 
     match /vouchers/{docId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['voucherNumber', 'type', 'amount'])
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['voucherNumber', 'type', 'amount'])
                     && isReasonableSize(request.resource.data);
-      allow update: if isReasonableSize(request.resource.data);
-      allow delete: if true;
+      allow update: if request.auth != null && isReasonableSize(request.resource.data);
+      allow delete: if request.auth != null;
     }
 
     match /fiscal_years/{docId} {
-      allow read: if true;
-      allow create: if isReasonableSize(request.resource.data);
-      allow update: if isReasonableSize(request.resource.data);
-      allow delete: if true;
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && isReasonableSize(request.resource.data);
+      allow update: if request.auth != null && isReasonableSize(request.resource.data);
+      allow delete: if request.auth != null;
     }
 
     match /installments/{docId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['patientId', 'total'])
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['patientId', 'total'])
                     && request.resource.data.total is number
                     && isReasonableSize(request.resource.data);
-      allow update: if isReasonableSize(request.resource.data);
-      allow delete: if true;
+      allow update: if request.auth != null && isReasonableSize(request.resource.data);
+      allow delete: if request.auth != null;
     }
 
     match /cashlog/{docId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['type', 'amount', 'date'])
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['type', 'amount', 'date'])
                     && request.resource.data.amount is number
                     && request.resource.data.amount >= 0
                     && request.resource.data.type in ['وارد', 'صادر']
@@ -158,18 +169,19 @@ service cloud.firestore {
       // الـ collection). اتفتح الحذف هنا مؤقتًا. ⚠️ لما النظام يدخل مرحلة
       // الإنتاج الفعلي، يُفضَّل ترجيعها لـ "if false" مرة تانية عشان محدش
       // يقدر يمسح سجلات مالية فعلية بالغلط أو عمدًا.
-      allow delete: if true;
+      allow delete: if request.auth != null;
     }
 
     match /audit_log/{docId} {
-      allow read: if true;
+      allow read: if request.auth != null;
       // ✅ FIX: القاعدة كانت بتطلب حقول قديمة (action/col/ts) مش موجودة في
       // المستند الفعلي — _logAudit() في 00-core.js بيكتب فعليًا
       // {collection, recordId, changes, user, timestamp}. النتيجة: كل كتابة
       // audit_log كانت تُرفض بصمت (permission-denied)، والـ SDK كان يرجّع
       // (revert) الإضافة المتفائلة محليًا فيختفي السجل من الشاشة فورًا بعد
       // ما يظهر للحظة — وده اللي كان بيبان كـ "السجل فاضي".
-      allow create: if request.resource.data.keys().hasAll(['collection', 'recordId', 'changes', 'timestamp'])
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['collection', 'recordId', 'changes', 'timestamp'])
                     && isReasonableSize(request.resource.data);
       allow update: if false;  // الـ audit log لا يُعدَّل أبداً
       // ✅ FIX (بطلب المستخدم صراحةً — زر "حذف كل البيانات" في الإعدادات
@@ -185,47 +197,47 @@ service cloud.firestore {
       // ومحتاج ضمان إن الأدمن بس اللي يقدر يصفّر كل حاجة، الحل الصح وقتها
       // Firebase Auth Custom Claims (role:'admin') بدل الاعتماد على session
       // محلي في localStorage زي باقي الـ collections.
-      allow delete: if true;
+      allow delete: if request.auth != null;
     }
 
     // ══════════════════════════════════════════════════════════════
     // باقي الـ collections — قراءة وكتابة بشرط الحجم المعقول
     // ══════════════════════════════════════════════════════════════
     match /services/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /doctors/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /staff/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /leads/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /branches/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /campaigns/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /packages/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /sessions/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /waitlist/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
 
     // ✅ FIX (نظام الاستدعاء): مجموعة call_queue كانت تُكتب من شاشة الطبيب
@@ -237,44 +249,44 @@ service cloud.firestore {
     // صريحة، لكن رسالة/صوت الاستدعاء نفسه كانا يختفيان تماماً ولا يصلان لأي
     // شاشة استقبال (نفس المتصفح أو مستخدم آخر).
     match /call_queue/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /rooms/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /equipment/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /suppliers/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /purchases/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /purchase_items/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /visits/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /inventory_transactions/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /invoice_items/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /photos/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
 
     // ✅ FIX (مراجعة شاملة): هذه الأربعة كانت تُكتب من التطبيق (DB._fb في 00-core.js)
@@ -285,37 +297,38 @@ service cloud.firestore {
     // كانت تُحسب محلياً بشكل صحيح في نفس الجلسة فقط، ثم تختفي تماماً عند أي
     // إعادة تحميل للصفحة لأنها لم تُحفَظ فعلياً في قاعدة البيانات من الأساس.
     match /transfers/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /supplier_payments/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /product_sales/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
     match /session_completions/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
 
     // ── السلف (Advances) — صرف سلفة لموظف تُخصم لاحقاً من الراتب ──
     match /advances/{docId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['staffId', 'amount', 'date'])
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['staffId', 'amount', 'date'])
                     && request.resource.data.amount is number
                     && request.resource.data.amount >= 0
                     && isReasonableSize(request.resource.data);
-      allow update: if isReasonableSize(request.resource.data);
-      allow delete: if true;
+      allow update: if request.auth != null && isReasonableSize(request.resource.data);
+      allow delete: if request.auth != null;
     }
 
     // ── Settings — قراءة فقط من الـ app ──
     match /settings/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
 
     // ✅ FIX حرج (مراجعة شاملة 2): إعدادات العيادة (اسم العيادة/الهاتف/اسم
@@ -326,8 +339,8 @@ service cloud.firestore {
     // بصمت بواسطة قاعدة "أي collection تانية ممنوع تماماً"، فتبقى الإعدادات
     // في الـ localStorage/queue المحلي فقط ولا تتزامن أبداً بين الأجهزة.
     match /config/{docId} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
 
     // ✅ FIX حرج (مراجعة شاملة 2): حسابات المستخدمين (تسجيل الدخول/الأدوار)
@@ -338,8 +351,8 @@ service cloud.firestore {
     // الملف، فيبقى الحساب موجوداً على نفس الجهاز فقط (localStorage) ولا يقدر
     // يسجّل دخول من أي جهاز تاني أبداً.
     match /users/{username} {
-      allow read, delete: if true;
-      allow create, update: if isReasonableSize(request.resource.data);
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && isReasonableSize(request.resource.data);
     }
 
     // ── أي collection تانية — ممنوع تماماً ──
