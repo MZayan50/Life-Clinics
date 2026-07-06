@@ -1465,6 +1465,12 @@ async function saveUser(){
   // لسه بالباسورد القديم (مينفعش نحدّثه من هنا لحساب مستخدم تاني —
   // ده محتاج Cloud Function/Admin SDK مش موجودة في المشروع حاليًا).
   let fbAuthMigrated = db[username]?.fbAuthMigrated || false;
+  // 🔑 لازم نحفظ حالة الهجرة "قبل" التعديل — عشان نعرف تحت لو المستخدم
+  // ده كان أصلاً من غير حساب Firebase Auth خالص (زي المستخدمين القدامى
+  // اللي كانوا موجودين في Firestore من قبل نظام الهجرة، ومحصلش لهم
+  // إنشاء تلقائي وقتها) — دول لازم يتعمَلهم إنشاء حساب دلوقتي بالظبط
+  // زي المستخدم الجديد، مش بس اللي isNew===true.
+  const wasMigratedBefore = fbAuthMigrated;
   if(pass){
     // كلمة مرور جديدة أو مُغيَّرة — نولّد salt جديد ونحسب hash مُملّح
     salt = randomSalt();
@@ -1487,10 +1493,16 @@ async function saveUser(){
   }
   showToast('success', isNew ? `✅ تم إضافة ${name}` : `✅ تم تحديث ${name}`);
 
-  // ── مستخدم جديد: ننشئله حساب Firebase Auth فورًا (بدل انتظار أول دخول) ──
-  // كده بيبقى "مُهاجَر" من أول لحظة زي باقي المستخدمين، ومينفعش يتقفل
-  // قدامه أول دخول لو firestore.rules بقت تشترط request.auth != null.
-  if(isNew && pass){
+  // ── مستخدم جديد، أو مستخدم قديم لسه معملوش حساب Firebase Auth خالص ──
+  // (isNew) أو (!wasMigratedBefore): ننشئله حساب Firebase Auth فورًا بدل
+  // انتظار أول دخول — لأن login.html بقى بيتحقق عبر Firebase Auth فقط
+  // ومفيش fallback على الطريقة القديمة (salted hash) قبل تسجيل الدخول،
+  // فأي مستخدم من غير حساب Auth هيفضل رافض دخوله للأبد من غير الخطوة دي.
+  // لو المستخدم كان "مُهاجَر" بالفعل (wasMigratedBefore) وغيّرنا كلمة
+  // السر، سيبناه على حاله (fbAuthMigrated=false) لحد ما الأدمن يمسح
+  // حسابه القديم من Firebase Console يدويًا، وبعدين لو غيّر الباسورد
+  // تاني هيتعمله إنشاء حساب جديد هنا عادي.
+  if(pass && !wasMigratedBefore){
     const result = await createFirebaseAuthAccountForNewUser(username, pass);
     if(result.ok){
       db[username].fbAuthMigrated = true;
