@@ -173,7 +173,7 @@ function renderFiscalYears(){
       ? `<button class="btn btn-ghost btn-sm" onclick="reopenFiscalYear('${f.id}')">فتح</button>`
       : `<button class="btn btn-primary btn-sm" onclick="runYearEndClosing(${f.startYear})">إقفال</button>`;
     const meta = f.status==='closed'
-      ? `${f.closedBy||'—'} · ${f.closedAt ? new Date(f.closedAt).toLocaleString('ar-EG') : '—'}`
+      ? `${escapeHtml(f.closedBy)||'—'} · ${f.closedAt ? new Date(f.closedAt).toLocaleString('ar-EG') : '—'}`
       : '—';
     const netColor = (f.netIncome||0)>=0 ? 'var(--emerald)' : 'var(--rose)';
     const netTxt = f.netIncome!==undefined ? `${(f.netIncome>=0?'+':'')}${f.netIncome.toLocaleString()} ج` : '—';

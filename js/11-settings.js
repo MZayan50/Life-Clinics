@@ -859,11 +859,11 @@ function renderBranches(){
     return `<div class="bcard">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
         <div>
-          <div style="font-size:15px;font-weight:800;">🏢 ${bName}</div>
-          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">📍 ${b.address||'—'}</div>
-          ${b.phone?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">📞 ${b.phone}</div>`:''}
+          <div style="font-size:15px;font-weight:800;">🏢 ${escapeHtml(bName)}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">📍 ${escapeHtml(b.address)||'—'}</div>
+          ${b.phone?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">📞 ${escapeHtml(b.phone)}</div>`:''}
         </div>
-        <span class="ast ${(b.status||'نشط')==='نشط'?'sc':'sd'}">${b.status||'نشط'}</span>
+        <span class="ast ${(b.status||'نشط')==='نشط'?'sc':'sd'}">${escapeHtml(b.status)||'نشط'}</span>
       </div>
       <div class="g2c" style="gap:8px;margin-bottom:11px;">
         <div style="background:var(--glass);border-radius:8px;padding:9px;text-align:center;">
@@ -878,10 +878,10 @@ function renderBranches(){
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">
         ${branchDocs?`👩‍⚕️ ${branchDocs} طبيب`:''}${branchStaff?` · 👥 ${branchStaff} موظف`:''}
       </div>
-      ${managerName?`<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">👤 مدير: ${managerName}</div>`:''}
+      ${managerName?`<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">👤 مدير: ${escapeHtml(managerName)}</div>`:''}
       ${todayAppts?`<div style="font-size:12px;color:var(--teal);font-weight:600;margin-bottom:10px;">📅 ${todayAppts} موعد اليوم</div>`:''}
       <div style="display:flex;gap:7px;">
-        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showBranchReport('${bName}')">📊 تقرير</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showBranchReport('${escJsAttr(bName)}')">📊 تقرير</button>
         <button class="btn btn-ghost btn-sm" style="flex:1" onclick="openBranchModal('${b.id}')">✏️ تعديل</button>
         <button class="btn btn-danger btn-sm" onclick="delBranch('${b.id}')">🗑</button>
       </div>
@@ -967,7 +967,7 @@ function delBranch(id){
 // ROOMS & EQUIPMENT
 function fillResBranchSelect(id,cur){
   const sel=document.getElementById(id);if(!sel)return;
-  sel.innerHTML=DB.get('branches').map(b=>`<option>${b.name}</option>`).join('')||'<option>مدينة نصر</option>';
+  sel.innerHTML=DB.get('branches').map(b=>`<option>${escapeHtml(b.name)}</option>`).join('')||'<option>مدينة نصر</option>';
   if(cur)sel.value=cur;
 }
 
@@ -994,7 +994,7 @@ function fillAllBranchSelects(){
   withAll.forEach(id=>{
     const sel=document.getElementById(id); if(!sel)return;
     const cur=sel.value;
-    sel.innerHTML='<option value="">كل الفروع</option>'+names.map(n=>`<option value="${n}">${n}</option>`).join('');
+    sel.innerHTML='<option value="">كل الفروع</option>'+names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
     if(cur && (cur===''||names.includes(cur)))sel.value=cur;
   });
 
@@ -1002,7 +1002,7 @@ function fillAllBranchSelects(){
     const sel=document.getElementById(id); if(!sel)return;
     const cur=sel.value;
     sel.innerHTML = names.length
-      ? names.map(n=>`<option>${n}</option>`).join('')
+      ? names.map(n=>`<option>${escapeHtml(n)}</option>`).join('')
       : '<option value="">-- أضف فرعًا أولاً من الإعدادات --</option>';
     if(cur && names.includes(cur))sel.value=cur;
   });
@@ -1018,7 +1018,7 @@ function fillAllBranchSelects(){
     if(hasOldBranch && !hasDynamic){
       const hasAll=opts.includes('كل الفروع')||opts.includes('');
       const cur=sel.value;
-      sel.innerHTML=(hasAll?'<option value="">كل الفروع</option>':'')+names.map(n=>`<option>${n}</option>`).join('');
+      sel.innerHTML=(hasAll?'<option value="">كل الفروع</option>':'')+names.map(n=>`<option>${escapeHtml(n)}</option>`).join('');
       if(cur && names.includes(cur))sel.value=cur;
     }
   });
@@ -1029,7 +1029,7 @@ document.addEventListener('DOMContentLoaded', fillAllBranchSelects);
 function renderRooms(){
   const grid=document.getElementById('rooms-grid');if(!grid)return;
   const rooms=DB.get('rooms');
-  grid.innerHTML=rooms.map(r=>`<div class="bcard"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div><div style="font-weight:700;font-size:14px;">🚪 ${r.name}</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${r.branch||'—'}</div></div><span class="ast ${r.status==='متاحة'?'sc':'sd'}">${r.status||'متاحة'}</span></div><div style="display:flex;gap:8px;margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="openRoomModal('${r.id}')">✏️ تعديل</button><button class="btn btn-ghost btn-sm" onclick="delRoom('${r.id}')">🗑️ حذف</button></div></div>`).join('')||'<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">لا توجد غرف مضافة</div>';
+  grid.innerHTML=rooms.map(r=>`<div class="bcard"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div><div style="font-weight:700;font-size:14px;">🚪 ${escapeHtml(r.name)}</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${escapeHtml(r.branch)||'—'}</div></div><span class="ast ${r.status==='متاحة'?'sc':'sd'}">${escapeHtml(r.status)||'متاحة'}</span></div><div style="display:flex;gap:8px;margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="openRoomModal('${r.id}')">✏️ تعديل</button><button class="btn btn-ghost btn-sm" onclick="delRoom('${r.id}')">🗑️ حذف</button></div></div>`).join('')||'<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">لا توجد غرف مضافة</div>';
 }
 function openRoomModal(id){
   const r=id?DB.get('rooms').find(x=>x.id===id):null;
@@ -1055,7 +1055,7 @@ function delRoom(id){
 function renderEquipment(){
   const grid=document.getElementById('equip-grid');if(!grid)return;
   const eq=DB.get('equipment');
-  grid.innerHTML=eq.map(e=>`<div class="bcard"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div><div style="font-weight:700;font-size:14px;">🔌 ${e.name}</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${e.branch||'—'}</div></div><span class="ast ${e.status==='شغال'?'sc':'sd'}">${e.status||'شغال'}</span></div><div style="display:flex;gap:8px;margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="openEquipModal('${e.id}')">✏️ تعديل</button><button class="btn btn-ghost btn-sm" onclick="delEquip('${e.id}')">🗑️ حذف</button></div></div>`).join('')||'<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">لا توجد أجهزة مضافة</div>';
+  grid.innerHTML=eq.map(e=>`<div class="bcard"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div><div style="font-weight:700;font-size:14px;">🔌 ${escapeHtml(e.name)}</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${escapeHtml(e.branch)||'—'}</div></div><span class="ast ${e.status==='شغال'?'sc':'sd'}">${escapeHtml(e.status)||'شغال'}</span></div><div style="display:flex;gap:8px;margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="openEquipModal('${e.id}')">✏️ تعديل</button><button class="btn btn-ghost btn-sm" onclick="delEquip('${e.id}')">🗑️ حذف</button></div></div>`).join('')||'<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">لا توجد أجهزة مضافة</div>';
 }
 function openEquipModal(id){
   const e=id?DB.get('equipment').find(x=>x.id===id):null;
@@ -1124,6 +1124,15 @@ const ROLE_DEFAULTS = {
 async function sha256(msg) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// ── 🔐 Salt عشوائي + Hash مُملّح (نفس منطق login.html بالضبط — لازم يفضلوا متطابقين) ──
+function randomSalt(len = 16) {
+  const bytes = crypto.getRandomValues(new Uint8Array(len));
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function saltedHash(password, salt) {
+  return sha256(salt + ':' + password);
 }
 
 // ── localStorage key for users DB ──
@@ -1199,13 +1208,13 @@ function renderUsers(){
     const screenCount = u.screens ? (u.screens.includes('all') ? 'الكل' : u.screens.length + ' شاشة') : '—';
     const roleColor = ROLE_COLORS[u.role] || 'var(--text-secondary)';
     return `<tr>
-      <td><span style="font-family:monospace;font-size:12px;background:var(--glass);padding:3px 8px;border-radius:6px;direction:ltr;display:inline-block;">${u.username}</span></td>
-      <td style="font-weight:600;">${u.name}</td>
-      <td><span style="color:${roleColor};font-weight:600;font-size:12px;">${ROLE_LABELS[u.role]||u.role}</span></td>
-      <td>${u.branch==='all'?'كل الفروع':u.branch||'—'}</td>
+      <td><span style="font-family:monospace;font-size:12px;background:var(--glass);padding:3px 8px;border-radius:6px;direction:ltr;display:inline-block;">${escapeHtml(u.username)}</span></td>
+      <td style="font-weight:600;">${escapeHtml(u.name)}</td>
+      <td><span style="color:${roleColor};font-weight:600;font-size:12px;">${escapeHtml(ROLE_LABELS[u.role]||u.role)}</span></td>
+      <td>${u.branch==='all'?'كل الفروع':escapeHtml(u.branch)||'—'}</td>
       <td><span style="background:var(--glass);padding:3px 8px;border-radius:6px;font-size:12px;">${screenCount}</span></td>
       <td>
-        <button class="btn btn-ghost btn-sm" onclick="openUserModal('${u.username}')">✏️ تعديل</button>
+        <button class="btn btn-ghost btn-sm" onclick="openUserModal('${escJsAttr(u.username)}')">✏️ تعديل</button>
       </td>
     </tr>`;
   }).join('');
@@ -1239,7 +1248,7 @@ function fillBranchSelect(){
   if(!sel) return;
   sel.innerHTML = '<option value="all">كل الفروع</option>';
   DB.get('branches').forEach(b => {
-    sel.innerHTML += `<option value="${b.name}">${b.name}</option>`;
+    sel.innerHTML += `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)}</option>`;
   });
 }
 
@@ -1294,9 +1303,24 @@ async function saveUser(){
   if(isNew && !pass){ showToast('warning','⚠️ أدخل كلمة مرور للمستخدم الجديد'); return; }
 
   let hash = db[username]?.hash || '';
-  if(pass){ hash = await sha256(pass); }
+  let salt = db[username]?.salt || '';
+  // 🔐 Firebase Auth migration flag — لو كلمة السر اتغيّرت، لازم نصفّر
+  // fbAuthMigrated عشان نظام الدخول (login.html) يرجع يتحقق من Firestore
+  // (الـ hash الجديد) بدل ما يعتمد على حساب Firebase Auth القديم اللي
+  // لسه بالباسورد القديم (مينفعش نحدّثه من هنا لحساب مستخدم تاني —
+  // ده محتاج Cloud Function/Admin SDK مش موجودة في المشروع حاليًا).
+  let fbAuthMigrated = db[username]?.fbAuthMigrated || false;
+  if(pass){
+    // كلمة مرور جديدة أو مُغيَّرة — نولّد salt جديد ونحسب hash مُملّح
+    salt = randomSalt();
+    hash = await saltedHash(pass, salt);
+    if(fbAuthMigrated){
+      fbAuthMigrated = false;
+      showToast('warning', '⚠️ هيدخل بالباسورد الجديد، لكن لازم تمسح حسابه القديم من Firebase Console (Authentication → Users) عشان الهجرة تكتمل صح');
+    }
+  }
 
-  db[username] = { username, name, role, branch, screens, hash };
+  db[username] = { username, name, role, branch, screens, hash, salt, fbAuthMigrated };
   saveUsersDB(db);
   closeModal('user-modal');
   renderUsers();

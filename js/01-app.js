@@ -27,7 +27,7 @@ function closeModal(id){document.getElementById(id)?.classList.remove('open');}
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 function fillPatDropdowns(){
   const pats=DB.get('patients');
-  ['am-pat','im-pat','photo-pat'].forEach(did=>{const sel=document.getElementById(did);if(!sel)return;const cur=sel.value;sel.innerHTML='<option value="">-- اختر عميل --</option>'+pats.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');if(cur)sel.value=cur;});
+  ['am-pat','im-pat','photo-pat'].forEach(did=>{const sel=document.getElementById(did);if(!sel)return;const cur=sel.value;sel.innerHTML='<option value="">-- اختر عميل --</option>'+pats.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');if(cur)sel.value=cur;});
 }
 
 // TABS
@@ -58,7 +58,8 @@ function showToast(type,msg,sub=''){
   const tc=document.getElementById('toast-c');
   const t=document.createElement('div');
   t.className=`toast ${type}`;
-  t.innerHTML=`<div class="ticon">${IC[type]||'ℹ️'}</div><div class="ttxt"><p>${msg}</p>${sub?`<span>${sub}</span>`:''}</div><div class="tclose" onclick="this.parentElement.remove()">✕</div>`;
+  // 🛡️ msg/sub غالبًا بتحتوي أسماء عملاء/بيانات مستخدم (زي "تم تحديث فلان") — نعقّمها هنا كنقطة مركزية واحدة تغطي كل استدعاءات showToast في المشروع كله
+  t.innerHTML=`<div class="ticon">${IC[type]||'ℹ️'}</div><div class="ttxt"><p>${escapeHtml(msg)}</p>${sub?`<span>${escapeHtml(sub)}</span>`:''}</div><div class="tclose" onclick="this.parentElement.remove()">✕</div>`;
   tc.appendChild(t);
   setTimeout(()=>{t.style.transition='all .3s';t.style.opacity='0';t.style.transform='translateY(8px)';setTimeout(()=>t.remove(),300);},4000);
 }
@@ -150,7 +151,7 @@ function updateServiceDistribution(){
   el.innerHTML = sorted.map(([name,val],i)=>{
     const pct = Math.round(val/total*100);
     const color = COLORS[i % COLORS.length];
-    return `<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>${name}</span><span style="color:${color};font-weight:700">${pct}%</span></div><div class="prog"><div class="prog-f" style="width:${pct}%;background:${color}"></div></div></div>`;
+    return `<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>${escapeHtml(name)}</span><span style="color:${color};font-weight:700">${pct}%</span></div><div class="prog"><div class="prog-f" style="width:${pct}%;background:${color}"></div></div></div>`;
   }).join('');
 }
 
@@ -202,10 +203,10 @@ function buildTopDoctors(){
     // Fallback to doctors DB list
     const docs = DB.get('doctors').slice(0,4);
     if(!docs.length){ el.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:13px">لا توجد بيانات أطباء بعد</div>'; return; }
-    el.innerHTML = docs.map((d,i)=>`<div class="drow"><div class="drank">${medals[i]||'⭐'}</div><div class="dava" style="background:${grads[i%5]}">👩‍⚕️</div><div style="flex:1;font-size:13px;font-weight:600">${d.name}</div><div style="color:var(--text-muted);font-size:12px">${d.specialty||'—'}</div></div>`).join('');
+    el.innerHTML = docs.map((d,i)=>`<div class="drow"><div class="drank">${medals[i]||'⭐'}</div><div class="dava" style="background:${grads[i%5]}">👩‍⚕️</div><div style="flex:1;font-size:13px;font-weight:600">${escapeHtml(d.name)}</div><div style="color:var(--text-muted);font-size:12px">${escapeHtml(d.specialty)||'—'}</div></div>`).join('');
     return;
   }
-  el.innerHTML = sorted.map(([name,rev],i)=>`<div class="drow"><div class="drank">${medals[i]||'⭐'}</div><div class="dava" style="background:${grads[i%5]}">👩‍⚕️</div><div style="flex:1;font-size:13px;font-weight:600">${name}</div><div style="color:var(--teal);font-weight:700;font-size:12.5px">${rev.toLocaleString()} ج</div></div>`).join('');
+  el.innerHTML = sorted.map(([name,rev],i)=>`<div class="drow"><div class="drank">${medals[i]||'⭐'}</div><div class="dava" style="background:${grads[i%5]}">👩‍⚕️</div><div style="flex:1;font-size:13px;font-weight:600">${escapeHtml(name)}</div><div style="color:var(--teal);font-weight:700;font-size:12.5px">${rev.toLocaleString()} ج</div></div>`).join('');
 }
 
 
@@ -256,13 +257,13 @@ function aiGetSystemPrompt(){
 function aiFormatText(text){
   return text.split('\n').map(line => {
     if(line.startsWith('**') && line.endsWith('**'))
-      return `<div style="font-weight:700;color:var(--gold-light);margin-top:10px;margin-bottom:3px;">${line.slice(2,-2)}</div>`;
+      return `<div style="font-weight:700;color:var(--gold-light);margin-top:10px;margin-bottom:3px;">${escapeHtml(line.slice(2,-2))}</div>`;
     if(line.startsWith('- ') || line.startsWith('• '))
-      return `<div style="padding-right:16px;position:relative;margin-bottom:4px;"><span style="position:absolute;right:0;color:var(--teal);">•</span>${line.slice(2)}</div>`;
+      return `<div style="padding-right:16px;position:relative;margin-bottom:4px;"><span style="position:absolute;right:0;color:var(--teal);">•</span>${escapeHtml(line.slice(2))}</div>`;
     if(/^\d+\./.test(line))
-      return `<div style="padding-right:20px;position:relative;margin-bottom:4px;"><span style="position:absolute;right:0;color:var(--gold-light);font-weight:700;">${line.match(/^\d+/)[0]}.</span>${line.replace(/^\d+\.\s*/,'')}</div>`;
+      return `<div style="padding-right:20px;position:relative;margin-bottom:4px;"><span style="position:absolute;right:0;color:var(--gold-light);font-weight:700;">${line.match(/^\d+/)[0]}.</span>${escapeHtml(line.replace(/^\d+\.\s*/,''))}</div>`;
     if(line === '') return '<div style="height:6px;"></div>';
-    return `<div style="margin-bottom:2px;">${line}</div>`;
+    return `<div style="margin-bottom:2px;">${escapeHtml(line)}</div>`;
   }).join('');
 }
 
@@ -282,12 +283,12 @@ function aiRenderMessages(){
     if(msg.role === 'user'){
       wrap.innerHTML = `<div style="max-width:85%;padding:12px 16px;border-radius:14px 14px 14px 3px;background:linear-gradient(135deg,rgba(196,168,130,.18),rgba(45,212,191,.12));border:1px solid rgba(196,168,130,.2);font-size:13.5px;line-height:1.8;color:var(--text-primary);">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:11.5px;color:#94A3B8;"><span>👩‍⚕️</span> أنت</div>
-        ${msg.text}
+        ${escapeHtml(msg.text)}
       </div>`;
     } else {
       wrap.innerHTML = `<div style="max-width:85%;padding:12px 16px;border-radius:14px 14px 3px 14px;background:${msg.isError?'rgba(244,63,94,.08)':'rgba(255,255,255,.06)'};border:1px solid ${msg.isError?'rgba(244,63,94,.2)':'rgba(255,255,255,.08)'};font-size:13.5px;line-height:1.8;color:${msg.isError?'var(--rose)':'var(--text-primary)'};">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:11.5px;color:#64748B;"><span>🤖</span> المساعد الذكي</div>
-        ${msg.isError ? msg.text : aiFormatText(msg.text)}
+        ${msg.isError ? escapeHtml(msg.text) : aiFormatText(msg.text)}
       </div>`;
     }
     chat.appendChild(wrap);
@@ -501,7 +502,7 @@ function buildDashAlerts(){
     el.innerHTML=alerts.length?alerts.map(a=>`
       <div class="ali ${a.cls}" style="cursor:${a.action?'pointer':'default'}" onclick="${a.action?'('+a.action.toString()+')()':''}">
         <div class="ai-ico">${a.icon}</div>
-        <div class="ai-txt"><p>${a.title}</p><span>${a.sub}</span></div>
+        <div class="ai-txt"><p>${escapeHtml(a.title)}</p><span>${escapeHtml(a.sub)}</span></div>
       </div>`).join('')
       :'<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px">✅ لا توجد تنبيهات الآن</div>';
   }
@@ -519,7 +520,7 @@ function buildNotifList(alerts){
   list.innerHTML=alerts.length?alerts.map(a=>`
     <div class="ali ${a.cls}" style="margin-bottom:8px;cursor:pointer;" onclick="closeNotifDropdown()">
       <div class="ai-ico">${a.icon}</div>
-      <div class="ai-txt"><p>${a.title}</p><span>${a.sub}</span></div>
+      <div class="ai-txt"><p>${escapeHtml(a.title)}</p><span>${escapeHtml(a.sub)}</span></div>
     </div>`).join('')
     :'<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:13px">✅ لا توجد إشعارات</div>';
 }
@@ -738,8 +739,8 @@ function buildDashActivities(){
     <div class="dash-notif-item">
       <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,${a.color});display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">${a.icon}</div>
       <div style="flex:1;overflow:hidden;">
-        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.text}</div>
-        <div style="font-size:11px;color:var(--text-muted);">${a.time}</div>
+        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(a.text)}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${escapeHtml(a.time)}</div>
       </div>
     </div>`).join('');
 }
@@ -775,8 +776,8 @@ function buildDashAlertsEnhanced(){
     <div class="dash-notif-item">
       <div class="dash-notif-dot" style="background:${a.dot};"></div>
       <div style="flex:1;">
-        <div style="font-size:12.5px;font-weight:600;">${a.icon} ${a.title}</div>
-        <div style="font-size:11px;color:var(--text-muted);">${a.time}</div>
+        <div style="font-size:12.5px;font-weight:600;">${a.icon} ${escapeHtml(a.title)}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${escapeHtml(a.time)}</div>
       </div>
     </div>`).join('')
   : '<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:12.5px">✅ لا توجد تنبيهات</div>';
@@ -1037,8 +1038,8 @@ function buildDashTaskCards(){
     const done=s.done||0, total=s.total||1, pct=Math.round(done/total*100);
     return `<div class="task-card" style="background:${grads[i%grads.length]};cursor:pointer;" onclick="${pat?`viewPat('${pat.id}')`:`showScreen('sessions')`}">
       <div>
-        <div class="tc-title">${s.type||'خطة علاج'}</div>
-        <div class="tc-sub">${pat?pat.name:'—'} ${s.doc?'· د. '+s.doc:''}</div>
+        <div class="tc-title">${escapeHtml(s.type)||'خطة علاج'}</div>
+        <div class="tc-sub">${pat?escapeHtml(pat.name):'—'} ${s.doc?'· د. '+escapeHtml(s.doc):''}</div>
       </div>
       <div>
         <div class="tc-meta"><span>${done}/${total} جلسة</span><span>${pct}%</span></div>
@@ -1131,7 +1132,7 @@ function buildBranchDonut(){
   buildDonut('dash-branch-donut', entries.map(([,v],i)=>({value:v,color:colors[i%colors.length]})), total);
   if(leg) leg.innerHTML = entries.map(([name,v],i)=>{
     const pct = total?Math.round(v/total*100):0;
-    return `<div class="dleg-item" style="font-size:11px;"><span class="dleg-dot" style="background:${colors[i%colors.length]}"></span>${name} <span class="dleg-val">${pct}%</span></div>`;
+    return `<div class="dleg-item" style="font-size:11px;"><span class="dleg-dot" style="background:${colors[i%colors.length]}"></span>${escapeHtml(name)} <span class="dleg-val">${pct}%</span></div>`;
   }).join('');
 }
 
@@ -1201,15 +1202,15 @@ function renderTodayApptsDash(todayApts){
     const stLabel = stAr[a.status||'']||(a.status||'—');
     const avatarColors=['linear-gradient(135deg,#8B5CF6,#3B82F6)','linear-gradient(135deg,#10B981,#2DD4BF)','linear-gradient(135deg,#F59E0B,#F43F5E)','linear-gradient(135deg,#C4A882,#8B5CF6)','linear-gradient(135deg,#F43F5E,#F59E0B)'];
     const aColor = avatarColors[((a.patient||'').charCodeAt(0)||0)%avatarColors.length];
-    const initials = (a.patient||'?').charAt(0);
+    const initials = escapeHtml((a.patient||'?').charAt(0));
     return `<div class="dash-appt-row">
-      <div style="font-size:11.5px;font-weight:800;color:var(--gold-light);width:44px;text-align:center;flex-shrink:0;">${a.time||'—'}</div>
+      <div style="font-size:11.5px;font-weight:800;color:var(--gold-light);width:44px;text-align:center;flex-shrink:0;">${escapeHtml(a.time)||'—'}</div>
       <div style="width:34px;height:34px;border-radius:50%;background:${aColor};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0;color:#fff;">${initials}</div>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.patient||'—'}</div>
-        <div style="font-size:11.5px;color:var(--text-muted);">د. ${a.doctor||'—'} ${a.service?'· '+a.service:''}</div>
+        <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(a.patient)||'—'}</div>
+        <div style="font-size:11.5px;color:var(--text-muted);">د. ${escapeHtml(a.doctor)||'—'} ${a.service?'· '+escapeHtml(a.service):''}</div>
       </div>
-      <span class="ast ${sc}" style="flex-shrink:0;">${stLabel}</span>
+      <span class="ast ${sc}" style="flex-shrink:0;">${escapeHtml(stLabel)}</span>
       <div style="display:flex;gap:4px;flex-shrink:0;">
         <button class="btn btn-teal btn-xs" onclick="event.stopPropagation();startVisitFromDash('${a.id}')" title="بدء الزيارة">▶</button>
         <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openEditAppt('${a.id}')" title="تعديل">✏️</button>
@@ -1530,7 +1531,7 @@ document.querySelector('.user-card')?.addEventListener('click', function(){
   const menu = document.createElement('div');
   menu.style.cssText='position:fixed;bottom:70px;right:14px;background:var(--modal-bg);border:1px solid var(--glass-border);border-radius:12px;padding:8px;z-index:500;min-width:180px;box-shadow:var(--shadow);';
   menu.innerHTML = `
-    <div style="padding:8px 12px;font-size:13px;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--glass-border);margin-bottom:6px;">${window._session?.name||'المستخدم'}</div>
+    <div style="padding:8px 12px;font-size:13px;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--glass-border);margin-bottom:6px;">${escapeHtml(window._session?.name)||'المستخدم'}</div>
     <div onclick="renewSession();this.closest('div[style]').remove();" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--glass)'" onmouseout="this.style.background='transparent'">🔄 تجديد الجلسة</div>
     <div onclick="showScreen('settings');this.closest('div[style]').remove();" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--glass)'" onmouseout="this.style.background='transparent'">⚙️ الإعدادات</div>
     <div onclick="doLogout()" style="padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--rose);" onmouseover="this.style.background='rgba(244,63,94,.08)'" onmouseout="this.style.background='transparent'">🚪 تسجيل الخروج</div>`;

@@ -11,6 +11,43 @@ function clinicLogoHTML(size){size=size||34;return `<img src="${CLINIC_LOGO_URI}
 function gv(id){ return document.getElementById(id)?.value || ''; }
 
 // ══════════════════════════════════════════
+// 🛡️ escapeHtml — تعقيم أي نص قبل عرضه عبر innerHTML
+// (يمنع XSS من أسماء عملاء/ملاحظات/أي حقل نصي يدخله المستخدم أو يُزرع مباشرة في Firestore)
+// استخدمها حول أي قيمة نصية آتية من بيانات المستخدم/DB قبل حقنها في template literal بيروح لـ innerHTML
+// مثال: `<td>${escapeHtml(patient.name)}</td>`
+// ملاحظة: لا تستخدمها حول HTML مقصود (زي أزرار <button> أو أيقونات ثابتة كتبناها إحنا)
+// ══════════════════════════════════════════
+function escapeHtml(str){
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+// اختصار شائع بديل، لو حابب تستخدم اسم أقصر في أماكن تانية
+const esc = escapeHtml;
+
+// ══════════════════════════════════════════
+// 🛡️ escJsAttr — لحقن نص داخل onclick="...('${value}')..." بأمان
+// (نمط شائع في المشروع: onclick يحتوي JS string بـ '' جوه attribute بـ "")
+// escapeHtml وحدها مش كفاية هنا: فكّ تشفير HTML entities بيحصل قبل ما
+// الـ JS يتفسَّر، فلو الاسم فيه ' هتنكسر الـ JS string رغم الـ escaping العادي.
+// استخدمها فقط لقيم بتتحط جوه onclick بصيغة '${...}'، مش لعرض نص عادي في الصفحة.
+// ══════════════════════════════════════════
+function escJsAttr(str){
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// ══════════════════════════════════════════
 // 🔑 UUID GENERATOR — v4 compliant
 // ══════════════════════════════════════════
 function genUUID(){

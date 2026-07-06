@@ -9,6 +9,16 @@
 // ═══════════════════════════════════════════════════════════════════════════
 function buildSupplierStatementHTML(supplier, purchases, payments) {
   if (!supplier) return '';
+
+  // 🛡️ لتضمين نص جوه <script>...</script> بأمان (اسم/تليفون المورد بيتحطوا
+  // كـ JS string literal مباشرة هناك). escapeHtml العادي مش مناسب هنا لأن
+  // المتصفح ما بيفكش تشفير HTML entities جوه محتوى <script> — فالتهريب
+  // اللازم هنا هو تهريب JS نفسه (backslash + quote) + قطع أي "</script>".
+  const _jsStr = (str) => String(str||'')
+    .replace(/\\/g,'\\\\')
+    .replace(/'/g,"\\'")
+    .replace(/<\/script/gi,'<\\/script')
+    .replace(/\r?\n/g,'\\n');
   
   const clinicName = DB.obj('settings')?.clinicName || 'عيادات الحياة للتجميل';
   const clinicPhone = DB.obj('settings')?.phone || '';
@@ -30,8 +40,8 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
       return `
         <tr>
           <td style="text-align:center;width:8%">${i + 1}</td>
-          <td style="text-align:right;width:15%">${p.orderDate || '—'}</td>
-          <td style="text-align:right;width:35%">${p.product || '—'}</td>
+          <td style="text-align:right;width:15%">${escapeHtml(p.orderDate) || '—'}</td>
+          <td style="text-align:right;width:35%">${escapeHtml(p.product) || '—'}</td>
           <td style="text-align:center;width:12%">${(p.qty || 0).toLocaleString('ar-EG')}</td>
           <td style="text-align:center;width:15%">${(p.unitPrice || 0).toLocaleString('ar-EG')} ج</td>
           <td style="text-align:center;width:15%"><strong>${itemTotal.toLocaleString('ar-EG')} ج</strong></td>
@@ -44,21 +54,21 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
   const paymentsRows = payments
     .sort((a, b) => new Date(b.paymentDate || 0) - new Date(a.paymentDate || 0))
     .map((p, i) => {
-      const method = {
+      const method = escapeHtml({
         'كاش': '💵 كاش',
         'تحويل بنكي': '🏦 تحويل بنكي',
         'شيك': '📋 شيك',
         'كارت ائتماني': '💳 كارت ائتماني',
         'تحويل محفظة': '📱 محفظة رقمية'
-      }[p.paymentMethod || 'كاش'] || p.paymentMethod || '—';
+      }[p.paymentMethod || 'كاش'] || p.paymentMethod || '—');
 
       return `
         <tr>
           <td style="text-align:center;width:8%">${i + 1}</td>
-          <td style="text-align:right;width:20%">${p.paymentDate || '—'}</td>
+          <td style="text-align:right;width:20%">${escapeHtml(p.paymentDate) || '—'}</td>
           <td style="text-align:center;width:20%">${method}</td>
           <td style="text-align:center;width:20%"><strong style="color:#10b981">${(p.amount || 0).toLocaleString('ar-EG')} ج</strong></td>
-          <td style="text-align:right;width:32%">${p.notes || '—'}</td>
+          <td style="text-align:right;width:32%">${escapeHtml(p.notes) || '—'}</td>
         </tr>
       `;
     })
@@ -69,7 +79,7 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>كشف حساب ${supplier.name}</title>
+  <title>كشف حساب ${escapeHtml(supplier.name)}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
     
@@ -506,9 +516,9 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
     <!-- HEADER -->
     <div class="header">
       <div class="header-left">
-        <h1>📋 كشف حساب ${supplier.name}</h1>
-        <p style="font-weight:600">${clinicName}</p>
-        <p>📞 ${clinicPhone}</p>
+        <h1>📋 كشف حساب ${escapeHtml(supplier.name)}</h1>
+        <p style="font-weight:600">${escapeHtml(clinicName)}</p>
+        <p>📞 ${escapeHtml(clinicPhone)}</p>
       </div>
       <div class="header-right">
         <div class="stmt-number">#${supplier.id.substring(0, 8).toUpperCase()}</div>
@@ -622,7 +632,7 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
     <!-- FOOTER -->
     <div class="footer">
       <p>✅ هذا الكشف صادر إلكترونياً من نظام إدارة العيادة</p>
-      <p>📅 ${today} | شكراً لثقتكم بـ ${clinicName}</p>
+      <p>📅 ${today} | شكراً لثقتكم بـ ${escapeHtml(clinicName)}</p>
     </div>
   </div>
   
@@ -643,7 +653,7 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
     // instead of html2canvas's own text engine — this is what fixes broken/
     // reversed Arabic letters (RTL shaping) in the exported PDF.
     function generateStatementPdfBlob() {
-      const filename = 'كشف-حساب-${supplier.name}-${Date.now()}.pdf';
+      const filename = 'كشف-حساب-${_jsStr(supplier.name)}-${Date.now()}.pdf';
       return html2pdf()
         .set({
           margin: 10,
@@ -694,8 +704,8 @@ function buildSupplierStatementHTML(supplier, purchases, payments) {
     // via the native share sheet. Falls back to a plain wa.me text link + PDF
     // download when the browser/device doesn't support file sharing.
     function shareStatementViaWhatsApp() {
-      const supplierName = '${supplier.name}';
-      const phone = '${supplier.phone}'.replace(/[^0-9+]/g, '') || '';
+      const supplierName = '${_jsStr(supplier.name)}';
+      const phone = '${_jsStr(supplier.phone)}'.replace(/[^0-9+]/g, '') || '';
       const msg = 'السلام عليكم\\nإليك كشف حساب المشتريات الخاص بك\\nللمزيد من المعلومات برجاء الاتصال بنا';
 
       const btn = document.querySelector('.btn-whatsapp');

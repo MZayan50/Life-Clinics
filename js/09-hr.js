@@ -100,11 +100,11 @@ function renderDocs(){
         <div style="display:flex;gap:10px;align-items:center;">
           <div class="tdava" style="background:${AVA[i % AVA.length]}">👨‍⚕️</div>
           <div>
-            <div style="font-size:15px;font-weight:800;">${d.name}</div>
-            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">${d.specialty || '—'}</div>
+            <div style="font-size:15px;font-weight:800;">${escapeHtml(d.name)}</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">${escapeHtml(d.specialty) || '—'}</div>
           </div>
         </div>
-        <span class="ast ${d.status === 'نشط' ? 'sc' : 'sd'}">${d.status}</span>
+        <span class="ast ${d.status === 'نشط' ? 'sc' : 'sd'}">${escapeHtml(d.status)}</span>
       </div>
       <div class="g2c" style="gap:8px;margin-bottom:11px;">
         <div style="background:var(--glass);border-radius:8px;padding:9px;text-align:center;">
@@ -117,9 +117,9 @@ function renderDocs(){
         </div>
       </div>
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">
-        📍 ${d.branch || '—'} · ${total} جلسة إجمالي · عمولة ${d.commission || 0}% (${comm.toLocaleString()} ج)
+        📍 ${escapeHtml(d.branch) || '—'} · ${total} جلسة إجمالي · عمولة ${d.commission || 0}% (${comm.toLocaleString()} ج)
       </div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">📞 ${d.phone || '—'}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">📞 ${escapeHtml(d.phone) || '—'}</div>
       <div style="display:flex;gap:7px;">
         <button class="btn btn-ghost btn-sm" style="flex:1" onclick="openDocModal('${d.id}')">✏️ تعديل</button>
         <button class="btn btn-danger btn-sm" style="flex:1" onclick="delDoc('${d.id}')">🗑 حذف</button>
@@ -185,7 +185,7 @@ function fillDocDropdowns(){
   ['am-doc','sv-doc'].forEach(did => {
     const sel = document.getElementById(did); if(!sel) return;
     const cur = sel.value;
-    sel.innerHTML = docs.map(d => `<option value="${d.name}" data-id="${d.id}">${d.name}</option>`).join('')
+    sel.innerHTML = docs.map(d => `<option value="${escapeHtml(d.name)}" data-id="${d.id}">${escapeHtml(d.name)}</option>`).join('')
       || '<option value="">-- لا يوجد أطباء --</option>';
     if(cur && docs.some(d => d.name === cur)) sel.value = cur;
   });
@@ -195,7 +195,7 @@ function fillSvcDropdowns(){
   const svcs = DB.get('services');
   const sel  = document.getElementById('am-svc'); if(!sel) return;
   const cur  = sel.value;
-  sel.innerHTML = svcs.map(s => `<option value="${s.name}">${s.name} (${s.duration || 60} د)</option>`).join('')
+  sel.innerHTML = svcs.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)} (${s.duration || 60} د)</option>`).join('')
     || '<option value="">-- لا توجد خدمات --</option>';
   if(cur && svcs.some(s => s.name === cur)) sel.value = cur;
 }
@@ -205,7 +205,7 @@ function fillApptRoomDropdown(svcName){
   const cur = sel.value;
   const svc = DB.get('services').find(s => s.name === svcName);
   sel.innerHTML = '<option value="">— تلقائي حسب الخدمة —</option>'
-    + DB.get('rooms').map(r => `<option>${r.name}</option>`).join('');
+    + DB.get('rooms').map(r => `<option>${escapeHtml(r.name)}</option>`).join('');
   if(svc && svc.room) sel.value = svc.room;
   else if(cur) sel.value = cur;
 }
@@ -241,16 +241,16 @@ function renderStaff(){
         <div style="display:flex;gap:10px;align-items:center;">
           <div class="tdava" style="background:${AVA[i % AVA.length]}">👩‍💼</div>
           <div>
-            <div style="font-size:15px;font-weight:800;">${s.name}</div>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:1px;font-family:monospace;letter-spacing:.5px;">🪪 ${s.empCode || '—'}</div>
-            <span class="tag ${roleColors[s.role] || 'tg-teal'}" style="font-size:11px;margin-top:3px;display:inline-block;">${s.role}</span>
+            <div style="font-size:15px;font-weight:800;">${escapeHtml(s.name)}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:1px;font-family:monospace;letter-spacing:.5px;">🪪 ${escapeHtml(s.empCode) || '—'}</div>
+            <span class="tag ${roleColors[s.role] || 'tg-teal'}" style="font-size:11px;margin-top:3px;display:inline-block;">${escapeHtml(s.role)}</span>
           </div>
         </div>
-        <span class="ast ${s.status === 'نشط' ? 'sc' : 'sd'}">${s.status}</span>
+        <span class="ast ${s.status === 'نشط' ? 'sc' : 'sd'}">${escapeHtml(s.status)}</span>
       </div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">📍 ${s.branch || '—'}</div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">📞 ${s.phone || '—'}</div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">📅 استحقاق الراتب: ${s.dueDate || '<span style="color:var(--rose)">غير محدد</span>'}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">📍 ${escapeHtml(s.branch) || '—'}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">📞 ${escapeHtml(s.phone) || '—'}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">📅 استحقاق الراتب: ${s.dueDate ? escapeHtml(s.dueDate) : '<span style="color:var(--rose)">غير محدد</span>'}</div>
       <div style="font-size:13px;font-weight:700;color:var(--gold-light);margin-bottom:6px;">💰 ${(s.salary || 0).toLocaleString()} ج / شهريًا</div>
       ${staffOutstandingAdvance(s.id) > 0
         ? `<div style="font-size:12px;font-weight:700;color:var(--rose);margin-bottom:11px;">🧾 سلفة مستحقة: ${staffOutstandingAdvance(s.id).toLocaleString()} ج (تُخصم من الراتب القادم)</div>`
@@ -551,12 +551,12 @@ function renderSvcs(){
     let prodLabel;
     if(s.recipe && Array.isArray(s.recipe) && s.recipe.length > 0){
       prodLabel = s.recipe.map(ing => {
-        const name = invMap[ing.productId] || '؟';
-        return `${name} × ${ing.qty}${ing.unit ? ' '+ing.unit : ''}`;
+        const name = escapeHtml(invMap[ing.productId] || '؟');
+        return `${name} × ${ing.qty}${ing.unit ? ' '+escapeHtml(ing.unit) : ''}`;
       }).join(' | ');
       prodLabel = `<span style="font-size:11px;color:var(--teal)">${prodLabel}</span>`;
     } else if(s.linkedProductId && invMap[s.linkedProductId]){
-      prodLabel = `<span style="font-size:11px;color:var(--text-muted)">${invMap[s.linkedProductId]} × ${s.consumeQty||1}</span>`;
+      prodLabel = `<span style="font-size:11px;color:var(--text-muted)">${escapeHtml(invMap[s.linkedProductId])} × ${s.consumeQty||1}</span>`;
     } else {
       prodLabel = '<span style="color:var(--text-muted);font-size:11px;">لا مكونات</span>';
     }
@@ -568,8 +568,8 @@ function renderSvcs(){
       ? `<span class="tag" style="background:rgba(244,63,94,.15);color:var(--rose);font-weight:700;cursor:help;" title="${alertInfo.reasons.join(' | ')}">🔺 ارفع السعر</span>`
       : `<span style="color:var(--text-muted);font-size:11px;">✓ مناسب</span>`;
     return `<tr>
-      <td style="font-weight:700">${s.name}</td>
-      <td><span class="tag tg-teal">${s.cat}</span></td>
+      <td style="font-weight:700">${escapeHtml(s.name)}</td>
+      <td><span class="tag tg-teal">${escapeHtml(s.cat)}</span></td>
       <td style="color:var(--gold-light);font-weight:700">${(s.price||0).toLocaleString()} ج</td>
       <td style="font-size:12px">${s.duration||60} د</td>
       <td style="color:var(--rose);font-weight:600">${effectiveCost.toFixed(1)} ج</td>
@@ -578,7 +578,7 @@ function renderSvcs(){
       <td style="font-size:11px">${clinicProfitCell}</td>
       <td style="font-size:11px">${alertLabel}</td>
       <td style="font-size:11px;max-width:160px">${prodLabel}</td>
-      <td><span class="ast ${statusCls}">${status}</span></td>
+      <td><span class="ast ${statusCls}">${escapeHtml(status)}</span></td>
       <td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs"  onclick="openSvcModal('${s.id}')">✏️</button>
         <button class="btn btn-danger btn-xs" onclick="delSvc('${s.id}')">🗑</button>
@@ -610,13 +610,13 @@ function openSvcModal(id){
   const roomSel = document.getElementById('sv-room');
   if(roomSel){
     roomSel.innerHTML = '<option value="">— بدون تحديد —</option>'
-      + DB.get('rooms').map(r => `<option>${r.name}</option>`).join('');
+      + DB.get('rooms').map(r => `<option>${escapeHtml(r.name)}</option>`).join('');
     roomSel.value = s ? s.room || '' : '';
   }
   const equipSel = document.getElementById('sv-equip');
   if(equipSel){
     equipSel.innerHTML = '<option value="">— بدون تحديد —</option>'
-      + DB.get('equipment').map(e => `<option>${e.name}</option>`).join('');
+      + DB.get('equipment').map(e => `<option>${escapeHtml(e.name)}</option>`).join('');
     equipSel.value = s ? s.equipment || '' : '';
   }
   // ── وصفة المكونات (BOM) ──
@@ -732,13 +732,13 @@ function renderSvcRecipeRows(){
       <div style="display:grid;grid-template-columns:1fr 70px 50px 32px;gap:4px;align-items:center;">
         <select class="fctl" style="font-size:12px;padding:4px 6px;" onchange="setSvcRecipeField(${idx},'productId',this.value)">
           <option value="">— اختر منتج —</option>
-          ${products.map(p => `<option value="${p.id}" ${p.id===ing.productId?'selected':''}>${p.name}${p.consumeUnit?' ('+p.consumeUnit+')':''}</option>`).join('')}
+          ${products.map(p => `<option value="${p.id}" ${p.id===ing.productId?'selected':''}>${escapeHtml(p.name)}${p.consumeUnit?' ('+escapeHtml(p.consumeUnit)+')':''}</option>`).join('')}
         </select>
         <input class="fctl" type="number" min="0.01" step="0.01" style="font-size:12px;padding:4px 6px;text-align:center;"
                value="${ing.qty||''}" placeholder="الكمية"
                onchange="setSvcRecipeField(${idx},'qty',this.value)">
         <input class="fctl" type="text" style="font-size:12px;padding:4px 6px;text-align:center;"
-               value="${ing.unit||''}" placeholder="${products.find(p=>p.id===ing.productId)?.consumeUnit||'مل/جم'}"
+               value="${escapeHtml(ing.unit)||''}" placeholder="${escapeHtml(products.find(p=>p.id===ing.productId)?.consumeUnit)||'مل/جم'}"
                onchange="setSvcRecipeField(${idx},'unit',this.value)">
         <button type="button" class="btn btn-danger btn-xs" onclick="removeSvcRecipeRow(${idx})" style="padding:4px 6px;">✕</button>
       </div>

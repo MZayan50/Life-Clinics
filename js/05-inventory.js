@@ -175,13 +175,13 @@ function renderSuppliers(q){
   tb.innerHTML = sups.map(s => {
     const owed = calcOwed(s.id);
     return `<tr>
-      <td style="font-weight:700">${s.name}</td>
-      <td><span class="tag tg-purple">${s.cat||'—'}</span></td>
-      <td style="font-size:12px">${s.phone||'—'}</td>
-      <td style="font-size:11px;color:var(--text-muted)">${s.email||'—'}</td>
-      <td style="font-size:12px">${s.terms||'—'}</td>
+      <td style="font-weight:700">${escapeHtml(s.name)}</td>
+      <td><span class="tag tg-purple">${escapeHtml(s.cat)||'—'}</span></td>
+      <td style="font-size:12px">${escapeHtml(s.phone)||'—'}</td>
+      <td style="font-size:11px;color:var(--text-muted)">${escapeHtml(s.email)||'—'}</td>
+      <td style="font-size:12px">${escapeHtml(s.terms)||'—'}</td>
       <td style="color:${owed>0?'var(--rose)':'var(--emerald)'};font-weight:700">${owed.toLocaleString()} ج</td>
-      <td><span class="ast ${s.status==='نشط'?'sc':'sd'}">${s.status}</span></td>
+      <td><span class="ast ${s.status==='نشط'?'sc':'sd'}">${escapeHtml(s.status)}</span></td>
       <td style="display:flex;gap:5px;">
         <button class="btn btn-primary btn-xs" onclick="openSupplierDetail('${s.id}')">💳 دفعة</button>
         <button class="btn btn-teal btn-xs" onclick="openSupplierStatementModal('${s.id}')">📋 كشف حساب</button>
@@ -271,12 +271,12 @@ function openSupplierDetail(supId){
   if(purTb){
     purTb.innerHTML = purchases.length ? purchases.sort((a,b)=>(b.orderDate||'').localeCompare(a.orderDate||'')).map(p=>`
       <tr>
-        <td style="font-size:12px">${p.orderDate||'—'}</td>
-        <td style="font-weight:600">${p.product||'—'}</td>
-        <td>${(p.qty||0)} ${p.purchaseUnit||''}${p.totalConsumeQty>0?' <span style="font-size:10px;color:var(--teal)">= '+p.totalConsumeQty.toFixed(1)+' '+p.consumeUnit+'</span>':''}</td>
+        <td style="font-size:12px">${escapeHtml(p.orderDate)||'—'}</td>
+        <td style="font-weight:600">${escapeHtml(p.product)||'—'}</td>
+        <td>${(p.qty||0)} ${escapeHtml(p.purchaseUnit)||''}${p.totalConsumeQty>0?' <span style="font-size:10px;color:var(--teal)">= '+p.totalConsumeQty.toFixed(1)+' '+escapeHtml(p.consumeUnit)+'</span>':''}</td>
         <td>${(p.unitPrice||0).toLocaleString()} ج</td>
         <td style="font-weight:700">${(p.total||0).toLocaleString()} ج</td>
-        <td><span class="ast ${p.status==='مستلم'?'sc':p.status==='ملغي'?'sd':'sp'}">${p.status||'—'}</span></td>
+        <td><span class="ast ${p.status==='مستلم'?'sc':p.status==='ملغي'?'sd':'sp'}">${escapeHtml(p.status)||'—'}</span></td>
       </tr>`).join('')
     : '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">لا توجد مشتريات</td></tr>';
   }
@@ -295,7 +295,7 @@ function openSupplierDetail(supId){
 function _renderSupplierPaymentRow(sp, editMode){
   if(editMode){
     return `<tr data-payid="${sp.id}">
-      <td style="font-size:12px">${sp.date||'—'}</td>
+      <td style="font-size:12px">${escapeHtml(sp.date)||'—'}</td>
       <td><input type="number" id="sp-edit-amount-${sp.id}" value="${sp.amount||0}" min="0" style="width:90px;padding:5px 7px;border-radius:6px;border:1px solid var(--glass-border,#ccc);font-family:inherit"></td>
       <td>
         <select id="sp-edit-method-${sp.id}" style="font-size:12px;padding:5px;border-radius:6px;">
@@ -304,7 +304,7 @@ function _renderSupplierPaymentRow(sp, editMode){
           <option value="شيك" ${sp.method==='شيك'?'selected':''}>شيك</option>
         </select>
       </td>
-      <td><input type="text" id="sp-edit-notes-${sp.id}" value="${(sp.notes||'').replace(/"/g,'&quot;')}" style="width:100%;font-size:11px;padding:5px;border-radius:6px;border:1px solid var(--glass-border,#ccc)"></td>
+      <td><input type="text" id="sp-edit-notes-${sp.id}" value="${escapeHtml(sp.notes)}" style="width:100%;font-size:11px;padding:5px;border-radius:6px;border:1px solid var(--glass-border,#ccc)"></td>
       <td style="white-space:nowrap">
         <button class="btn btn-primary btn-xs" onclick="saveSupplierPaymentEdit('${sp.id}')">✅</button>
         <button class="btn btn-ghost btn-xs" onclick="openSupplierDetail('${sp.supplierId}')">❌</button>
@@ -312,10 +312,10 @@ function _renderSupplierPaymentRow(sp, editMode){
     </tr>`;
   }
   return `<tr data-payid="${sp.id}">
-    <td style="font-size:12px">${sp.date||'—'}</td>
+    <td style="font-size:12px">${escapeHtml(sp.date)||'—'}</td>
     <td style="color:var(--emerald);font-weight:700">${(sp.amount||0).toLocaleString()} ج</td>
-    <td style="font-size:12px">${sp.method||'كاش'}</td>
-    <td style="font-size:11px;color:var(--text-muted)">${sp.notes||'—'}</td>
+    <td style="font-size:12px">${escapeHtml(sp.method)||'كاش'}</td>
+    <td style="font-size:11px;color:var(--text-muted)">${escapeHtml(sp.notes)||'—'}</td>
     <td><button class="btn btn-ghost btn-xs" onclick="editSupplierPaymentRow('${sp.id}')" title="تعديل المبلغ">✏️</button></td>
   </tr>`;
 }
@@ -433,14 +433,14 @@ function renderPurchases(q){
   const tb = document.getElementById('pur-tbody'); if(!tb) return;
   tb.innerHTML = purs.map((p,i) => `<tr>
     <td style="font-size:11px;color:var(--gold-light);font-weight:700">#PO-${String(i+1).padStart(3,'0')}</td>
-    <td style="font-weight:600">${p.product}</td>
-    <td style="font-size:12px">${p.supplier||'—'}</td>
-    <td style="text-align:center;font-weight:700">${p.qty||0} ${p.purchaseUnit||''}${p.totalConsumeQty>0?' <span style="font-size:10px;color:var(--teal)">= '+p.totalConsumeQty.toFixed(1)+' '+p.consumeUnit+'</span>':''}</td>
+    <td style="font-weight:600">${escapeHtml(p.product)}</td>
+    <td style="font-size:12px">${escapeHtml(p.supplier)||'—'}</td>
+    <td style="text-align:center;font-weight:700">${p.qty||0} ${escapeHtml(p.purchaseUnit)||''}${p.totalConsumeQty>0?' <span style="font-size:10px;color:var(--teal)">= '+p.totalConsumeQty.toFixed(1)+' '+escapeHtml(p.consumeUnit)+'</span>':''}</td>
     <td style="color:var(--gold-light);font-weight:700">${(p.total||0).toLocaleString()} ج</td>
-    <td style="font-size:12px">${p.orderDate||'—'}</td>
-    <td style="font-size:12px;color:${p.deliveryDate&&new Date(p.deliveryDate)<new Date()&&p.status!=='مستلم'?'var(--rose)':'var(--text-muted)'}">${p.deliveryDate||'—'}</td>
-    <td><span class="ast ${stClass[p.status]||'sd'}">${p.status}</span></td>
-    <td style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p.notes||''}">${p.notes||'—'}</td>
+    <td style="font-size:12px">${escapeHtml(p.orderDate)||'—'}</td>
+    <td style="font-size:12px;color:${p.deliveryDate&&new Date(p.deliveryDate)<new Date()&&p.status!=='مستلم'?'var(--rose)':'var(--text-muted)'}">${escapeHtml(p.deliveryDate)||'—'}</td>
+    <td><span class="ast ${stClass[p.status]||'sd'}">${escapeHtml(p.status)}</span></td>
+    <td style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(p.notes)}">${escapeHtml(p.notes)||'—'}</td>
     <td style="display:flex;gap:5px;">
       ${p.status==='معلق'||p.status==='موافق عليه'?`<button class="btn btn-teal btn-xs" onclick="recvPurchase('${p.id}')">✅ استلام</button>`:''}
       <button class="btn btn-ghost btn-xs" onclick="openPurchaseModal('${p.id}')">✏️</button>
@@ -477,13 +477,13 @@ function fillPurchaseProducts(){
   const sel = document.getElementById('pur-product'); if(!sel) return;
   const items = DB.get('inventory') || [];
   sel.innerHTML = '<option value="">-- اختر منتج من المخزون --</option>' +
-    items.map(i => `<option value="${i.id}" data-name="${i.name}" data-branch="${i.branch||''}" data-purchase-unit="${i.purchaseUnit||'قطعة'}" data-qty-per-unit="${i.qtyPerUnit||1}" data-consume-unit="${i.consumeUnit||'قطعة'}">${i.name}${i.branch?' ('+i.branch+')':''} — مخزون: ${(i.qty||0).toFixed(1)} ${i.consumeUnit||'وحدة'}</option>`).join('');
+    items.map(i => `<option value="${i.id}" data-name="${escapeHtml(i.name)}" data-branch="${escapeHtml(i.branch)||''}" data-purchase-unit="${escapeHtml(i.purchaseUnit)||'قطعة'}" data-qty-per-unit="${i.qtyPerUnit||1}" data-consume-unit="${escapeHtml(i.consumeUnit)||'قطعة'}">${escapeHtml(i.name)}${i.branch?' ('+escapeHtml(i.branch)+')':''} — مخزون: ${(i.qty||0).toFixed(1)} ${escapeHtml(i.consumeUnit)||'وحدة'}</option>`).join('');
 }
 
 function fillPurchaseSuppliers(){
   const sel = document.getElementById('pur-supplier'); if(!sel) return;
   const sups = DB.get('suppliers') || [];
-  sel.innerHTML = '<option value="">-- اختر مورد --</option>' + sups.map(s => `<option value="${s.id}" data-name="${s.name}">${s.name}</option>`).join('');
+  sel.innerHTML = '<option value="">-- اختر مورد --</option>' + sups.map(s => `<option value="${s.id}" data-name="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('');
 }
 
 function onPurProductChange(){
@@ -666,13 +666,13 @@ function renderTransfers(q){
   const tb = document.getElementById('tr-tbody'); if(!tb) return;
   tb.innerHTML = trs.map((t,i) => `<tr>
     <td style="font-size:11px;color:var(--gold-light)">#TR-${String(i+1).padStart(3,'0')}</td>
-    <td style="font-weight:600">${t.product}</td>
-    <td><span class="tag tg-gold">${t.from}</span></td>
-    <td><span class="tag tg-teal">${t.to}</span></td>
+    <td style="font-weight:600">${escapeHtml(t.product)}</td>
+    <td><span class="tag tg-gold">${escapeHtml(t.from)}</span></td>
+    <td><span class="tag tg-teal">${escapeHtml(t.to)}</span></td>
     <td style="font-weight:700;color:var(--teal)">${t.qty}</td>
-    <td style="font-size:12px">${t.date||'—'}</td>
-    <td style="font-size:12px">${t.staff||'—'}</td>
-    <td><span class="ast ${t.status==='مكتمل'?'sc':'sp'}">${t.status}</span></td>
+    <td style="font-size:12px">${escapeHtml(t.date)||'—'}</td>
+    <td style="font-size:12px">${escapeHtml(t.staff)||'—'}</td>
+    <td><span class="ast ${t.status==='مكتمل'?'sc':'sp'}">${escapeHtml(t.status)}</span></td>
     <td><button class="btn btn-danger btn-xs" onclick="delTransfer('${t.id}')">🗑</button></td>
   </tr>`).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px">لا توجد تحويلات</td></tr>';
 }
@@ -680,7 +680,7 @@ function renderTransfers(q){
 function openTransferModal(){
   const invSel = document.getElementById('tr-product');
   if(invSel) invSel.innerHTML = '<option value="">-- اختر منتج --</option>' +
-    (DB.get('inventory')||[]).map(i => `<option value="${i.name}" data-branch="${i.branch||''}">${i.name}${i.branch?' ('+i.branch+')':''} — مخزون: ${i.qty}</option>`).join('');
+    (DB.get('inventory')||[]).map(i => `<option value="${escapeHtml(i.name)}" data-branch="${escapeHtml(i.branch)||''}">${escapeHtml(i.name)}${i.branch?' ('+escapeHtml(i.branch)+')':''} — مخزون: ${i.qty}</option>`).join('');
   document.getElementById('tr-id').value   = '';
   document.getElementById('tr-date').value = new Date().toISOString().split('T')[0];
   openModal('transfer-modal');
@@ -745,7 +745,7 @@ function openAdjustModal(productId){
   const adjSel = document.getElementById('adj-product');
   if(adjSel){
     adjSel.innerHTML = '<option value="">-- اختر منتج --</option>' +
-      items.map(i => `<option value="${i.id}" data-qty="${i.qty}" data-name="${i.name}">${i.name} — مخزون: ${i.qty}</option>`).join('');
+      items.map(i => `<option value="${i.id}" data-qty="${i.qty}" data-name="${escapeHtml(i.name)}">${escapeHtml(i.name)} — مخزون: ${i.qty}</option>`).join('');
     if(productId) adjSel.value = productId;
     updateAdjPreview();
   }
@@ -802,7 +802,7 @@ function openProductSaleModal(productId){
   const sel = document.getElementById('psale-product');
   if(sel){
     sel.innerHTML = '<option value="">-- اختر منتج للبيع --</option>' +
-      items.map(i => `<option value="${i.id}" data-name="${i.name}" data-price="${i.price||0}" data-cost="${i.costPrice||i.lastPurchasePrice||0}" data-qty="${i.qty}">${i.name} — سعر: ${i.price||0} ج — متاح: ${i.qty}</option>`).join('');
+      items.map(i => `<option value="${i.id}" data-name="${escapeHtml(i.name)}" data-price="${i.price||0}" data-cost="${i.costPrice||i.lastPurchasePrice||0}" data-qty="${i.qty}">${escapeHtml(i.name)} — سعر: ${i.price||0} ج — متاح: ${i.qty}</option>`).join('');
     if(productId) sel.value = productId;
     updateSalePreview();
   }
@@ -892,7 +892,7 @@ function openMultiPurchaseModal(){
   const sel = document.getElementById('mpur-supplier');
   if(sel){
     const sups = DB.get('suppliers') || [];
-    sel.innerHTML = '<option value="">-- اختر مورد --</option>' + sups.map(s => `<option value="${s.id}" data-name="${s.name}">${s.name}</option>`).join('');
+    sel.innerHTML = '<option value="">-- اختر مورد --</option>' + sups.map(s => `<option value="${s.id}" data-name="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('');
   }
   fillMpurProducts();
   const today = new Date().toISOString().split('T')[0];
@@ -932,7 +932,7 @@ function calcMpurItemPreview(){
 function fillMpurProducts(){
   const sel = document.getElementById('mpur-item-product'); if(!sel) return;
   sel.innerHTML = '<option value="">-- اختر منتج --</option>' +
-    (DB.get('inventory')||[]).map(i => `<option value="${i.id}" data-purchase-unit="${i.purchaseUnit||'قطعة'}" data-qty-per-unit="${i.qtyPerUnit||1}" data-consume-unit="${i.consumeUnit||'قطعة'}">${i.name} — مخزون: ${(i.qty||0).toFixed(1)} ${i.consumeUnit||'وحدة'}</option>`).join('');
+    (DB.get('inventory')||[]).map(i => `<option value="${i.id}" data-purchase-unit="${escapeHtml(i.purchaseUnit)||'قطعة'}" data-qty-per-unit="${i.qtyPerUnit||1}" data-consume-unit="${escapeHtml(i.consumeUnit)||'قطعة'}">${escapeHtml(i.name)} — مخزون: ${(i.qty||0).toFixed(1)} ${escapeHtml(i.consumeUnit)||'وحدة'}</option>`).join('');
 }
 
 function addPurItem(){
@@ -974,9 +974,9 @@ function renderPurItems(){
     const totalConsumeQty = item.qty * (item.qtyPerUnit||1);
     const consumeUnit = item.consumeUnit || 'وحدة';
     return `<tr>
-      <td style="font-weight:600">${item.productName}</td>
-      <td style="text-align:center">${item.qty} ${item.purchaseUnit||''}</td>
-      <td style="color:var(--teal);font-size:12px">${totalConsumeQty.toFixed(1)} ${consumeUnit}</td>
+      <td style="font-weight:600">${escapeHtml(item.productName)}</td>
+      <td style="text-align:center">${item.qty} ${escapeHtml(item.purchaseUnit)||''}</td>
+      <td style="color:var(--teal);font-size:12px">${totalConsumeQty.toFixed(1)} ${escapeHtml(consumeUnit)}</td>
       <td>${(item.unitPrice).toLocaleString()} ج</td>
       <td style="font-weight:700;color:var(--gold-light)">${(item.qty*item.unitPrice).toLocaleString()} ج</td>
       <td><button class="btn btn-danger btn-xs" onclick="removePurItem(${i})">🗑</button></td>
@@ -1032,12 +1032,12 @@ function renderInventoryTransactions(productId){
     .sort((a,b) => (b.date||'').localeCompare(a.date||''));
   const tb = document.getElementById('inv-tx-tbody'); if(!tb) return;
   tb.innerHTML = txs.map(t => `<tr>
-    <td style="font-size:12px">${t.date||'—'}</td>
-    <td style="font-weight:600">${t.product||'—'}</td>
-    <td><span class="tag ${t.type.includes('وارد')||t.type.includes('+') ? 'tg-teal' : 'tg-rose'}">${t.type}</span></td>
-    <td style="font-weight:700;color:${t.type.includes('وارد')||t.type.includes('+') ? 'var(--emerald)' : 'var(--rose)'}">${typeof t.qty==='number'?t.qty.toFixed(2):t.qty||0} ${t.consumeUnit||''}</td>
-    <td style="font-size:11px;color:var(--text-muted)">${t.refType||'—'}</td>
-    <td style="font-size:11px;color:var(--text-muted)">${t.notes||'—'}</td>
+    <td style="font-size:12px">${escapeHtml(t.date)||'—'}</td>
+    <td style="font-weight:600">${escapeHtml(t.product)||'—'}</td>
+    <td><span class="tag ${t.type.includes('وارد')||t.type.includes('+') ? 'tg-teal' : 'tg-rose'}">${escapeHtml(t.type)}</span></td>
+    <td style="font-weight:700;color:${t.type.includes('وارد')||t.type.includes('+') ? 'var(--emerald)' : 'var(--rose)'}">${typeof t.qty==='number'?t.qty.toFixed(2):t.qty||0} ${escapeHtml(t.consumeUnit)||''}</td>
+    <td style="font-size:11px;color:var(--text-muted)">${escapeHtml(t.refType)||'—'}</td>
+    <td style="font-size:11px;color:var(--text-muted)">${escapeHtml(t.notes)||'—'}</td>
   </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">لا توجد حركات</td></tr>';
 }
 
@@ -1080,13 +1080,13 @@ function openSupplierStatementModal(supId){
 
   const purTb = document.getElementById('stmt-purchases-tbody');
   if(purTb){
-    purTb.innerHTML = purchases.length ? purchases.sort((a,b)=>(b.orderDate||'').localeCompare(a.orderDate||'')).map(p=>'<tr><td style="font-size:12px;text-align:center">'+(p.orderDate||'—')+'</td><td style="font-weight:600;text-align:right">'+(p.product||'—')+'</td><td style="text-align:center">'+(p.qty||0).toFixed(1)+' '+(p.purchaseUnit||'')+'</td><td style="text-align:center;font-size:11px;color:var(--teal)">'+(p.totalConsumeQty||0).toFixed(1)+' '+(p.consumeUnit||'')+'</td><td style="text-align:center">'+(p.unitPrice||0).toLocaleString()+' ج</td><td style="font-weight:700;text-align:left">'+(p.total||0).toLocaleString()+' ج</td><td style="text-align:center"><span class="ast">'+(p.status||'—')+'</span></td></tr>').join('')
+    purTb.innerHTML = purchases.length ? purchases.sort((a,b)=>(b.orderDate||'').localeCompare(a.orderDate||'')).map(p=>'<tr><td style="font-size:12px;text-align:center">'+(escapeHtml(p.orderDate)||'—')+'</td><td style="font-weight:600;text-align:right">'+(escapeHtml(p.product)||'—')+'</td><td style="text-align:center">'+(p.qty||0).toFixed(1)+' '+(escapeHtml(p.purchaseUnit)||'')+'</td><td style="text-align:center;font-size:11px;color:var(--teal)">'+(p.totalConsumeQty||0).toFixed(1)+' '+(escapeHtml(p.consumeUnit)||'')+'</td><td style="text-align:center">'+(p.unitPrice||0).toLocaleString()+' ج</td><td style="font-weight:700;text-align:left">'+(p.total||0).toLocaleString()+' ج</td><td style="text-align:center"><span class="ast">'+(escapeHtml(p.status)||'—')+'</span></td></tr>').join('')
     : '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد مشتريات</td></tr>';
   }
 
   const payTb = document.getElementById('stmt-payments-tbody');
   if(payTb){
-    payTb.innerHTML = payments.length ? payments.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(sp=>'<tr><td style="font-size:12px;text-align:center">'+(sp.date||'—')+'</td><td style="text-align:center">'+(sp.method||'—')+'</td><td style="font-weight:700;text-align:left">'+(sp.amount||0).toLocaleString()+' ج</td><td style="font-size:11px;color:var(--text-muted);text-align:right">'+(sp.notes||'—')+'</td></tr>').join('')
+    payTb.innerHTML = payments.length ? payments.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(sp=>'<tr><td style="font-size:12px;text-align:center">'+(escapeHtml(sp.date)||'—')+'</td><td style="text-align:center">'+(escapeHtml(sp.method)||'—')+'</td><td style="font-weight:700;text-align:left">'+(sp.amount||0).toLocaleString()+' ج</td><td style="font-size:11px;color:var(--text-muted);text-align:right">'+(escapeHtml(sp.notes)||'—')+'</td></tr>').join('')
     : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد دفعات</td></tr>';
   }
 

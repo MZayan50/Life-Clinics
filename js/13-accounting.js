@@ -145,7 +145,7 @@ function renderChartOfAccounts(){
   const typeColors = {asset:'tg-teal', liability:'tg-rose', equity:'tg-purple', revenue:'tg-teal', expense:'tg-rose'};
   tb.innerHTML = accounts.map(a=>`<tr>
       <td style="font-weight:700;font-family:monospace">${a.code}</td>
-      <td style="font-weight:600">${a.name}</td>
+      <td style="font-weight:600">${escapeHtml(a.name)}</td>
       <td><span class="tag ${typeColors[a.type]||''}">${typeLabels[a.type]||a.type}</span></td>
       <td style="font-size:12px;color:var(--text-muted)">${a.normalBalance==='debit'?'مدين':'دائن'}</td>
     </tr>`).join('') || `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px">لا يوجد دليل حسابات بعد — اضغط "إنشاء دليل الحسابات"</td></tr>`;
@@ -160,15 +160,15 @@ function renderJournalEntries(){
     const linesHtml = e.lines.map(l=>{
       const acc = getAccountByCode(l.accountCode);
       const name = acc ? acc.name : l.accountCode;
-      return `${name}: ${l.debit?('مدين '+l.debit.toLocaleString()):('دائن '+l.credit.toLocaleString())}`;
+      return `${escapeHtml(name)}: ${l.debit?('مدين '+l.debit.toLocaleString()):('دائن '+l.credit.toLocaleString())}`;
     }).join(' | ');
     const statusTag = e.status==='reversed'
       ? `<span class="tag tg-rose">معكوس</span>`
       : `<span class="tag tg-teal">مرحّل</span>`;
     return `<tr>
-      <td style="font-weight:700;font-family:monospace;font-size:12px">${e.entryNumber}</td>
-      <td style="font-size:12px">${e.date}</td>
-      <td style="font-size:12px">${e.description}</td>
+      <td style="font-weight:700;font-family:monospace;font-size:12px">${escapeHtml(e.entryNumber)}</td>
+      <td style="font-size:12px">${escapeHtml(e.date)}</td>
+      <td style="font-size:12px">${escapeHtml(e.description)}</td>
       <td style="font-size:11px;color:var(--text-muted)">${linesHtml}</td>
       <td>${statusTag}</td>
     </tr>`;
@@ -257,7 +257,7 @@ function renderTrialBalance(){
   } else {
     tb.innerHTML = result.rows.map(r=>`<tr>
         <td style="font-weight:700;font-family:monospace">${r.code}</td>
-        <td style="font-weight:600">${r.name}<div style="font-size:10.5px;color:var(--text-muted)">${typeLabels[r.type]||r.type}</div></td>
+        <td style="font-weight:600">${escapeHtml(r.name)}<div style="font-size:10.5px;color:var(--text-muted)">${typeLabels[r.type]||r.type}</div></td>
         <td style="color:var(--emerald)">${r.debit ? r.debit.toLocaleString()+' ج' : '—'}</td>
         <td style="color:var(--rose)">${r.credit ? r.credit.toLocaleString()+' ج' : '—'}</td>
         <td style="font-weight:800">${r.balance.toLocaleString()} ج</td>
@@ -333,18 +333,18 @@ function renderVouchers(){
     const typeTag = v.type==='receipt'
       ? `<span class="tag tg-green">قبض</span>`
       : `<span class="tag" style="background:rgba(244,63,94,.09);border-color:rgba(244,63,94,.24);color:var(--rose);">صرف</span>`;
-    const voidedTag = isVoided ? `<span class="tag tg-rose" style="margin-inline-start:4px;" title="${v.voidReason||''}">ملغى</span>` : '';
+    const voidedTag = isVoided ? `<span class="tag tg-rose" style="margin-inline-start:4px;" title="${escapeHtml(v.voidReason)||''}">ملغى</span>` : '';
     const rowStyle = isVoided ? 'style="opacity:.55;"' : '';
     const amountStyle = isVoided
       ? 'text-decoration:line-through;color:var(--text-muted);font-weight:700'
       : `font-weight:700;color:${v.type==='receipt'?'var(--emerald)':'var(--rose)'}`;
     return `<tr ${rowStyle}>
-      <td style="font-weight:700;font-family:monospace;font-size:12px">${v.voucherNumber}</td>
+      <td style="font-weight:700;font-family:monospace;font-size:12px">${escapeHtml(v.voucherNumber)}</td>
       <td>${typeTag}${voidedTag}</td>
-      <td style="font-size:12px">${v.date}</td>
-      <td style="font-size:13px;font-weight:600">${v.paidTo_or_receivedFrom||'—'}</td>
+      <td style="font-size:12px">${escapeHtml(v.date)}</td>
+      <td style="font-size:13px;font-weight:600">${escapeHtml(v.paidTo_or_receivedFrom)||'—'}</td>
       <td style="${amountStyle}">${(v.amount||0).toLocaleString()} ج</td>
-      <td style="font-size:12px;color:var(--text-muted)">${v.method||''}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${escapeHtml(v.method)||''}</td>
     </tr>`;
   }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد سندات بعد</td></tr>`;
 }
@@ -409,16 +409,16 @@ function renderAuditLog(){
   tb.innerHTML = logs.map(l=>{
     const colLabel = AUDIT_COLLECTION_LABELS[l.collection] || l.collection;
     const changesHtml = (l.changes||[]).map(c=>
-      `<div><b>${c.field}</b>: ${_auditFieldValue(c.oldValue)} ← ${_auditFieldValue(c.newValue)}</div>`
+      `<div><b>${escapeHtml(c.field)}</b>: ${escapeHtml(_auditFieldValue(c.oldValue))} ← ${escapeHtml(_auditFieldValue(c.newValue))}</div>`
     ).join('');
     const dt = l.timestamp ? new Date(l.timestamp) : null;
     const dtLabel = dt ? dt.toLocaleString('ar-EG', {dateStyle:'short', timeStyle:'short'}) : '—';
     return `<tr>
       <td style="font-size:12px;white-space:nowrap">${dtLabel}</td>
-      <td><span class="tag tg-purple">${colLabel}</span></td>
-      <td style="font-size:11px;font-family:monospace;color:var(--text-muted)">${(l.recordId||'').slice(0,8)}</td>
+      <td><span class="tag tg-purple">${escapeHtml(colLabel)}</span></td>
+      <td style="font-size:11px;font-family:monospace;color:var(--text-muted)">${escapeHtml((l.recordId||'').slice(0,8))}</td>
       <td style="font-size:11px;color:var(--text-muted);max-width:320px">${changesHtml||'—'}</td>
-      <td style="font-size:12px;font-weight:600">${l.user||'—'}</td>
+      <td style="font-size:12px;font-weight:600">${escapeHtml(l.user)||'—'}</td>
     </tr>`;
   }).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد تعديلات مسجّلة بعد</td></tr>`;
 }
@@ -887,8 +887,8 @@ function runSystemIntegrityCheckUI(){
   }
 
   const row = it => `<div style="padding:9px 12px;border-radius:var(--radius-sm);margin-bottom:6px;background:${it.severity==='error'?'rgba(244,63,94,.1)':'rgba(212,175,55,.1)'};border-inline-start:3px solid ${it.severity==='error'?'var(--rose)':'var(--gold)'};">
-    <span style="font-size:11px;font-weight:700;color:${it.severity==='error'?'var(--rose)':'var(--gold)'};">${it.severity==='error'?'❌ خطأ':'⚠️ تنبيه'} — ${it.category}</span>
-    <div style="font-size:12.5px;margin-top:2px;">${it.message}</div>
+    <span style="font-size:11px;font-weight:700;color:${it.severity==='error'?'var(--rose)':'var(--gold)'};">${it.severity==='error'?'❌ خطأ':'⚠️ تنبيه'} — ${escapeHtml(it.category)}</span>
+    <div style="font-size:12.5px;margin-top:2px;">${escapeHtml(it.message)}</div>
   </div>`;
 
   box.innerHTML = `<div style="font-size:12.5px;font-weight:700;margin-bottom:10px;">

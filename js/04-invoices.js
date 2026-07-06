@@ -11,14 +11,14 @@ function renderInv(){
       ? `<span style="font-size:10px;color:${margin>=30?'var(--emerald)':margin>=10?'var(--amber)':'var(--rose)'};font-weight:700"> (${margin}%)</span>`
       : '';
     return `<tr>
-      <td style="font-weight:600">${i.name}</td>
-      <td style="font-size:11px;color:var(--text-muted)">${i.supplierName||'—'}</td>
-      <td style="font-weight:700;color:${i.qty===0?'var(--rose)':i.qty<=i.reorder?'var(--amber)':'var(--emerald)'}">${(i.qty||0).toFixed(1)} ${i.consumeUnit||'وحدة'}</td>
+      <td style="font-weight:600">${escapeHtml(i.name)}</td>
+      <td style="font-size:11px;color:var(--text-muted)">${escapeHtml(i.supplierName)||'—'}</td>
+      <td style="font-weight:700;color:${i.qty===0?'var(--rose)':i.qty<=i.reorder?'var(--amber)':'var(--emerald)'}">${(i.qty||0).toFixed(1)} ${escapeHtml(i.consumeUnit)||'وحدة'}</td>
       <td>${i.reorder}</td>
-      <td style="font-size:12px;color:${i.expiry&&new Date(i.expiry)<new Date()?'var(--rose)':'var(--text-muted)'}">${i.expiry||'—'}</td>
-      <td style="color:var(--rose);font-weight:700">${i.costPerConsumeUnit>0?(i.costPerConsumeUnit.toFixed(2)+' ج/'+i.consumeUnit):(i.costPrice>0?i.costPrice+' ج':'—')}</td>
+      <td style="font-size:12px;color:${i.expiry&&new Date(i.expiry)<new Date()?'var(--rose)':'var(--text-muted)'}">${escapeHtml(i.expiry)||'—'}</td>
+      <td style="color:var(--rose);font-weight:700">${i.costPerConsumeUnit>0?(i.costPerConsumeUnit.toFixed(2)+' ج/'+escapeHtml(i.consumeUnit)):(i.costPrice>0?i.costPrice+' ج':'—')}</td>
       <td>${i.price} ج${marginHtml}</td>
-      <td><span class="stk ${i.status==='متوفر'?'stk-ok':i.status==='منخفض'?'stk-low':'stk-out'}">${i.status}</span></td>
+      <td><span class="stk ${i.status==='متوفر'?'stk-ok':i.status==='منخفض'?'stk-low':'stk-out'}">${escapeHtml(i.status)}</span></td>
       <td><button class="btn btn-teal btn-xs" onclick="openProductSaleModal('${i.id}')">🛒 بيع</button> <button class="btn btn-ghost btn-xs" onclick="openProductModal('${i.id}')">✏️</button> <button class="btn btn-ghost btn-xs" style="font-size:10px" onclick="openAdjustModal('${i.id}')">📊</button> <button class="btn btn-danger btn-xs" onclick="delInv('${i.id}')">🗑</button></td>
     </tr>`;
   }).join('');
@@ -57,7 +57,7 @@ function openProductModal(id){
   const supEl=document.getElementById('prod-supplier');
   if(supEl){
     const sups=DB.get('suppliers')||[];
-    supEl.innerHTML='<option value="">-- بدون مورد --</option>'+sups.map(s=>`<option value="${s.id}" data-name="${s.name}">${s.name}</option>`).join('');
+    supEl.innerHTML='<option value="">-- بدون مورد --</option>'+sups.map(s=>`<option value="${s.id}" data-name="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('');
     if(p&&p.supplierId) supEl.value=p.supplierId;
   }
   // ملء قائمة الفروع من قاعدة البيانات أولاً ثم تحديد القيمة
@@ -65,7 +65,7 @@ function openProductModal(id){
   if(brEl){
     const branches=DB.get('branches')||[];
     if(branches.length){
-      brEl.innerHTML=branches.map(b=>`<option value="${b.name}">${b.name}</option>`).join('');
+      brEl.innerHTML=branches.map(b=>`<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)}</option>`).join('');
     }
     if(p&&p.branch) brEl.value=p.branch;
   }
@@ -171,7 +171,7 @@ function addInvProductRow(prod){
   row.innerHTML=`
     <select class="fctl prod-sel" style="flex:2;font-size:12px;" onchange="onInvProdSelect(this)">
       <option value="">-- اختر منتج --</option>
-      ${inventory.map(i=>`<option value="${i.id}" data-price="${i.price||0}" data-name="${i.name}">${i.name} (${i.qty} متاح)</option>`).join('')}
+      ${inventory.map(i=>`<option value="${i.id}" data-price="${i.price||0}" data-name="${escapeHtml(i.name)}">${escapeHtml(i.name)} (${i.qty} متاح)</option>`).join('')}
     </select>
     <input class="fctl prod-qty" type="number" min="1" value="1" placeholder="كمية" style="width:60px;font-size:12px;" oninput="updInvTotal()">
     <input class="fctl prod-price" type="number" value="${prod?.price||0}" placeholder="سعر" style="width:80px;font-size:12px;" oninput="updInvTotal()">
@@ -220,7 +220,7 @@ function openInvModal(id){
     const svcs = DB.get('services');
     if(svcs.length){
       svcSel.innerHTML = '<option value="">-- اختر الخدمة --</option>'
-        + svcs.map(s => `<option value="${s.name}" data-price="${s.price||0}">${s.name}${s.price?' — '+(s.price).toLocaleString()+' ج':''}</option>`).join('');
+        + svcs.map(s => `<option value="${escapeHtml(s.name)}" data-price="${s.price||0}">${escapeHtml(s.name)}${s.price?' — '+(s.price).toLocaleString()+' ج':''}</option>`).join('');
     } else {
       // لو مفيش خدمات في DB، اترك القائمة فارغة مع رسالة
       svcSel.innerHTML = '<option value="">-- لا توجد خدمات مضافة بعد --</option>';
@@ -542,15 +542,15 @@ function renderInvs(){
   const tb=document.getElementById('invoices-tbody');if(!tb)return;
   tb.innerHTML=invs.map((inv,i)=>`<tr>
     <td style="font-size:11px;color:var(--gold-light);font-weight:700">#INV-${_invNumMap.get(inv.id)||String(i+1).padStart(3,'0')}</td>
-    <td style="font-weight:600">${_patName(inv.patId)||inv.patient||'—'}</td>
-    <td style="font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${inv.service||'—'}</td>
-    <td style="font-size:12px;color:var(--text-muted)">${inv.doctor||'—'}</td>
+    <td style="font-weight:600">${escapeHtml(_patName(inv.patId)||inv.patient)||'—'}</td>
+    <td style="font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(inv.service)||'—'}</td>
+    <td style="font-size:12px;color:var(--text-muted)">${escapeHtml(inv.doctor)||'—'}</td>
     <td style="font-weight:800">${(inv.total||0).toLocaleString()} ج</td>
     <td style="color:var(--emerald);font-weight:700">${(inv.paid||0).toLocaleString()} ج</td>
     <td style="color:${(inv.remaining||0)>0?'var(--rose)':'var(--text-muted)'};font-weight:700">${(inv.remaining||0).toLocaleString()} ج</td>
-    <td><span class="tag tg-teal">${METHOD_ICO[inv.method]||'💰'} ${inv.method||'—'}</span></td>
-    <td style="font-size:12px;color:var(--text-muted)">${inv.date||'—'}</td>
-    <td><span class="ast ${STATUS_CLS[inv.status]||'sd'}">${inv.status||'معلق'}</span></td>
+    <td><span class="tag tg-teal">${METHOD_ICO[inv.method]||'💰'} ${escapeHtml(inv.method)||'—'}</span></td>
+    <td style="font-size:12px;color:var(--text-muted)">${escapeHtml(inv.date)||'—'}</td>
+    <td><span class="ast ${STATUS_CLS[inv.status]||'sd'}">${escapeHtml(inv.status)||'معلق'}</span></td>
     <td style="display:flex;gap:5px;">
       ${(inv.remaining||0)>0?`<button class="btn btn-teal btn-xs" onclick="openSmartPay('${inv.id}')">💳 دفع</button>`:'<span style="color:var(--emerald);font-size:11px;font-weight:700">✅ مكتمل</span>'}
       <button class="btn btn-ghost btn-xs" onclick="printInvoice('${inv.id}')">🖨️</button>
@@ -882,14 +882,14 @@ function openQuickSell(productId){
   if(patSel){
     const pats = DB.get('patients')||[];
     patSel.innerHTML = '<option value="">-- اختر عميل --</option>'
-      + pats.map(p=>`<option value="${p.id}">${p.name}${p.phone?' — '+p.phone:''}</option>`).join('');
+      + pats.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}${p.phone?' — '+escapeHtml(p.phone):''}</option>`).join('');
   }
   // ملء dropdown المنتجات
   const prodSel = document.getElementById('qs-prod-sel');
   if(prodSel){
     const inv = DB.get('inventory')||[];
     prodSel.innerHTML = '<option value="">-- اختر منتج --</option>'
-      + inv.map(i=>`<option value="${i.id}" data-price="${i.price||0}" data-name="${i.name}" data-qty="${i.qty||0}">${i.name} (${i.qty} متاح) — ${i.price||0} ج</option>`).join('');
+      + inv.map(i=>`<option value="${i.id}" data-price="${i.price||0}" data-name="${escapeHtml(i.name)}" data-qty="${i.qty||0}">${escapeHtml(i.name)} (${i.qty} متاح) — ${i.price||0} ج</option>`).join('');
     if(productId) prodSel.value = productId;
   }
   // تحديث السعر لو منتج محدد

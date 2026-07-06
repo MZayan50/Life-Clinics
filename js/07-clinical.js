@@ -135,8 +135,8 @@ function renderPhotos(q){
     <div class="card" style="padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div>
-          <div style="font-weight:700;font-size:14px">${p.patientName}</div>
-          <div style="font-size:11px;color:var(--text-muted)">${p.service||'—'} · جلسة ${p.session||1} · ${p.date||'—'}</div>
+          <div style="font-weight:700;font-size:14px">${escapeHtml(p.patientName)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${escapeHtml(p.service)||'—'} · جلسة ${p.session||1} · ${escapeHtml(p.date)||'—'}</div>
         </div>
         <div style="display:flex;gap:6px;">
           <button class="btn btn-ghost btn-xs" onclick="delPhoto('${p.id}')">🗑</button>
@@ -150,7 +150,7 @@ function renderPhotos(q){
           <div style="font-size:28px">📸</div><div style="font-size:11px;color:var(--text-muted);margin-top:4px">بعد</div>
         </div>
       </div>
-      ${p.notes?`<div style="font-size:12px;color:var(--text-muted);border-top:1px solid var(--glass-border);padding-top:8px;">${p.notes}</div>`:''}
+      ${p.notes?`<div style="font-size:12px;color:var(--text-muted);border-top:1px solid var(--glass-border);padding-top:8px;">${escapeHtml(p.notes)}</div>`:''}
     </div>
   `).join('');
 
@@ -260,7 +260,7 @@ function renderWaitlist(){
   const brSel=document.getElementById('wl-branch-filter');
   if(brSel && brSel.options.length<=1){
     const brs=DB.get('branches')||[];
-    brSel.innerHTML='<option value="">كل الفروع</option>'+brs.map(b=>`<option>${b.name||b}</option>`).join('');
+    brSel.innerHTML='<option value="">كل الفروع</option>'+brs.map(b=>`<option>${escapeHtml(b.name||b)}</option>`).join('');
   }
   const q=(document.getElementById('wl-search')?.value||'').trim().toLowerCase();
   const branch=document.getElementById('wl-branch-filter')?.value||'';
@@ -328,12 +328,12 @@ function renderWaitlist(){
       <div class="wq-rank">${i+1}</div>
       <div class="wq-ava" style="background:${avaBg}">${genderAva(_patGender(a.patId,a.patient))}</div>
       <div class="wq-info">
-        <div class="wq-name">${a.patient||'—'}</div>
-        <div class="wq-meta">${a.time}${a.endTime?' – '+a.endTime:''} · ${a.service||'—'} · ${a.doctor||'—'}</div>
-        ${a.checkInTime?`<div style="font-size:11px;color:var(--teal);margin-top:2px;">وصل ${a.checkInTime}</div>`:''}
+        <div class="wq-name">${escapeHtml(a.patient)||'—'}</div>
+        <div class="wq-meta">${escapeHtml(a.time)}${a.endTime?' – '+escapeHtml(a.endTime):''} · ${escapeHtml(a.service)||'—'} · ${escapeHtml(a.doctor)||'—'}</div>
+        ${a.checkInTime?`<div style="font-size:11px;color:var(--teal);margin-top:2px;">وصل ${escapeHtml(a.checkInTime)}</div>`:''}
       </div>
       <div class="wq-timer ${timerCls}">${timer}</div>
-      <span class="ast ${stCls}" style="font-size:11.5px;">${STATUS_LABEL[a.status]||a.status}</span>
+      <span class="ast ${stCls}" style="font-size:11.5px;">${escapeHtml(STATUS_LABEL[a.status]||a.status)}</span>
       <div class="wq-actions">${actions}</div>
     </div>`;
   }).join('');
@@ -453,10 +453,10 @@ function renderSessions(){
     return `<div class="bcard">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
         <div>
-          <div style="font-size:15px;font-weight:800;">${s.patName||'—'}</div>
-          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">✨ ${s.type||'—'} · 👨‍⚕️ ${s.doctor||'—'}</div>
+          <div style="font-size:15px;font-weight:800;">${escapeHtml(s.patName)||'—'}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">✨ ${escapeHtml(s.type)||'—'} · 👨‍⚕️ ${escapeHtml(s.doctor)||'—'}</div>
         </div>
-        <span class="ast ${STATUS_COLOR[s.status]||'sd'}">${s.status}</span>
+        <span class="ast ${STATUS_COLOR[s.status]||'sd'}">${escapeHtml(s.status)}</span>
       </div>
       <div style="margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px;">
@@ -466,8 +466,8 @@ function renderSessions(){
         <div class="prog"><div class="prog-f" style="background:linear-gradient(90deg,var(--teal),var(--gold));width:${pct}%;"></div></div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:3px;text-align:left">${pct}%</div>
       </div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">📍 ${s.branch||'—'} · 📅 ${s.startDate||'—'}</div>
-      ${s.notes?`<div style="font-size:12px;color:var(--text-secondary);background:var(--glass);border-radius:8px;padding:7px 10px;margin-bottom:10px;">${s.notes}</div>`:''}
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">📍 ${escapeHtml(s.branch)||'—'} · 📅 ${escapeHtml(s.startDate)||'—'}</div>
+      ${s.notes?`<div style="font-size:12px;color:var(--text-secondary);background:var(--glass);border-radius:8px;padding:7px 10px;margin-bottom:10px;">${escapeHtml(s.notes)}</div>`:''}
       <div style="display:flex;gap:7px;">
         <button class="btn btn-teal btn-sm" style="flex:1" onclick="addSessionProgress('${s.id}')">✅ +جلسة</button>
         <button class="btn btn-ghost btn-sm" style="flex:1" onclick="openSessionModal('${s.id}')">✏️ تعديل</button>
@@ -481,9 +481,9 @@ function openSessionModal(id){
   document.getElementById('sess-modal-title').textContent=s?'✏️ تعديل خطة الجلسات':'✨ خطة جلسات جديدة';
   document.getElementById('sess-id').value=s?s.id:'';
   const sel=document.getElementById('sess-pat');
-  sel.innerHTML=DB.get('patients').map(p=>`<option value="${p.id}" data-name="${p.name}"${s&&s.patId===p.id?' selected':''}>${p.name}</option>`).join('');
+  sel.innerHTML=DB.get('patients').map(p=>`<option value="${p.id}" data-name="${escapeHtml(p.name)}"${s&&s.patId===p.id?' selected':''}>${escapeHtml(p.name)}</option>`).join('');
   const docSel=document.getElementById('sess-doc');
-  docSel.innerHTML=DB.get('doctors').map(d=>`<option${s&&s.doctor===d.name?' selected':''}>${d.name}</option>`).join('')||'<option>د. منى سامي</option>';
+  docSel.innerHTML=DB.get('doctors').map(d=>`<option${s&&s.doctor===d.name?' selected':''}>${escapeHtml(d.name)}</option>`).join('')||'<option>د. منى سامي</option>';
   if(s){
     document.getElementById('sess-type').value=s.type||'ليزر إزالة شعر';
     document.getElementById('sess-total-count').value=s.total||6;
@@ -561,10 +561,10 @@ function renderPackages(){
     return `<div class="bcard">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
         <div>
-          <div style="font-size:15px;font-weight:800;">${p.name||'—'}</div>
-          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">👤 ${p.patName||'—'}</div>
+          <div style="font-size:15px;font-weight:800;">${escapeHtml(p.name)||'—'}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">👤 ${escapeHtml(p.patName)||'—'}</div>
         </div>
-        <span class="ast ${SCOL[p.status]||'sd'}">${p.status}</span>
+        <span class="ast ${SCOL[p.status]||'sd'}">${escapeHtml(p.status)}</span>
       </div>
       <div class="g2c" style="gap:8px;margin-bottom:11px;">
         <div style="background:var(--glass);border-radius:8px;padding:9px;text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--gold-light)">${(p.price||0).toLocaleString()}</div><div style="font-size:11px;color:var(--text-muted)">السعر (ج)</div></div>
@@ -580,8 +580,8 @@ function renderPackages(){
         ${sessLeft === 1 ? `<div style="font-size:11px;color:var(--gold-light);margin-top:4px;font-weight:700;">⚠️ جلسة أخيرة تبقّت!</div>` : ''}
         ${sessLeft === 0 ? `<div style="font-size:11px;color:var(--rose);margin-top:4px;font-weight:700;">✅ اكتملت كل الجلسات</div>` : ''}
       </div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">📅 ${p.startDate||'—'} ← ${p.endDate||'—'}</div>
-      ${p.services?`<div style="margin-bottom:8px;"><span class="tag tg-gold" style="font-size:11px;">${p.services}</span></div>`:''}
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">📅 ${escapeHtml(p.startDate)||'—'} ← ${escapeHtml(p.endDate)||'—'}</div>
+      ${p.services?`<div style="margin-bottom:8px;"><span class="tag tg-gold" style="font-size:11px;">${escapeHtml(p.services)}</span></div>`:''}
       <div style="display:flex;gap:7px;margin-bottom:7px;">
         ${sessLeft > 0 ? `<button class="btn btn-teal btn-sm" style="flex:1" onclick="usePackageSession('${p.id}')">✅ تسجيل جلسة</button>` : ''}
         <button class="btn btn-ghost btn-sm" ${sessLeft>0?'':'style="flex:1"'} onclick="openPackageModal('${p.id}')">✏️ تعديل</button>
@@ -597,7 +597,7 @@ function openPackageModal(id, presetPatId){
   document.getElementById('pkg-modal-title').textContent=p?'✏️ تعديل الباقة':'🎁 باقة علاجية جديدة';
   document.getElementById('pkg-id').value=p?p.id:'';
   const sel=document.getElementById('pkg-pat');
-  sel.innerHTML=DB.get('patients').map(pt=>`<option value="${pt.id}" data-name="${pt.name}"${String(pt.id)===String(targetPatId)?' selected':''}>${pt.name}</option>`).join('');
+  sel.innerHTML=DB.get('patients').map(pt=>`<option value="${pt.id}" data-name="${escapeHtml(pt.name)}"${String(pt.id)===String(targetPatId)?' selected':''}>${escapeHtml(pt.name)}</option>`).join('');
   if(p){
     document.getElementById('pkg-name').value=p.name||'';
     document.getElementById('pkg-services').value=p.services||'';
@@ -785,13 +785,13 @@ function renderReception(){
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px;">
             <div style="flex: 1;">
               <div style="font-size: 28px; font-weight: 900; color: white; margin-bottom: 8px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
-                🔴 استدعاء من د. ${call.doctor}
+                🔴 استدعاء من د. ${escapeHtml(call.doctor)}
               </div>
               <div style="font-size: 24px; color: white; font-weight: 700; margin-bottom: 5px;">
-                👤 ${call.patientName}
+                👤 ${escapeHtml(call.patientName)}
               </div>
               <div style="font-size: 14px; color: rgba(255,255,255,0.9);">
-                ⏰ ${call.time}
+                ⏰ ${escapeHtml(call.time)}
               </div>
             </div>
             
@@ -870,12 +870,12 @@ function renderReception(){
     return `<div class="wq-card ${a.status==='متأخر'?'wq-late':isActive?'wq-checkin':''}">
       <div class="wq-ava" style="background:${AVA_C[i%AVA_C.length]}">${genderAva(_patGender(a.patId,a.patient))}</div>
       <div class="wq-info">
-        <div class="wq-name">${a.patient}</div>
-        <div class="wq-meta">${a.time}${a.endTime?' – '+a.endTime:''} · ${a.service||'—'} · <span style="color:var(--teal)">${a.doctor||'—'}</span></div>
-        ${a.checkInTime?`<div style="font-size:11px;color:var(--teal)">وصل ${a.checkInTime}</div>`:''}
+        <div class="wq-name">${escapeHtml(a.patient)}</div>
+        <div class="wq-meta">${escapeHtml(a.time)}${a.endTime?' – '+escapeHtml(a.endTime):''} · ${escapeHtml(a.service)||'—'} · <span style="color:var(--teal)">${escapeHtml(a.doctor)||'—'}</span></div>
+        ${a.checkInTime?`<div style="font-size:11px;color:var(--teal)">وصل ${escapeHtml(a.checkInTime)}</div>`:''}
       </div>
       <div class="wq-timer">${timer}</div>
-      <span class="ast ${stCls}" style="font-size:11.5px">${ST_LBL[a.status]||a.status}</span>
+      <span class="ast ${stCls}" style="font-size:11.5px">${escapeHtml(ST_LBL[a.status]||a.status)}</span>
       <div class="wq-actions">
         ${canCheckIn?`<button class="btn btn-teal btn-sm" onclick="wlCheckIn('${a.id}');renderReception()">✅ وصل</button>`:''}
         ${!isDone?`<button class="btn btn-ghost btn-xs" onclick="wlMarkNoShow('${a.id}');renderReception()" title="لم يحضر">❌</button>`:''}
@@ -899,7 +899,7 @@ function renderDoctorView(){
     // ✅ إعادة ملء القائمة دائماً من DB لضمان تحديثها عند إضافة/حذف أطباء
     const prevVal = docSel.value;
     docSel.innerHTML = '<option value="">— اختر طبيباً —</option>' +
-      DB.get('doctors').map(d=>`<option value="${d.name}">${d.name}</option>`).join('');
+      DB.get('doctors').map(d=>`<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
     if(prevVal && DB.get('doctors').some(d=>d.name===prevVal)) docSel.value = prevVal;
   }
   const docName=docSel?.value||'';
@@ -932,7 +932,7 @@ function renderDoctorView(){
   txt('dv-kpi-today',appts.length);txt('dv-kpi-waiting',waiting);txt('dv-kpi-done',done);
   txt('dv-kpi-comm',comm.toLocaleString());txt('dv-count-lbl',appts.length+' مريض');
   const AVA_C=['linear-gradient(135deg,#C4A882,#9A7050)','linear-gradient(135deg,#2DD4BF,#14B8A6)','linear-gradient(135deg,#8B5CF6,#6D28D9)','linear-gradient(135deg,#F43F5E,#BE123C)','linear-gradient(135deg,#10B981,#047857)'];
-  if(!appts.length){container.innerHTML=`<div style="text-align:center;padding:40px;color:var(--text-muted)">لا توجد مرضى لـ ${docName} اليوم ✨</div>`;return;}
+  if(!appts.length){container.innerHTML=`<div style="text-align:center;padding:40px;color:var(--text-muted)">لا توجد مرضى لـ ${escapeHtml(docName)} اليوم ✨</div>`;return;}
   const nowMin=new Date().getHours()*60+new Date().getMinutes();
   container.innerHTML=appts.map((a,i)=>{
     const stCls=ASC[a.status]||'sd';
@@ -945,14 +945,14 @@ function renderDoctorView(){
       <div style="width:28px;height:28px;border-radius:50%;background:var(--glass);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--text-muted);flex-shrink:0">${i+1}</div>
       <div class="wq-ava" style="background:${AVA_C[i%AVA_C.length]}">${genderAva(_patGender(a.patId,a.patient))}</div>
       <div class="wq-info">
-        <div class="wq-name">${a.patient}</div>
-        <div class="wq-meta">${a.service||'—'} · موعد ${a.time}${a.checkInTime?' · وصل '+a.checkInTime:''}</div>
-        ${inConsult&&a.consultStart?`<div style="font-size:11px;color:var(--purple)">بدأت ${a.consultStart} · مضى ${timer}</div>`:''}
+        <div class="wq-name">${escapeHtml(a.patient)}</div>
+        <div class="wq-meta">${escapeHtml(a.service)||'—'} · موعد ${escapeHtml(a.time)}${a.checkInTime?' · وصل '+escapeHtml(a.checkInTime):''}</div>
+        ${inConsult&&a.consultStart?`<div style="font-size:11px;color:var(--purple)">بدأت ${escapeHtml(a.consultStart)} · مضى ${timer}</div>`:''}
         ${waitMin!==null?`<div style="font-size:11px;color:var(--amber)">ينتظر ${waitMin} دقيقة</div>`:''}
       </div>
-      <span class="ast ${stCls}" style="font-size:11px">${a.status}</span>
+      <span class="ast ${stCls}" style="font-size:11px">${escapeHtml(a.status)}</span>
       <div class="wq-actions">
-        ${canCall?`<button class="btn btn-primary btn-sm" onclick="(()=>{ document.getElementById('dv-appt-id').value='${a.id}'; document.getElementById('dv-doctor-name').value='${docName}'; callPatient(); renderDoctorView(); })()">📢 استدعاء</button>`:''}
+        ${canCall?`<button class="btn btn-primary btn-sm" onclick="(()=>{ document.getElementById('dv-appt-id').value='${a.id}'; document.getElementById('dv-doctor-name').value='${escJsAttr(docName)}'; callPatient(); renderDoctorView(); })()">📢 استدعاء</button>`:''}
         ${inConsult?`<button class="btn btn-sm" style="background:linear-gradient(135deg,var(--emerald),#047857);color:#fff;border:none;padding:6px 12px;border-radius:8px;font-family:Tajawal,sans-serif;font-weight:600;cursor:pointer" onclick="openConsultDoneModal('${a.id}')">✅ إنهاء</button>`:''}
         ${isDone?`<span style="font-size:11px;color:var(--emerald)">✔ مكتمل</span>`:''}
       </div>
@@ -971,17 +971,17 @@ function openConsultDoneModal(apptId){
   const doc=DB.get('doctors').find(d=>d.name===a.doctor);
   document.getElementById('cd-summary').innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
-      <div><span style="color:var(--text-muted)">المريض:</span> <strong>${a.patient}</strong></div>
-      <div><span style="color:var(--text-muted)">الطبيب:</span> <strong>${a.doctor||'—'}</strong></div>
-      <div><span style="color:var(--text-muted)">بدأت:</span> ${a.consultStart||'—'}</div>
+      <div><span style="color:var(--text-muted)">المريض:</span> <strong>${escapeHtml(a.patient)}</strong></div>
+      <div><span style="color:var(--text-muted)">الطبيب:</span> <strong>${escapeHtml(a.doctor)||'—'}</strong></div>
+      <div><span style="color:var(--text-muted)">بدأت:</span> ${escapeHtml(a.consultStart)||'—'}</div>
       <div><span style="color:var(--text-muted)">مدة الاستشارة:</span> <strong style="color:var(--teal)">${dur}</strong></div>
-      <div><span style="color:var(--text-muted)">الخدمة:</span> ${a.service||'—'}</div>
+      <div><span style="color:var(--text-muted)">الخدمة:</span> ${escapeHtml(a.service)||'—'}</div>
       <div><span style="color:var(--text-muted)">العمولة:</span> ${doc?.commission||0}%</div>
     </div>`;
   const svcSel=document.getElementById('cd-svc');
   const svcs=DB.get('services')||[];
   svcSel.innerHTML=svcs.length
-    ? svcs.map(s=>`<option value="${s.name}" data-price="${s.price||0}">${s.name}${s.price?' — '+Number(s.price).toLocaleString()+' ج':''}</option>`).join('')
+    ? svcs.map(s=>`<option value="${escapeHtml(s.name)}" data-price="${s.price||0}">${escapeHtml(s.name)}${s.price?' — '+Number(s.price).toLocaleString()+' ج':''}</option>`).join('')
     : '<option value="">— لا توجد خدمات —</option>';
   if(a.service) svcSel.value=a.service;
   onCdSvcChange();
@@ -1251,8 +1251,8 @@ function _fillPkgServicesCheckboxes(selectedIds){
     const checked = selectedIds && selectedIds.includes(s.id) ? 'checked' : '';
     return `<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding:3px 0;">
       <input type="checkbox" value="${s.id}" ${checked} onchange="_updatePkgServicesHidden();_autoCalcPkgPrice();calcPkgProfitPreview()">
-      <span style="font-weight:600">${s.name}</span>
-      <span style="color:var(--text-muted);font-size:11px;">${s.cat} · ${(s.price||0).toLocaleString()} ج</span>
+      <span style="font-weight:600">${escapeHtml(s.name)}</span>
+      <span style="color:var(--text-muted);font-size:11px;">${escapeHtml(s.cat)} · ${(s.price||0).toLocaleString()} ج</span>
       ${mc > 0 ? `<span style="color:var(--rose);font-size:11px;">(تكلفة: ${mc.toFixed(1)} ج)</span>` : ''}
     </label>`;
   }).join('');
@@ -1313,7 +1313,7 @@ openPackageModal = function(id, presetPatId){
   document.getElementById('pkg-id').value = p ? p.id : '';
   const sel = document.getElementById('pkg-pat');
   if(sel) sel.innerHTML = DB.get('patients').map(pt =>
-    `<option value="${pt.id}" data-name="${pt.name}"${String(pt.id)===String(targetPatId)?' selected':''}>${pt.name}</option>`
+    `<option value="${pt.id}" data-name="${escapeHtml(pt.name)}"${String(pt.id)===String(targetPatId)?' selected':''}>${escapeHtml(pt.name)}</option>`
   ).join('');
   // ملء checkboxes الخدمات
   const selectedIds = p ? (p.serviceIds || []) : [];
@@ -1433,20 +1433,20 @@ openSessionModal = function(id){
   // ملء قائمة العملاء
   const sel = document.getElementById('sess-pat');
   sel.innerHTML = DB.get('patients').map(p =>
-    `<option value="${p.id}" data-name="${p.name}"${s&&s.patId===p.id?' selected':''}>${p.name}</option>`
+    `<option value="${p.id}" data-name="${escapeHtml(p.name)}"${s&&s.patId===p.id?' selected':''}>${escapeHtml(p.name)}</option>`
   ).join('');
   // ملء قائمة الخدمات
   const svcSel = document.getElementById('sess-service-id');
   if(svcSel){
     svcSel.innerHTML = '<option value="">-- اختر خدمة --</option>' +
       (DB.get('services')||[]).map(sv =>
-        `<option value="${sv.id}" data-price="${sv.price||0}"${s&&(s.serviceId===sv.id||s.service===sv.name)?' selected':''}>${sv.name} — ${(sv.price||0).toLocaleString()} ج</option>`
+        `<option value="${sv.id}" data-price="${sv.price||0}"${s&&(s.serviceId===sv.id||s.service===sv.name)?' selected':''}>${escapeHtml(sv.name)} — ${(sv.price||0).toLocaleString()} ج</option>`
       ).join('');
   }
   // ملء قائمة الأطباء
   const docSel = document.getElementById('sess-doc');
   if(docSel) docSel.innerHTML = DB.get('doctors').map(d =>
-    `<option${s&&s.doctor===d.name?' selected':''}>${d.name}</option>`
+    `<option${s&&s.doctor===d.name?' selected':''}>${escapeHtml(d.name)}</option>`
   ).join('') || '<option>د. منى سامي</option>';
 
   if(s){
@@ -1592,10 +1592,10 @@ renderPackages = function(){
     return `<div class="bcard">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
         <div>
-          <div style="font-size:15px;font-weight:800;">${p.name||'—'}</div>
-          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">👤 ${p.patName||'—'}</div>
+          <div style="font-size:15px;font-weight:800;">${escapeHtml(p.name)||'—'}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">👤 ${escapeHtml(p.patName)||'—'}</div>
         </div>
-        <span class="ast ${SCOL[p.status]||'sd'}">${p.status}</span>
+        <span class="ast ${SCOL[p.status]||'sd'}">${escapeHtml(p.status)}</span>
       </div>
       <div class="g2c" style="gap:8px;margin-bottom:11px;">
         <div style="background:var(--glass);border-radius:8px;padding:9px;text-align:center;"><div style="font-size:18px;font-weight:800;color:var(--gold-light)">${(p.price||0).toLocaleString()}</div><div style="font-size:11px;color:var(--text-muted)">السعر (ج)</div></div>
@@ -1622,8 +1622,8 @@ renderPackages = function(){
         ${sessLeft===1?`<div style="font-size:11px;color:var(--gold-light);margin-top:4px;font-weight:700;">⚠️ جلسة أخيرة تبقّت!</div>`:''}
         ${sessLeft===0?`<div style="font-size:11px;color:var(--rose);margin-top:4px;font-weight:700;">✅ اكتملت كل الجلسات</div>`:''}
       </div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">📅 ${p.startDate||'—'} ← ${p.endDate||'—'}</div>
-      ${p.services?`<div style="margin-bottom:8px;font-size:11px;color:var(--teal);">🔗 ${p.services}</div>`:''}
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">📅 ${escapeHtml(p.startDate)||'—'} ← ${escapeHtml(p.endDate)||'—'}</div>
+      ${p.services?`<div style="margin-bottom:8px;font-size:11px;color:var(--teal);">🔗 ${escapeHtml(p.services)}</div>`:''}
       <div style="display:flex;gap:7px;">
         ${sessLeft>0?`<button class="btn btn-teal btn-sm" style="flex:1" onclick="usePackageSession('${p.id}')">✅ تسجيل جلسة</button>`:''}
         <button class="btn btn-ghost btn-sm" ${sessLeft>0?'':'style="flex:1"'} onclick="openPackageModal('${p.id}')">✏️ تعديل</button>
@@ -1791,9 +1791,9 @@ function openCallPatientModal(){
   const listHTML = appts.map(a => `
     <div style="padding:12px;background:var(--glass);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
       <div style="flex:1;">
-        <div style="font-weight:600;color:var(--text);">${a.patient}</div>
-        <div style="font-size:12px;color:var(--text-muted);">د. ${a.doctor} · ${a.service || '—'}</div>
-        <div style="font-size:11px;color:var(--amber);margin-top:4px;">⏰ ${a.time} · ${a.status}</div>
+        <div style="font-weight:600;color:var(--text);">${escapeHtml(a.patient)}</div>
+        <div style="font-size:12px;color:var(--text-muted);">د. ${escapeHtml(a.doctor)} · ${escapeHtml(a.service) || '—'}</div>
+        <div style="font-size:11px;color:var(--amber);margin-top:4px;">⏰ ${escapeHtml(a.time)} · ${escapeHtml(a.status)}</div>
       </div>
       <button onclick="quickCallPatient('${a.id}')" style="
         padding:8px 16px;

@@ -21,7 +21,7 @@ function renderExpenses(){
   txt('exp-kpi-top',topType);
   txt('exp-kpi-count',all.length);
 
-  tb.innerHTML=exps.map(e=>`<tr><td style="font-weight:600">${e.name}</td><td><span class="tag tg-purple">${e.type}</span></td><td style="font-size:12px">${e.branch||'—'}</td><td style="color:var(--rose);font-weight:700">${(e.amount||0).toLocaleString()} ج</td><td style="font-size:12px">${e.date||'—'}</td><td style="display:flex;gap:5px;"><button class="btn btn-ghost btn-xs" onclick="openExpModal('${e.id}')">✏️</button><button class="btn btn-danger btn-xs" onclick="delExp('${e.id}')">🗑</button></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد مصروفات مطابقة</td></tr>';
+  tb.innerHTML=exps.map(e=>`<tr><td style="font-weight:600">${escapeHtml(e.name)}</td><td><span class="tag tg-purple">${escapeHtml(e.type)}</span></td><td style="font-size:12px">${escapeHtml(e.branch)||'—'}</td><td style="color:var(--rose);font-weight:700">${(e.amount||0).toLocaleString()} ج</td><td style="font-size:12px">${escapeHtml(e.date)||'—'}</td><td style="display:flex;gap:5px;"><button class="btn btn-ghost btn-xs" onclick="openExpModal('${e.id}')">✏️</button><button class="btn btn-danger btn-xs" onclick="delExp('${e.id}')">🗑</button></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">لا توجد مصروفات مطابقة</td></tr>';
 }
 function openExpModal(id){
   const e=id?DB.get('expenses').find(x=>x.id===id):null;
@@ -196,14 +196,14 @@ function renderInstallments(q){
     const nextDue = p.payments ? p.payments.find(x=>!x.paid) : null;
     const stClass = p.status==='مكتمل'?'sc':p.status==='متأخر'?'sx':'sp';
     return `<tr>
-      <td style="font-weight:600">${p.patientName||'—'}</td>
-      <td style="font-size:12px">${p.service||'—'}</td>
+      <td style="font-weight:600">${escapeHtml(p.patientName)||'—'}</td>
+      <td style="font-size:12px">${escapeHtml(p.service)||'—'}</td>
       <td style="font-weight:700">${(p.total||0).toLocaleString()} ج</td>
       <td style="color:var(--emerald);font-weight:700">${(p.downPayment||0).toLocaleString()} ج</td>
       <td style="color:${(p.remaining||0)>0?'var(--rose)':'var(--emerald)'};font-weight:700">${(p.remaining||0).toLocaleString()} ج</td>
       <td><div class="prog"><div class="prog-f" style="width:${p.count?Math.round(paidCount/p.count*100):0}%;background:var(--teal)"></div></div><div style="font-size:10px;color:var(--text-muted);margin-top:3px">${paidCount}/${p.count||0}</div></td>
-      <td style="font-size:12px;color:var(--amber)">${nextDue?nextDue.dueDate:'—'}</td>
-      <td><span class="ast ${stClass}">${p.status||'نشط'}</span></td>
+      <td style="font-size:12px;color:var(--amber)">${escapeHtml(nextDue?nextDue.dueDate:'')||'—'}</td>
+      <td><span class="ast ${stClass}">${escapeHtml(p.status)||'نشط'}</span></td>
       <td style="display:flex;gap:5px;">
         ${nextDue?`<button class="btn btn-teal btn-xs" onclick="payInstallment('${p.id}')">💰 دفع</button>`:''}
         <button class="btn btn-danger btn-xs" onclick="delInstallment('${p.id}')">🗑</button>
@@ -220,10 +220,10 @@ function renderInstallments(q){
   });
   logs.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   logTb.innerHTML = logs.map(l=>`<tr>
-    <td style="font-weight:600">${l.patient}</td>
+    <td style="font-weight:600">${escapeHtml(l.patient)}</td>
     <td style="color:var(--text-muted)">قسط #${l.installNum}</td>
     <td style="color:var(--emerald);font-weight:700">${(l.amount||0).toLocaleString()} ج</td>
-    <td style="font-size:12px">${l.date||'—'}</td>
+    <td style="font-size:12px">${escapeHtml(l.date)||'—'}</td>
     <td><span class="ast sc">مدفوع</span></td>
   </tr>`).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px">لا توجد سجلات</td></tr>';
 }
@@ -231,7 +231,7 @@ function renderInstallments(q){
 function openInstModal(){
   const pats = DB.get('patients');
   const sel = document.getElementById('inst-pat'); if(!sel) return;
-  sel.innerHTML = '<option value="">-- اختر عميل --</option>'+pats.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  sel.innerHTML = '<option value="">-- اختر عميل --</option>'+pats.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
   document.getElementById('inst-edit-id').value='';
   document.getElementById('inst-total').value='';
   document.getElementById('inst-down').value='0';
@@ -424,7 +424,7 @@ function renderAccounts(){
     revByService[k]=(revByService[k]||0)+(c.amount||0);
   });
   const revEl=document.getElementById('acc-revenues');
-  if(revEl) revEl.innerHTML=Object.entries(revByService).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--glass-border);"><span style="color:var(--text-muted)">${k}</span><span style="font-weight:700;color:var(--emerald)">${v.toLocaleString()} ج</span></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px">لا توجد إيرادات</div>';
+  if(revEl) revEl.innerHTML=Object.entries(revByService).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--glass-border);"><span style="color:var(--text-muted)">${escapeHtml(k)}</span><span style="font-weight:700;color:var(--emerald)">${v.toLocaleString()} ج</span></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px">لا توجد إيرادات</div>';
 
   // Expense breakdown — من expenses لنفس الشهر (الرواتب/الإيجار المسجَّلة يدويًا)
   // + بند "تكلفة المواد" (COGS) من ميزان المراجعة صراحة، لأنه بيُحسب تلقائيًا
@@ -449,7 +449,7 @@ function renderAccounts(){
   if(salaryBalance > 0) expByType['رواتب'] = salaryBalance;
   else delete expByType['رواتب'];
   const expEl=document.getElementById('acc-expenses-list');
-  if(expEl) expEl.innerHTML=Object.entries(expByType).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--glass-border);"><span style="color:var(--text-muted)">${k}</span><span style="font-weight:700;color:var(--rose)">${v.toLocaleString()} ج</span></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px">لا توجد مصروفات</div>';
+  if(expEl) expEl.innerHTML=Object.entries(expByType).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--glass-border);"><span style="color:var(--text-muted)">${escapeHtml(k)}</span><span style="font-weight:700;color:var(--rose)">${v.toLocaleString()} ج</span></div>`).join('')||'<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px">لا توجد مصروفات</div>';
 
   txt('acc-total-revenue',totalRevenue.toLocaleString()+' ج');
   txt('acc-total-expense',totalExpense.toLocaleString()+' ج');
@@ -565,11 +565,11 @@ function renderPayments(q){
   const tb=document.getElementById('pay-tbody');if(!tb)return;
   tb.innerHTML=entries.map((e,i)=>`<tr>
     <td style="font-size:11px;color:var(--gold-light);font-weight:700">#PAY-${String(i+1).padStart(3,'0')}</td>
-    <td style="font-weight:600">${e.patId?(_patName(e.patId)||e.patient||(e.source||'').replace(/فاتورة — |دفعة فاتورة — |دفعة قسط #\d+ — /g,'')):(e.patient||(e.source||'').replace(/فاتورة — |دفعة فاتورة — |دفعة قسط #\d+ — /g,''))}</td>
-    <td style="font-size:12px">${e.service||'—'}</td>
+    <td style="font-weight:600">${escapeHtml(e.patId?(_patName(e.patId)||e.patient||(e.source||'').replace(/فاتورة — |دفعة فاتورة — |دفعة قسط #\d+ — /g,'')):(e.patient||(e.source||'').replace(/فاتورة — |دفعة فاتورة — |دفعة قسط #\d+ — /g,'')))}</td>
+    <td style="font-size:12px">${escapeHtml(e.service)||'—'}</td>
     <td style="font-weight:800;color:var(--emerald)">${(e.amount||0).toLocaleString()} ج</td>
-    <td><span class="tag tg-teal">${PAY_ICONS[e.method]||'💰'} ${e.method||'—'}</span></td>
-    <td style="font-size:12px;color:var(--text-muted)">${e.date||'—'}</td>
+    <td><span class="tag tg-teal">${PAY_ICONS[e.method]||'💰'} ${escapeHtml(e.method)||'—'}</span></td>
+    <td style="font-size:12px;color:var(--text-muted)">${escapeHtml(e.date)||'—'}</td>
     <td style="font-size:11px;color:var(--text-muted)">${e.invId?`#INV ref`:'—'}</td>
     <td><span class="ast sc">مكتمل</span></td>
   </tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px">لا توجد مدفوعات</td></tr>';
@@ -733,11 +733,11 @@ function renderTreasury(){
         <thead><tr><th>النوع</th><th>المصدر</th><th>الخدمة</th><th>المبلغ</th><th>الطريقة</th><th>التاريخ</th></tr></thead>
         <tbody>${movements.map(m=>`<tr>
           <td><span class="ast ${m.dir==='in'?'sc':'sx'}">${m.dir==='in'?'📥 وارد':'📤 صادر'}</span></td>
-          <td style="font-size:12.5px">${m.source||'—'}</td>
-          <td style="font-size:12px;color:var(--text-muted)">${m.service||'—'}</td>
+          <td style="font-size:12.5px">${escapeHtml(m.source)||'—'}</td>
+          <td style="font-size:12px;color:var(--text-muted)">${escapeHtml(m.service)||'—'}</td>
           <td style="font-weight:800;color:${m.dir==='in'?'var(--emerald)':'var(--rose)'}">${(m.amount||0).toLocaleString()} ج</td>
-          <td style="font-size:12px">${m.method||'—'}</td>
-          <td style="font-size:12px;color:var(--text-muted)">${m.date||'—'}</td>
+          <td style="font-size:12px">${escapeHtml(m.method)||'—'}</td>
+          <td style="font-size:12px;color:var(--text-muted)">${escapeHtml(m.date)||'—'}</td>
         </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">لا توجد حركات</td></tr>'}
         </tbody>
       </table></div>

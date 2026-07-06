@@ -39,13 +39,13 @@ function renderAppts(){
   );
   const tb = document.getElementById('appts-tbody'); if(!tb) return;
   tb.innerHTML = appts.map(a => `<tr>
-    <td style="font-weight:600">${_patName(a.patId)||a.patient}</td>
-    <td style="font-size:12px">${a.date}</td>
-    <td style="font-weight:700;color:var(--teal)">${a.time}${a.endTime?` <span style="color:var(--text-muted);font-weight:400;font-size:11px">- ${a.endTime}</span>`:''}</td>
-    <td>${a.service}</td>
-    <td>${a.doctor||'—'}</td>
-    <td style="font-size:12px">${a.branch||'—'}</td>
-    <td><span class="ast ${ASC[a.status]||'sd'}">${a.status}</span></td>
+    <td style="font-weight:600">${escapeHtml(_patName(a.patId)||a.patient)}</td>
+    <td style="font-size:12px">${escapeHtml(a.date)}</td>
+    <td style="font-weight:700;color:var(--teal)">${escapeHtml(a.time)}${a.endTime?` <span style="color:var(--text-muted);font-weight:400;font-size:11px">- ${escapeHtml(a.endTime)}</span>`:''}</td>
+    <td>${escapeHtml(a.service)}</td>
+    <td>${escapeHtml(a.doctor)||'—'}</td>
+    <td style="font-size:12px">${escapeHtml(a.branch)||'—'}</td>
+    <td><span class="ast ${ASC[a.status]||'sd'}">${escapeHtml(a.status)}</span></td>
     <td style="display:flex;gap:5px;white-space:nowrap;">
       <button class="btn btn-ghost btn-xs" onclick="openApptModal('${a.id}')">✏️</button>
       ${a.status!=='مكتمل'?`<button class="btn btn-ghost btn-xs" onclick="openConsultDoneModal('${a.id}')" title="إنهاء الموعد وإصدار الفاتورة">✅</button>`:''}
@@ -175,13 +175,13 @@ function onApptPatChange(patId){
   const isLast = sessLeft === 1;
   box.style.display = 'block';
   box.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;">
-    <span style="font-weight:700;color:var(--teal)">🎁 باقة نشطة: ${pkg.name}</span>
-    <span style="font-size:11px;color:var(--text-muted)">${pkg.services||''}</span>
+    <span style="font-weight:700;color:var(--teal)">🎁 باقة نشطة: ${escapeHtml(pkg.name)}</span>
+    <span style="font-size:11px;color:var(--text-muted)">${escapeHtml(pkg.services)||''}</span>
   </div>
   <div style="display:flex;gap:12px;margin-top:5px;font-size:12px;">
     <span>📊 الجلسات: <strong>${sessUsed}/${pkg.sessionsCount}</strong></span>
     <span style="color:${isLast?'var(--gold-light)':'var(--emerald)'};font-weight:700">متبقي: ${sessLeft} جلسة${isLast?' ⚠️ أخيرة!':''}</span>
-    <span style="color:var(--text-muted)">📅 تنتهي: ${pkg.endDate||'—'}</span>
+    <span style="color:var(--text-muted)">📅 تنتهي: ${escapeHtml(pkg.endDate)||'—'}</span>
   </div>`;
 }
 
@@ -283,7 +283,7 @@ function clearApptConflictBox(){
 function renderApptConflictBox(reasons, suggestions){
   const box = document.getElementById('am-conflict-box'); if(!box) return;
   box.style.display = 'block';
-  let html = `<div style="font-weight:700;margin-bottom:4px;">⚠️ في تعارض بالموعد:</div><ul style="margin:0;padding-right:18px;">${reasons.map(r=>`<li>${r}</li>`).join('')}</ul>`;
+  let html = `<div style="font-weight:700;margin-bottom:4px;">⚠️ في تعارض بالموعد:</div><ul style="margin:0;padding-right:18px;">${reasons.map(r=>`<li>${escapeHtml(r)}</li>`).join('')}</ul>`;
   if(suggestions && suggestions.length){
     html += `<div style="margin-top:8px;font-weight:700;color:var(--text-primary);">أقرب أوقات متاحة:</div><div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;">${suggestions.map(s=>`<button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('am-time').value='${s}';clearApptConflictBox();">${s}</button>`).join('')}</div>`;
   } else {
@@ -297,10 +297,10 @@ function renderTodayAppts(){
   const ta    = DB.get('appointments').filter(a => a.date===today);
   const el    = document.getElementById('today-appts'); if(!el) return;
   el.innerHTML = ta.slice(0,5).map((a,i) => `<div class="appt-item">
-    <div class="appt-time">${a.time}</div>
+    <div class="appt-time">${escapeHtml(a.time)}</div>
     <div class="appt-ava" style="background:${AVA[i%AVA.length]}">${genderAva(_patGender(a.patId,a.patient))}</div>
-    <div class="appt-info"><p>${_patName(a.patId)||a.patient}</p><span>${a.service}</span></div>
-    <span class="ast ${ASC[a.status]||'sd'}">${a.status}</span>
+    <div class="appt-info"><p>${escapeHtml(_patName(a.patId)||a.patient)}</p><span>${escapeHtml(a.service)}</span></div>
+    <span class="ast ${ASC[a.status]||'sd'}">${escapeHtml(a.status)}</span>
   </div>`).join('') || '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px;">لا توجد مواعيد اليوم</div>';
   txt('kpi-appt', ta.length);
   txt('badge-appts', ta.length);
@@ -339,10 +339,10 @@ function calSel(el, ds){
   const da  = DB.get('appointments').filter(a => a.date===ds);
   const el2 = document.getElementById('cal-day-appts');
   if(el2) el2.innerHTML = da.map(a => `<div class="appt-item">
-    <div class="appt-time">${a.time}</div>
+    <div class="appt-time">${escapeHtml(a.time)}</div>
     <div class="appt-ava" style="background:linear-gradient(135deg,#8B5CF6,#3B82F6);font-size:13px">${genderAva(_patGender(a.patId,a.patient))}</div>
-    <div class="appt-info"><p style="font-size:12.5px">${_patName(a.patId)||a.patient}</p><span style="font-size:11px">${a.service}</span></div>
-    <span class="ast ${ASC[a.status]||'sd'}" style="font-size:10px">${a.status}</span>
+    <div class="appt-info"><p style="font-size:12.5px">${escapeHtml(_patName(a.patId)||a.patient)}</p><span style="font-size:11px">${escapeHtml(a.service)}</span></div>
+    <span class="ast ${ASC[a.status]||'sd'}" style="font-size:10px">${escapeHtml(a.status)}</span>
   </div>`).join('') || '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:12.5px">لا توجد مواعيد</div>';
 }
 

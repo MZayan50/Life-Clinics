@@ -29,14 +29,14 @@ function renderPat(){
   tb.innerHTML = pats.map((p,i) => `<tr onclick="viewPat('${p.id}')" style="cursor:pointer">
     <td><div style="display:flex;align-items:center;gap:9px;">
       <div class="tdava" style="background:${AVA[i%AVA.length]}">${genderAva(p.gender)}</div>
-      <div><div style="font-weight:600">${p.name}</div><div style="font-size:11px;color:var(--text-muted)">#C${String(i+1).padStart(3,'0')}</div></div>
+      <div><div style="font-weight:600">${escapeHtml(p.name)}</div><div style="font-size:11px;color:var(--text-muted)">#C${String(i+1).padStart(3,'0')}</div></div>
     </div></td>
-    <td>${p.phone}</td>
-    <td><span class="tag tg-gold">${p.skin}</span></td>
+    <td>${escapeHtml(p.phone)}</td>
+    <td><span class="tag tg-gold">${escapeHtml(p.skin)}</span></td>
     <td style="color:var(--text-muted);font-size:12px">اليوم</td>
     <td><span style="font-weight:700;color:var(--teal)">${p.sessions||0}</span></td>
     <td style="color:${(p.balance||0)>0?'var(--rose)':'var(--emerald)'};font-weight:700">${(p.balance||0).toLocaleString()} ج</td>
-    <td><span class="ast ${p.status==='نشط'?'sc':p.status==='قسط'?'sp':'sd'}">${p.status}</span></td>
+    <td><span class="ast ${p.status==='نشط'?'sc':p.status==='قسط'?'sp':'sd'}">${escapeHtml(p.status)}</span></td>
     <td>
       <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();viewPat('${p.id}')">عرض</button>
       <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openPatModal('${p.id}')">✏️</button>
@@ -99,14 +99,14 @@ function viewPat(id){
           :`<span style="font-size:11.5px;padding:3px 9px;border-radius:20px;background:rgba(148,163,184,.1);color:var(--text-muted)">○ جلسة ${i+1}</span>`);
         return `<div style="background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.2);border-radius:var(--radius-sm);padding:14px;margin-bottom:11px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;">
-            <span style="font-weight:700">${s.type||'جلسات'} ${s.doc?'· د. '+s.doc:''}</span>
+            <span style="font-weight:700">${escapeHtml(s.type)||'جلسات'} ${s.doc?'· د. '+escapeHtml(s.doc):''}</span>
             <span style="color:var(--teal);font-weight:700">${done}/${total}</span>
           </div>
           <div class="prog"><div class="prog-f" style="width:${pct}%;background:var(--teal)"></div></div>
           <div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;">${sessArr.join('')}</div>
           <div style="display:flex;gap:7px;margin-top:10px;">
             <button class="btn btn-teal btn-xs" onclick="addSessionProgress('${s.id}')">✅ تسجيل جلسة</button>
-            <span class="ast ${s.status==='مكتملة'?'sc':s.status==='متوقفة'?'sx':'sp'}" style="margin-right:auto">${s.status}</span>
+            <span class="ast ${s.status==='مكتملة'?'sc':s.status==='متوقفة'?'sx':'sp'}" style="margin-right:auto">${escapeHtml(s.status)}</span>
           </div>
         </div>`;
       }).join('')||'';
@@ -128,13 +128,13 @@ function viewPat(id){
       return `<div style="background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:13px;margin-bottom:9px;">
         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
           <div>
-            <div style="font-weight:700">${pk.name}</div>
-            <div style="font-size:12px;color:var(--text-muted)">${pk.services||''}</div>
+            <div style="font-weight:700">${escapeHtml(pk.name)}</div>
+            <div style="font-size:12px;color:var(--text-muted)">${escapeHtml(pk.services)||''}</div>
           </div>
           <div style="text-align:left">
             <div style="color:var(--gold-light);font-weight:700">${(pk.price||0).toLocaleString()} ج</div>
             ${remaining>0?`<div style="color:var(--rose);font-size:12px">متبقي مالي: ${remaining.toLocaleString()} ج</div>`:''}
-            <span class="ast ${pk.status==='نشطة'?'sc':'sd'}" style="font-size:10px">${pk.status}</span>
+            <span class="ast ${pk.status==='نشطة'?'sc':'sd'}" style="font-size:10px">${escapeHtml(pk.status)}</span>
           </div>
         </div>
         <div style="background:rgba(45,212,191,.06);border-radius:8px;padding:8px;margin-bottom:6px;">
@@ -152,11 +152,11 @@ function viewPat(id){
     }).join('') : '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px">لا توجد باقات</div>';
   }
   const tg = document.getElementById('pp-tags');
-  if(tg) tg.innerHTML = `<span class="tag tg-gold">${p.skin}</span><span class="tag tg-teal">${p.hair}</span>${p.allergies&&p.allergies!=='لا حساسية'?'<span class="tag tg-purple">⚠️ حساسية</span>':'<span class="tag tg-green">✅ لا حساسية</span>'}`;
+  if(tg) tg.innerHTML = `<span class="tag tg-gold">${escapeHtml(p.skin)}</span><span class="tag tg-teal">${escapeHtml(p.hair)}</span>${p.allergies&&p.allergies!=='لا حساسية'?'<span class="tag tg-purple">⚠️ حساسية</span>':'<span class="tag tg-green">✅ لا حساسية</span>'}`;
   const sk = document.getElementById('med-skin');
-  if(sk) sk.innerHTML = `<div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">النوع:</span><span class="tag tg-gold">${p.skin}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">المشاكل:</span><span>${p.skinProbs||'—'}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">الحساسية:</span><span>${p.allergies||'—'}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">الحمل:</span><span>${p.pregnancy||'—'}</span></div>`;
+  if(sk) sk.innerHTML = `<div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">النوع:</span><span class="tag tg-gold">${escapeHtml(p.skin)}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">المشاكل:</span><span>${escapeHtml(p.skinProbs)||'—'}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">الحساسية:</span><span>${escapeHtml(p.allergies)||'—'}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">الحمل:</span><span>${escapeHtml(p.pregnancy)||'—'}</span></div>`;
   const hr = document.getElementById('med-hair');
-  if(hr) hr.innerHTML = `<div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">النوع:</span><span class="tag tg-teal">${p.hair}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">المشاكل:</span><span>${p.hairProbs||'—'}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">الأدوية:</span><span>${p.meds||'لا يوجد'}</span></div>`;
+  if(hr) hr.innerHTML = `<div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">النوع:</span><span class="tag tg-teal">${escapeHtml(p.hair)}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">المشاكل:</span><span>${escapeHtml(p.hairProbs)||'—'}</span></div><div style="display:flex;justify-content:space-between"><span style="color:var(--text-muted)">الأدوية:</span><span>${escapeHtml(p.meds)||'لا يوجد'}</span></div>`;
   // ── جدول الفواتير الموسَّع - مزامنة تلقائية ──
   const pinv = patInvoices.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const pitb = document.getElementById('p-inv-tbody');
@@ -164,14 +164,14 @@ function viewPat(id){
     const num = `#${String(idx+1).padStart(3,'0')}`;
     const stCls = i.status==='مدفوع'?'sc':i.status==='جزئي'?'sp':'sd';
     const items = i.items||[];
-    const svcs = items.filter(x=>x.type==='service'||!x.type).map(x=>x.name||x.service||'—').join('، ')||i.service||'—';
-    const prods = items.filter(x=>x.type==='product').map(x=>`${x.name||'—'} (${x.qty||1})`).join('، ')||'—';
+    const svcs = escapeHtml(items.filter(x=>x.type==='service'||!x.type).map(x=>x.name||x.service||'—').join('، ')||i.service||'—');
+    const prods = escapeHtml(items.filter(x=>x.type==='product').map(x=>`${x.name||'—'} (${x.qty||1})`).join('، ')||'—');
     const disc = (i.discount||0);
     const tax  = (i.tax||0);
     return `<tr>
       <td style="font-size:11px;color:var(--gold-light);font-weight:700">${num}</td>
-      <td style="font-size:12px;color:var(--text-muted)">${i.date||'—'}</td>
-      <td style="font-size:12px;">${i.doctor||'—'}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${escapeHtml(i.date)||'—'}</td>
+      <td style="font-size:12px;">${escapeHtml(i.doctor)||'—'}</td>
       <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${svcs}">${svcs}</td>
       <td style="font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${prods}">${prods}</td>
       <td style="font-size:12px;color:var(--amber)">${disc>0?disc.toLocaleString()+' ج':'—'}</td>
@@ -179,9 +179,9 @@ function viewPat(id){
       <td style="font-weight:800;color:var(--gold-light)">${(i.total||0).toLocaleString()} ج</td>
       <td style="color:var(--emerald);font-weight:700">${(i.paid||0).toLocaleString()} ج</td>
       <td style="color:${(i.remaining||0)>0?'var(--rose)':'var(--text-muted)'};font-weight:700">${(i.remaining||0).toLocaleString()} ج</td>
-      <td><span class="tag tg-teal" style="font-size:11px">${i.method||'—'}</span></td>
-      <td><span class="ast ${stCls}">${i.status||'—'}</span></td>
-      <td style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${i.notes||''}">${i.notes||'—'}</td>
+      <td><span class="tag tg-teal" style="font-size:11px">${escapeHtml(i.method)||'—'}</span></td>
+      <td><span class="ast ${stCls}">${escapeHtml(i.status)||'—'}</span></td>
+      <td style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(i.notes)}">${escapeHtml(i.notes)||'—'}</td>
       <td style="white-space:nowrap;">
         <div style="display:flex;gap:4px;">
           ${(i.remaining||0)>0?`<button class="btn btn-teal btn-xs" onclick="openSmartPay('${i.id}')">💳</button>`:''}
@@ -252,27 +252,28 @@ function renderPatHistory(id){
   appts.forEach(a => items.push({
     _date: a.date||'', _time: a.time||'',
     _icon: a.status==='مكتمل'?'✅':a.status==='ملغي'?'🚫':a.status==='لم يحضر'?'❌':'📅',
-    _title: `موعد — ${a.service||'—'}${a.doctor?' · د. '+a.doctor:''}`,
-    _sub: `${a.status||'—'}${a.branch?' · '+a.branch:''}`,
+    _title: `موعد — ${escapeHtml(a.service)||'—'}${a.doctor?' · د. '+escapeHtml(a.doctor):''}`,
+    _sub: `${escapeHtml(a.status)||'—'}${a.branch?' · '+escapeHtml(a.branch):''}`,
     _color: a.status==='مكتمل'?'var(--emerald)':a.status==='ملغي'||a.status==='لم يحضر'?'var(--rose)':'var(--teal)'
   }));
   invsForHistory.forEach(i => items.push({
     _date: i.date||'', _time: '',
     _icon: '🧾',
-    _title: `فاتورة — ${i.service||'—'}`,
-    _sub: `${(i.total||0).toLocaleString()} ج · ${i.status||'—'}`,
+    _title: `فاتورة — ${escapeHtml(i.service)||'—'}`,
+    _sub: `${(i.total||0).toLocaleString()} ج · ${escapeHtml(i.status)||'—'}`,
     _color: 'var(--gold-light)'
   }));
   pkgs.forEach(pk => items.push({
     _date: pk.startDate||'', _time: '',
     _icon: '🎁',
-    _title: `باقة — ${pk.name||'—'}`,
-    _sub: `${(pk.price||0).toLocaleString()} ج · ${pk.status||'—'}`,
+    _title: `باقة — ${escapeHtml(pk.name)||'—'}`,
+    _sub: `${(pk.price||0).toLocaleString()} ج · ${escapeHtml(pk.status)||'—'}`,
     _color: 'var(--teal)'
   }));
 
   items.sort((x,y) => (y._date+y._time).localeCompare(x._date+x._time));
 
+  // ملاحظة: _title/_sub تم تعقيمها بالفعل (escapeHtml) وقت بناء items أعلاه — لا نعقّمها هنا مرة تانية
   el.innerHTML = items.length ? items.map(it => `
     <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--radius-sm);">
       <div style="font-size:18px;flex-shrink:0;">${it._icon}</div>
@@ -280,7 +281,7 @@ function renderPatHistory(id){
         <div style="font-weight:700;font-size:13px;">${it._title}</div>
         <div style="font-size:11.5px;color:${it._color};">${it._sub}</div>
       </div>
-      <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${it._date||'—'}${it._time?' · '+it._time:''}</div>
+      <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${escapeHtml(it._date)||'—'}${it._time?' · '+escapeHtml(it._time):''}</div>
     </div>`).join('')
     : '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:13px">لا يوجد سجل بعد</div>';
 }
@@ -369,15 +370,15 @@ function renderPatAccount(id){
         if(tx._type === 'invoice'){
           const i = tx._raw;
           const stCls = i.status==='مدفوع'?'sc':i.status==='جزئي'?'sp':'sd';
-          const prods = (i.products||[]).map(x=>(x.productName||'—')+' × '+(x.qty||1)).join('، ')||'—';
-          const svcs  = i.service||'—';
+          const prods = escapeHtml((i.products||[]).map(x=>(x.productName||'—')+' × '+(x.qty||1)).join('، ')||'—');
+          const svcs  = escapeHtml(i.service||'—');
           const disc  = i.discount||0;
           const tax   = i.tax||0;
           // badge النوع يظهر داخل عمود # مع الرقم
           return '<tr style="border-right:3px solid var(--gold-light)">'
             + '<td style="font-size:11px;color:var(--gold-light);font-weight:700">'+num+'<br><span class="tag tg-gold" style="font-size:9px">🧾</span></td>'  // 1:#
-            + '<td style="font-size:12px;color:var(--text-muted)">'+(i.date||'—')+'</td>'  // 2:التاريخ
-            + '<td style="font-size:12px">'+(i.doctor||'—')+'</td>'  // 3:الطبيب
+            + '<td style="font-size:12px;color:var(--text-muted)">'+escapeHtml(i.date||'—')+'</td>'  // 2:التاريخ
+            + '<td style="font-size:12px">'+escapeHtml(i.doctor||'—')+'</td>'  // 3:الطبيب
             + '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+svcs+'">'+svcs+'</td>'  // 4:الخدمات
             + '<td style="font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+prods+'">'+prods+'</td>'  // 5:المنتجات
             + '<td style="font-size:12px;color:var(--amber)">'+(disc>0?disc.toLocaleString()+' ج':'—')+'</td>'  // 6:الخصم
@@ -385,9 +386,9 @@ function renderPatAccount(id){
             + '<td style="font-weight:800;color:var(--gold-light)">'+(i.total||0).toLocaleString()+' ج</td>'  // 8:الإجمالي
             + '<td style="color:var(--emerald);font-weight:700">'+(i.paid||0).toLocaleString()+' ج</td>'  // 9:المدفوع
             + '<td style="color:'+((i.remaining||0)>0?'var(--rose)':'var(--text-muted)')+';font-weight:700">'+(i.remaining||0).toLocaleString()+' ج</td>'  // 10:المتبقي
-            + '<td><span class="tag tg-teal" style="font-size:11px">'+(i.method||'—')+'</span></td>'  // 11:طريقة الدفع
-            + '<td><span class="ast '+stCls+'">'+(i.status||'—')+'</span></td>'  // 12:الحالة
-            + '<td style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(i.notes||'')+'">'+(i.notes||'—')+'</td>'  // 13:ملاحظات
+            + '<td><span class="tag tg-teal" style="font-size:11px">'+escapeHtml(i.method||'—')+'</span></td>'  // 11:طريقة الدفع
+            + '<td><span class="ast '+stCls+'">'+escapeHtml(i.status||'—')+'</span></td>'  // 12:الحالة
+            + '<td style="font-size:11px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escapeHtml(i.notes||'')+'">'+escapeHtml(i.notes||'—')+'</td>'  // 13:ملاحظات
             + '<td style="white-space:nowrap"><div style="display:flex;gap:4px;">'  // 14:إجراءات
             + ((i.remaining||0)>0?'<button class="btn btn-teal btn-xs" onclick="openSmartPay(\''+i.id+'\')">💳</button>':'')
             + '<button class="btn btn-ghost btn-xs" onclick="sendInvoiceWA(\''+i.id+'\')">💬</button>'
@@ -402,10 +403,10 @@ function renderPatAccount(id){
           const pkgRem   = Math.max(0,pkgPrice-pkgPaid);
           const stCls    = pk.status==='نشطة'?'sc':pk.status==='منتهية'?'sd':'sp';
           const sessInfo = (pk.sessionsUsed||0)+'/'+(pk.sessionsCount||0)+' جلسة';
-          const pkgLabel = pk.name+(pk.services?' · '+pk.services:'');
+          const pkgLabel = escapeHtml(pk.name+(pk.services?' · '+pk.services:''));
           return '<tr style="border-right:3px solid var(--teal)">'
             + '<td style="font-size:11px;color:var(--teal);font-weight:700">'+num+'<br><span class="tag tg-teal" style="font-size:9px">🎁</span></td>'  // 1:#
-            + '<td style="font-size:12px;color:var(--text-muted)">'+(pk.startDate||'—')+'</td>'  // 2:التاريخ
+            + '<td style="font-size:12px;color:var(--text-muted)">'+escapeHtml(pk.startDate||'—')+'</td>'  // 2:التاريخ
             + '<td style="font-size:12px">—</td>'  // 3:الطبيب
             + '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+pkgLabel+'">'+pkgLabel+'</td>'  // 4:الخدمات
             + '<td style="font-size:12px;color:var(--text-muted)">'+sessInfo+'</td>'  // 5:المنتجات → جلسات
@@ -414,9 +415,9 @@ function renderPatAccount(id){
             + '<td style="font-weight:800;color:var(--gold-light)">'+pkgPrice.toLocaleString()+' ج</td>'  // 8:الإجمالي
             + '<td style="color:var(--emerald);font-weight:700">'+pkgPaid.toLocaleString()+' ج</td>'  // 9:المدفوع
             + '<td style="color:'+(pkgRem>0?'var(--rose)':'var(--text-muted)')+';font-weight:700">'+pkgRem.toLocaleString()+' ج</td>'  // 10:المتبقي
-            + '<td><span class="tag tg-teal" style="font-size:11px">'+(pk.payMethod||'—')+'</span></td>'  // 11:طريقة الدفع
-            + '<td><span class="ast '+stCls+'">'+(pk.status||'—')+'</span></td>'  // 12:الحالة
-            + '<td style="font-size:11px;color:var(--text-muted)">'+(pk.startDate||'—')+' ← '+(pk.endDate||'—')+'</td>'  // 13:ملاحظات
+            + '<td><span class="tag tg-teal" style="font-size:11px">'+escapeHtml(pk.payMethod||'—')+'</span></td>'  // 11:طريقة الدفع
+            + '<td><span class="ast '+stCls+'">'+escapeHtml(pk.status||'—')+'</span></td>'  // 12:الحالة
+            + '<td style="font-size:11px;color:var(--text-muted)">'+escapeHtml(pk.startDate||'—')+' ← '+escapeHtml(pk.endDate||'—')+'</td>'  // 13:ملاحظات
             + '<td style="white-space:nowrap"><div style="display:flex;gap:4px;">'  // 14:إجراءات
             + (pkgRem>0?'<button class="btn btn-teal btn-xs" onclick="openPayFromProfile()">💳</button>':'')
             + '</div></td>'
@@ -427,18 +428,18 @@ function renderPatAccount(id){
           const c = tx._raw;
           return '<tr style="border-right:3px solid var(--emerald);opacity:.85">'
             + '<td style="font-size:11px;color:var(--emerald);font-weight:700">'+num+'<br><span class="tag tg-green" style="font-size:9px">💰</span></td>'  // 1:#
-            + '<td style="font-size:12px;color:var(--text-muted)">'+(c.date||'—')+'</td>'  // 2:التاريخ
+            + '<td style="font-size:12px;color:var(--text-muted)">'+escapeHtml(c.date||'—')+'</td>'  // 2:التاريخ
             + '<td style="font-size:12px">—</td>'  // 3:الطبيب
-            + '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(c.source||c.service||'')+'">'+(c.source||c.service||'دفعة')+'</td>'  // 4:الخدمات
+            + '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escapeHtml(c.source||c.service||'')+'">'+escapeHtml(c.source||c.service||'دفعة')+'</td>'  // 4:الخدمات
             + '<td>—</td>'  // 5:المنتجات
             + '<td>—</td>'  // 6:الخصم
             + '<td>—</td>'  // 7:الضريبة
             + '<td>—</td>'  // 8:الإجمالي
             + '<td style="color:var(--emerald);font-weight:800">'+(c.amount||0).toLocaleString()+' ج</td>'  // 9:المدفوع
             + '<td style="color:var(--text-muted)">—</td>'  // 10:المتبقي
-            + '<td><span class="tag tg-teal" style="font-size:11px">'+(c.method||'—')+'</span></td>'  // 11:طريقة الدفع
+            + '<td><span class="tag tg-teal" style="font-size:11px">'+escapeHtml(c.method||'—')+'</span></td>'  // 11:طريقة الدفع
             + '<td><span class="ast sc">مدفوع</span></td>'  // 12:الحالة
-            + '<td style="font-size:11px;color:var(--text-muted)">'+(c.notes||'—')+'</td>'  // 13:ملاحظات
+            + '<td style="font-size:11px;color:var(--text-muted)">'+escapeHtml(c.notes||'—')+'</td>'  // 13:ملاحظات
             + '<td>—</td>'  // 14:إجراءات
             + '</tr>';
         }
@@ -461,20 +462,20 @@ function renderPatAccount(id){
           const isDone  = i < done;
           return '<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid var(--glass-border);font-size:12.5px;">'
             + '<div style="width:26px;height:26px;border-radius:50%;background:'+(isDone?'var(--teal)':'var(--glass-border)')+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:'+(isDone?'#fff':'var(--text-muted)')+';">'+sessNum+'</div>'
-            + '<div style="flex:1;"><span style="font-weight:600">'+(s.type||'جلسة')+' '+sessNum+'</span>'
-            + (s.doc?'<span style="color:var(--text-muted);font-size:11px;margin-right:6px;">· د. '+s.doc+'</span>':'')
+            + '<div style="flex:1;"><span style="font-weight:600">'+escapeHtml(s.type||'جلسة')+' '+sessNum+'</span>'
+            + (s.doc?'<span style="color:var(--text-muted);font-size:11px;margin-right:6px;">· د. '+escapeHtml(s.doc)+'</span>':'')
             + '</div>'
             + '<div>'+(isDone?'<span class="ast sc" style="font-size:11px">✅ مكتملة</span>':'<span class="ast sd" style="font-size:11px">○ لم تُنفَّذ</span>')+'</div>'
             + '</div>';
         }).join('');
         return '<div style="margin-bottom:12px;border:1px solid var(--glass-border);border-radius:var(--radius-sm);overflow:hidden;">'
           + '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--glass);">'
-          + '<div><span style="font-weight:800;font-size:14px;">'+(s.type||'جلسات')+'</span>'
-          + (s.doc?'<span style="color:var(--text-muted);font-size:12px;margin-right:8px;">د. '+s.doc+'</span>':'')
+          + '<div><span style="font-weight:800;font-size:14px;">'+escapeHtml(s.type||'جلسات')+'</span>'
+          + (s.doc?'<span style="color:var(--text-muted);font-size:12px;margin-right:8px;">د. '+escapeHtml(s.doc)+'</span>':'')
           + '</div>'
           + '<div style="display:flex;align-items:center;gap:10px;">'
           + '<span style="color:var(--teal);font-weight:800;">'+done+'/'+total+'</span>'
-          + '<span class="ast '+stCls+'" style="font-size:11px">'+s.status+'</span>'
+          + '<span class="ast '+stCls+'" style="font-size:11px">'+escapeHtml(s.status)+'</span>'
           + '</div></div>'
           + '<div class="prog" style="border-radius:0;height:4px;"><div class="prog-f" style="width:'+pct+'%;background:var(--teal)"></div></div>'
           + sessRows
@@ -505,15 +506,15 @@ function renderPatAccount(id){
           const isDone  = i < sessUsed;
           return '<div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--glass-border);font-size:12.5px;">'
             + '<div style="width:26px;height:26px;border-radius:50%;background:'+(isDone?'var(--teal)':'rgba(148,163,184,.15)')+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:'+(isDone?'#fff':'var(--text-muted)')+';">'+sessNum+'</div>'
-            + '<div style="flex:1;"><span style="font-weight:600">'+(pk.services||pk.name)+' — جلسة '+sessNum+'</span></div>'
+            + '<div style="flex:1;"><span style="font-weight:600">'+escapeHtml(pk.services||pk.name)+' — جلسة '+sessNum+'</span></div>'
             + '<div>'+(isDone?'<span class="ast sc" style="font-size:11px">✅ مكتملة</span>':'<span class="ast sd" style="font-size:11px">○ لم تُنفَّذ</span>')+'</div>'
             + '</div>';
         }).join('') : '';
         return '<div style="border:1px solid var(--glass-border);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:14px;">'
           + '<div style="padding:12px 14px;background:var(--glass);display:flex;justify-content:space-between;align-items:start;">'
-          + '<div><div style="font-weight:800;font-size:14px;">🎁 '+pk.name+'</div>'
-          + '<div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">'+(pk.services||'—')+' · '+(pk.startDate||'—')+' ← '+(pk.endDate||'—')+'</div></div>'
-          + '<span class="ast '+stCls+'" style="font-size:11px">'+pk.status+'</span>'
+          + '<div><div style="font-weight:800;font-size:14px;">🎁 '+escapeHtml(pk.name)+'</div>'
+          + '<div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">'+escapeHtml(pk.services||'—')+' · '+escapeHtml(pk.startDate||'—')+' ← '+escapeHtml(pk.endDate||'—')+'</div></div>'
+          + '<span class="ast '+stCls+'" style="font-size:11px">'+escapeHtml(pk.status)+'</span>'
           + '</div>'
           + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--glass-border);">'
           + '<div style="padding:10px;background:var(--bg-secondary);text-align:center;"><div style="font-weight:800;color:var(--gold-light);font-size:15px;">'+pkgPrice.toLocaleString()+' ج</div><div style="font-size:11px;color:var(--text-muted);">سعر الباقة</div></div>'
@@ -761,8 +762,8 @@ function openPayFromProfile(){
       style="padding:11px;background:var(--glass);border:2px solid var(--glass-border);border-radius:10px;cursor:pointer;margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <div style="font-weight:700;font-size:13px;">🧾 #INV-${String(idx+1).padStart(3,'0')} — ${inv.service||'—'}</div>
-          <div style="font-size:11px;color:var(--text-muted);">فاتورة · ${inv.date||'—'} · إجمالي: ${(inv.total||0).toLocaleString()} ج · مدفوع: ${(inv.paid||0).toLocaleString()} ج</div>
+          <div style="font-weight:700;font-size:13px;">🧾 #INV-${String(idx+1).padStart(3,'0')} — ${escapeHtml(inv.service)||'—'}</div>
+          <div style="font-size:11px;color:var(--text-muted);">فاتورة · ${escapeHtml(inv.date)||'—'} · إجمالي: ${(inv.total||0).toLocaleString()} ج · مدفوع: ${(inv.paid||0).toLocaleString()} ج</div>
         </div>
         <div style="text-align:left;min-width:70px;">
           <div style="color:var(--rose);font-weight:800;font-size:15px;">${rem.toLocaleString()} ج</div>
@@ -777,7 +778,7 @@ function openPayFromProfile(){
       style="padding:11px;background:var(--glass);border:2px solid var(--glass-border);border-radius:10px;cursor:pointer;margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <div style="font-weight:700;font-size:13px;">🎁 ${pk.name}</div>
+          <div style="font-weight:700;font-size:13px;">🎁 ${escapeHtml(pk.name)}</div>
           <div style="font-size:11px;color:var(--text-muted);">باقة علاجية · إجمالي: ${(pk.price||0).toLocaleString()} ج · مدفوع: ${(pk.paid||0).toLocaleString()} ج</div>
         </div>
         <div style="text-align:left;min-width:70px;">

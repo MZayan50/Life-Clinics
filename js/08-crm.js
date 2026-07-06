@@ -93,10 +93,10 @@ function renderLeads(q){
         const camp = l.campaignId ? camps.find(c => c.id === l.campaignId) : null;
         return `
         <div class="lcard">
-          <div class="lname">${l.name}</div>
-          <div class="lsvc">${l.service}</div>
-          <div class="ltime">📞 ${l.source}${l.notes ? ' · ' + l.notes : ''}</div>
-          ${camp ? `<div style="font-size:10px;color:var(--teal);margin-top:3px;">📣 ${camp.name}</div>` : ''}
+          <div class="lname">${escapeHtml(l.name)}</div>
+          <div class="lsvc">${escapeHtml(l.service)}</div>
+          <div class="ltime">📞 ${escapeHtml(l.source)}${l.notes ? ' · ' + escapeHtml(l.notes) : ''}</div>
+          ${camp ? `<div style="font-size:10px;color:var(--teal);margin-top:3px;">📣 ${escapeHtml(camp.name)}</div>` : ''}
           <div style="display:flex;gap:5px;margin-top:8px;">
             ${l.status !== 'تم التحويل' ? `<button class="btn btn-ghost btn-xs" style="flex:1" onclick="moveLead('${l.id}')">→ تقدّم</button>` : ''}
             ${['مهتم','تم التواصل'].includes(l.status) ? `<button class="btn btn-teal btn-xs" style="flex:1" onclick="convertToAppt('${l.id}')">📅 حوّل لموعد</button>` : ''}
@@ -142,7 +142,7 @@ function openLeadModal(id){
   if(campSel){
     const camps = DB.get('campaigns');
     campSel.innerHTML = '<option value="">— بدون حملة —</option>' +
-      camps.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      camps.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
   }
   const set = (id, v) => { const e = document.getElementById(id); if(e) e.value = v || ''; };
   document.getElementById('lead-modal-id') && (document.getElementById('lead-modal-id').value = id || '');
@@ -208,7 +208,7 @@ function convertToAppt(leadId){
   const exactMatch = services.find(s => s.name === lead.service);
   if(svcSel){
     svcSel.innerHTML = services.map(s =>
-      `<option value="${s.id}" ${exactMatch && s.id === exactMatch.id ? 'selected' : ''}>${s.name}${s.doctor ? ' — ' + s.doctor : ''}</option>`
+      `<option value="${s.id}" ${exactMatch && s.id === exactMatch.id ? 'selected' : ''}>${escapeHtml(s.name)}${s.doctor ? ' — ' + escapeHtml(s.doctor) : ''}</option>`
     ).join('') || '<option value="">لا توجد خدمات مسجّلة</option>';
   }
   if(warnEl) warnEl.style.display = (!exactMatch && lead.service) ? 'block' : 'none';
@@ -292,10 +292,10 @@ function renderWAContacts(q){
     return `<div class="appt-item" style="padding:11px 14px;cursor:pointer;border-right:3px solid ${_waSelectedPat?.id === p.id ? 'var(--teal)' : 'transparent'};transition:all .15s" onclick="selectWAPat('${p.id}')">
       <div class="appt-ava" style="background:${AVA[i % AVA.length]};font-size:14px">${genderAva(p.gender)}</div>
       <div class="appt-info" style="flex:1">
-        <p style="font-size:13px">${p.name}</p>
-        <span style="font-size:11px">${hasPhone ? '📱 ' + hasPhone : '❌ لا يوجد رقم'}</span>
+        <p style="font-size:13px">${escapeHtml(p.name)}</p>
+        <span style="font-size:11px">${hasPhone ? '📱 ' + escapeHtml(hasPhone) : '❌ لا يوجد رقم'}</span>
       </div>
-      ${nextAppt ? `<div style="font-size:10px;color:var(--teal);text-align:left">${nextAppt.date}<br>${nextAppt.time}</div>` : ''}
+      ${nextAppt ? `<div style="font-size:10px;color:var(--teal);text-align:left">${escapeHtml(nextAppt.date)}<br>${escapeHtml(nextAppt.time)}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -475,10 +475,10 @@ function renderCampaigns(q){
     return `<div class="kpi-card ${CAMP_COLORS[c.status] || 'kc-purple'}" style="padding:18px;cursor:pointer;">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
         <span style="font-size:18px">${CHAN_ICONS[c.channel] || '📣'}</span>
-        <span class="ast ${c.status === 'نشطة' ? 'sc' : c.status === 'مجدولة' ? 'sp' : 'sd'}">${c.status}</span>
+        <span class="ast ${c.status === 'نشطة' ? 'sc' : c.status === 'مجدولة' ? 'sp' : 'sd'}">${escapeHtml(c.status)}</span>
       </div>
-      <div style="font-size:14px;font-weight:800;margin-bottom:6px;">${c.name}</div>
-      <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:12px;">${c.startDate} ← ${c.endDate}</div>
+      <div style="font-size:14px;font-weight:800;margin-bottom:6px;">${escapeHtml(c.name)}</div>
+      <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:12px;">${escapeHtml(c.startDate)} ← ${escapeHtml(c.endDate)}</div>
       <div class="g2c" style="gap:8px;margin-bottom:12px;">
         <div style="text-align:center;background:var(--glass);border-radius:8px;padding:8px;">
           <div style="font-size:17px;font-weight:800;color:var(--teal)">${st.leadsCount}</div>

@@ -8,7 +8,7 @@ function inspectCashlogMonthUI(){
   const box = document.getElementById('cleanup-diag-results');
   if(!box) return;
   if(rows.length === 0){
-    box.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:8px;">لا توجد حركات "${type}" في ${monthInput}</div>`;
+    box.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:8px;">لا توجد حركات "${escapeHtml(type)}" في ${escapeHtml(monthInput)}</div>`;
     return;
   }
   box.innerHTML = `<div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;">
@@ -18,12 +18,12 @@ function inspectCashlogMonthUI(){
       <th style="padding:4px;">refId</th><th style="padding:4px;">ملاحظات</th>
     </tr></thead>
     <tbody>${rows.map(c=>`<tr style="border-bottom:1px solid var(--glass-border);">
-      <td style="padding:4px;">${c.source||''}</td>
-      <td style="padding:4px;">${c.patient||''}</td>
+      <td style="padding:4px;">${escapeHtml(c.source)||''}</td>
+      <td style="padding:4px;">${escapeHtml(c.patient)||''}</td>
       <td style="padding:4px;font-weight:700;">${(c.amount||0).toLocaleString()}</td>
-      <td style="padding:4px;">${c.date||''}</td>
-      <td style="padding:4px;">${c.refId||''}</td>
-      <td style="padding:4px;">${c.notes||''}</td>
+      <td style="padding:4px;">${escapeHtml(c.date)||''}</td>
+      <td style="padding:4px;">${escapeHtml(c.refId)||''}</td>
+      <td style="padding:4px;">${escapeHtml(c.notes)||''}</td>
     </tr>`).join('')}</tbody>
   </table></div>`;
 }

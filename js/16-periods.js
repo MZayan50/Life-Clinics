@@ -110,7 +110,7 @@ function renderAccountingPeriods(){
       ? `<button class="btn btn-ghost btn-sm" onclick="reopenAccountingPeriod('${p.id}')">فتح</button>`
       : `<button class="btn btn-primary btn-sm" onclick="closeAccountingPeriod('${p.id}')">إقفال</button>`;
     const meta = p.status==='closed'
-      ? `${p.closedBy||'—'} · ${p.closedAt ? new Date(p.closedAt).toLocaleString('ar-EG') : '—'}`
+      ? `${escapeHtml(p.closedBy)||'—'} · ${p.closedAt ? new Date(p.closedAt).toLocaleString('ar-EG') : '—'}`
       : '—';
     return `<tr>
       <td style="font-weight:700;font-family:monospace">${p.id}</td>
