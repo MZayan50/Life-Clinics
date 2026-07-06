@@ -140,15 +140,51 @@ async function saveFB(){
 async function initFirebase(cfg){
   try {
     // Dynamically load Firebase SDK v9 compat (CDN)
+    // ✅ FIX (بعد قفل firestore.rules): كان بيتحمّل هنا firebase-app-compat
+    // و firebase-firestore-compat بس — من غير firebase-auth-compat خالص،
+    // ومن غير أي استخدام لـ Firebase Auth أصلاً في التطبيق الرئيسي
+    // (index.html). التطبيق كان بالكامل معتمد على ha_session في
+    // localStorage فقط، والاتصال بـ Firestore هنا كان يحصل من غير أي
+    // هوية auth مرفقة بيه إطلاقًا. بما إن firestore.rules بقت تشترط
+    // request.auth != null على كل قراءة/كتابة، القراءة التجريبية تحت
+    // (settings.limit(1).get()) كانت بترفض بصمت (permission-denied)
+    // فيظهر التطبيق وكأنه "مش عايز يتصل" رغم إن login.html فعليًا كان
+    // بيسجّل دخول صح. الحل: نحمّل auth-compat كمان، ونستنى استرجاع
+    // نفس جلسة تسجيل الدخول (المحفوظة في IndexedDB من login.html)
+    // قبل أي قراءة من Firestore.
     if(!window.firebase){
       await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+      await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js');
       await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js');
+    } else if (!window.firebase.auth) {
+      // احتياطي: firebase موجود بالفعل (مثلاً من نافذة تانية) بس من غير auth compat
+      await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js');
     }
 
     // Initialize or get existing app
     if(window.firebase.apps.length === 0){
       window.firebase.initializeApp(cfg);
     }
+
+    // 🔐 ننتظر Firebase Auth يسترجع جلسة الدخول الحقيقية (اللي حصلت في
+    // login.html) — الاسترجاع من IndexedDB async وبياخد لحظة حتى لو
+    // المستخدم داخل فعليًا، فلازم ننتظر onAuthStateChanged قبل أي قراءة.
+    const authInstance = window.firebase.auth();
+    const currentUser = await new Promise((resolve) => {
+      const unsub = authInstance.onAuthStateChanged((user) => { unsub(); resolve(user); });
+    });
+
+    if (!currentUser) {
+      // مفيش جلسة Firebase Auth حقيقية (منتهية، أو المتصفح ماسحها، أو
+      // حالة غير متوقعة) — الاعتماد على ha_session المحلي وحده مبقاش
+      // كافي بعد قفل الـ rules. نرجّعه لصفحة الدخول بدل محاولة قراءة
+      // Firestore والفشل الصامت.
+      console.warn('initFirebase: no active Firebase Auth session — redirecting to login');
+      localStorage.removeItem('ha_session');
+      window.location.href = 'login.html';
+      return;
+    }
+
     const db = window.firebase.firestore();
 
     // Test connection with a lightweight read
