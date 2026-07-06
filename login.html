@@ -171,7 +171,7 @@ body{font-family:'Tajawal',sans-serif;background:#0A0D14;color:#F1F5F9;min-heigh
 // ============================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ── تحميل إعدادات Firebase من localStorage (يُعيَّن من شاشة الإعدادات أو Setup Wizard)
@@ -234,6 +234,29 @@ async function sha256(message) {
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ============================================================
+// 🔐 Salt عشوائي + Hash مُملّح (يحل مشكلة SHA-256 بدون Salt)
+// نفس المنطق موجود بالضبط في js/11-settings.js (saveUser) —
+// أي تعديل هنا لازم يتنقل هناك برضه عشان يفضلوا متوافقين
+// ============================================================
+function randomSalt(len = 16) {
+  const bytes = crypto.getRandomValues(new Uint8Array(len));
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function saltedHash(password, salt) {
+  return sha256(salt + ':' + password);
+}
+
+// ══════════════════════════════════════════════════════════
+// 🔐 Firebase Auth — تحويل username لإيميل وهمي (Firebase Auth محتاج إيميل)
+// النطاق المستخدم هنا وهمي بالكامل ومش هيستقبل أي رسائل فعلية أبداً
+// ══════════════════════════════════════════════════════════
+function usernameToFakeEmail(username) {
+  // نتأكد إن الاسم متوافق مع صيغة إيميل صالحة (بدون مسافات/رموز غريبة)
+  const clean = String(username).trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+  return clean + '@clinic.local';
 }
 
 // ============================================================
@@ -304,17 +327,18 @@ function startLockCountdown(ms) {
 // ============================================================
 async function getUserByUsername(username) {
   // البحث في collection "users" بناءً على حقل username
+  // بيرجّع { ...data, _docId } عشان نعرف نكتب/نحدّث نفس المستند بالظبط لاحقاً (مهم لـ migration الـ salt)
   try {
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('username', '==', username));
     const snapshot = await getDocs(q);
     if (!snapshot.empty) {
-      return snapshot.docs[0].data();
+      return { ...snapshot.docs[0].data(), _docId: snapshot.docs[0].id };
     }
     // جرب البحث باستخدام document ID = username
     const docRef = doc(db, 'users', username);
     const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) return docSnap.data();
+    if (docSnap.exists()) return { ...docSnap.data(), _docId: docSnap.id };
     return null;
   } catch (e) {
     console.warn('Firestore lookup failed:', e);
@@ -332,11 +356,16 @@ window.resetAdminPassword = async function() {
   if (!db) { alert('⚠️ لم يتم إعداد Firebase بعد. من فضلك أدخل بيانات Firebase أولاً.'); return; }
   const newPass = prompt('أدخل كلمة المرور الجديدة لـ admin:');
   if (!newPass) return;
-  const hash = await sha256(newPass);
+  const salt = randomSalt();
+  const hash = await saltedHash(newPass, salt);
   try {
     const docRef = doc(db, 'users', 'admin');
-    await setDoc(docRef, { hash }, { merge: true });
-    alert('✅ تم تحديث كلمة المرور — جرب الدخول الآن');
+    // نخزّن hash مُملّح + الـ salt نفسه (كلاهما مطلوب للتحقق لاحقاً)
+    // + تصفير fbAuthMigrated عشان الدخول الجاي يتحقق من الباسورد الجديد
+    // في Firestore بدل حساب Firebase Auth القديم (لو الحساب موجود هناك
+    // بالفعل، لازم يتمسح يدويًا من Firebase Console: Authentication → Users)
+    await setDoc(docRef, { hash, salt, fbAuthMigrated: false }, { merge: true });
+    alert('✅ تم تحديث كلمة المرور — جرب الدخول الآن\n\nملحوظة: لو admin كان عنده حساب Firebase Auth من قبل، لازم تمسحه من Firebase Console (Authentication → Users) عشان الهجرة تكتمل صح.');
   } catch(e) {
     alert('❌ فشل: ' + e.message);
   }
@@ -364,21 +393,40 @@ window.doLogin = async function() {
   btn.style.display = 'none';
   loader.style.display = 'block';
 
-  // تشفير كلمة المرور
-  const inputHash = await sha256(password);
-
   // ══════════════════════════════════════════════════════
-  // المحاولة 1: Firestore — جلب المستخدم بالـ username
-  // والتحقق من كلمة المرور بـ SHA-256
+  // 🔐 نظام تسجيل الدخول — مرحلة انتقالية لـ Firebase Authentication
+  //
+  // كل مستخدم عنده علامة firestoreUser.fbAuthMigrated في Firestore:
+  //
+  // • لو true (اتهاجر قبل كده): نتحقق حصريًا عبر Firebase Auth
+  //   الحقيقي (signInWithEmailAndPassword). مفيش أي fallback للطريقة
+  //   القديمة هنا — لو غلط، غلط.
+  //
+  // • لو مش موجودة (لسه معملش أول دخول بعد التحديث): نتحقق بالطريقة
+  //   القديمة (salted hash / legacy hash في Firestore) زي ما هو
+  //   بالظبط من الأول. لو نجحت، ننشئ حساب Firebase Auth حقيقي بنفس
+  //   الباسورد اللي كتبه دلوقتي، ونحط fbAuthMigrated:true — من غير
+  //   ما يحس المستخدم بأي فرق.
+  //
+  // ⚠️ ليه معتمدين على علامة يدوية بدل رسالة خطأ Firebase؟ لأن
+  // Firebase الحديث بيرجّع نفس كود الخطأ (auth/invalid-credential)
+  // سواء الحساب مش موجود أو الباسورد غلط (حماية ضد enumeration)،
+  // فمفيش طريقة نفرّق بينهم من غير علامة صريحة زي دي.
   // ══════════════════════════════════════════════════════
   try {
     const firestoreUser = await getUserByUsername(usernameInput);
 
-    if (firestoreUser) {
-      // المستخدم موجود في Firestore — تحقق من كلمة المرور
-      const storedHash = firestoreUser.hash || firestoreUser.password || '';
-      if (storedHash && storedHash === inputHash) {
-        // ✅ نجاح من Firestore
+    if (!firestoreUser) {
+      handleFailedLogin(errEl, btn, loader);
+      return;
+    }
+
+    const fakeEmail = usernameToFakeEmail(usernameInput);
+
+    if (firestoreUser.fbAuthMigrated) {
+      // ✅ حساب مُهاجَر بالفعل — نتحقق حصريًا عبر Firebase Auth الحقيقي
+      try {
+        await signInWithEmailAndPassword(auth, fakeEmail, password);
         resetAttempts();
         loginSuccess(
           usernameInput,
@@ -388,17 +436,69 @@ window.doLogin = async function() {
           firestoreUser.screens || firestoreUser.permissions || ['all']
         );
         return;
-      } else if (storedHash) {
-        // المستخدم موجود لكن كلمة المرور خاطئة — لا نجرب fallback
+      } catch (authErr) {
+        console.warn('Firebase Auth sign-in failed:', authErr.code);
         handleFailedLogin(errEl, btn, loader);
         return;
       }
+    }
+
+    // ── حساب لسه مش مُهاجَر — نتحقق بالطريقة القديمة زي ما هي بالظبط ──
+    const storedHash = firestoreUser.hash || firestoreUser.password || '';
+    const storedSalt = firestoreUser.salt || '';
+
+    if (!storedHash) {
       // لو ما في hash في Firestore — المستخدم غير مكتمل
       handleFailedLogin(errEl, btn, loader);
       return;
     }
 
-    // المستخدم غير موجود في Firestore
+    let matched = false;
+    if (storedSalt) {
+      // حساب مُملّح بالفعل
+      const inputHash = await saltedHash(password, storedSalt);
+      matched = (inputHash === storedHash);
+    } else {
+      // حساب قديم بدون salt — تحقق بالطريقة القديمة
+      const legacyHash = await sha256(password);
+      matched = (legacyHash === storedHash);
+      if (matched) {
+        // ✅ ترقية شفافة: نولّد salt جديد ونعيد حفظ الـ hash مُملّحًا
+        try {
+          const newSalt = randomSalt();
+          const newHash = await saltedHash(password, newSalt);
+          const docRef = doc(db, 'users', firestoreUser._docId || usernameInput);
+          await setDoc(docRef, { hash: newHash, salt: newSalt }, { merge: true });
+        } catch (migrateErr) {
+          console.warn('Password salt migration failed (login still succeeds):', migrateErr.message);
+        }
+      }
+    }
+
+    if (matched) {
+      // ✅ نجاح بالطريقة القديمة — الآن نهاجر لحساب Firebase Auth حقيقي
+      try {
+        await createUserWithEmailAndPassword(auth, fakeEmail, password);
+        const docRef = doc(db, 'users', firestoreUser._docId || usernameInput);
+        await setDoc(docRef, { fbAuthMigrated: true }, { merge: true });
+      } catch (migrateErr) {
+        // لو فشلت الهجرة (مثلاً الحساب موجود بالفعل في Firebase Auth من
+        // محاولة سابقة) لا نمنع الدخول — تسجيل الدخول نجح فعلاً بالطريقة
+        // القديمة، والهجرة ستُعاد المحاولة في المرة الجاية
+        console.warn('Firebase Auth migration failed (login still succeeds):', migrateErr.code);
+      }
+      resetAttempts();
+      loginSuccess(
+        usernameInput,
+        firestoreUser.name || usernameInput,
+        firestoreUser.role || 'user',
+        firestoreUser.branch || 'all',
+        firestoreUser.screens || firestoreUser.permissions || ['all']
+      );
+      return;
+    }
+
+    // كلمة المرور خاطئة
     handleFailedLogin(errEl, btn, loader);
 
   } catch (fsError) {
