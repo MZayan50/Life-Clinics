@@ -992,12 +992,51 @@ function openConsultDoneModal(apptId){
   document.getElementById('consult-done-modal')?.classList.add('open');
 }
 
+// ✅ FIX: نافذة "إنهاء الاستشارة" كانت بتفضل تعرض حقول السعر/الخصم وطريقة
+// الدفع حتى لو الجلسة مغطاة بباقة نشطة (زي ما ظهر في السكرين شوت — سعر
+// 1500 ج وأزرار كاش/فيزا... رغم إن الجلسة أصلاً مدفوعة مقدمًا ضمن الباقة).
+// الدالة دي بتفحص لو الخدمة المختارة مغطاة بباقة نشطة، ولو كده بتخفي حقول
+// السعر/الخصم وطريقة الدفع وتستبدلها ببانر يوضح رقم الجلسة من الباقة.
+function _cdRefreshPkgUI(){
+  const apptId=document.getElementById('cd-appt-id')?.value;
+  const a=DB.get('appointments').find(x=>x.id===apptId);
+  const svcSel=document.getElementById('cd-svc');
+  const svcName=svcSel?.options[svcSel?.selectedIndex]?.value||a?.service||'';
+  const activePkg=a?getPatientActivePackage(a.patId):null;
+  const covered=activePkg&&(!activePkg.services||!activePkg.services.trim()||activePkg.services.includes(svcName));
+  const banner=document.getElementById('cd-pkg-banner');
+  const priceFg=document.getElementById('cd-price-fgrp');
+  const discFg=document.getElementById('cd-disc-fgrp');
+  const payFg=document.getElementById('cd-pay-fgrp');
+  const netRow=document.getElementById('cd-net-row');
+  if(covered){
+    const sessionNo=(activePkg.sessionsUsed||0)+1;
+    const total=activePkg.sessionsCount||1;
+    if(banner){
+      banner.style.display='block';
+      banner.textContent=`🎁 هذه الجلسة رقم ${sessionNo} من ${total} — مغطاة بالكامل ضمن باقة "${activePkg.name}" (لا يوجد مبلغ مطلوب من العميل)`;
+    }
+    if(priceFg)priceFg.style.display='none';
+    if(discFg)discFg.style.display='none';
+    if(payFg)payFg.style.display='none';
+    if(netRow)netRow.style.display='none';
+  } else {
+    if(banner){banner.style.display='none';banner.textContent='';}
+    if(priceFg)priceFg.style.display='';
+    if(discFg)discFg.style.display='';
+    if(payFg)payFg.style.display='';
+    if(netRow)netRow.style.display='';
+  }
+  return covered;
+}
+
 function onCdSvcChange(){
   const svcSel=document.getElementById('cd-svc');
   const opt=svcSel?.options[svcSel.selectedIndex];
   const price=parseFloat(opt?.dataset?.price)||0;
   const priceEl=document.getElementById('cd-price');
   if(priceEl)priceEl.value=price;
+  _cdRefreshPkgUI();
   calcCdTotal();
 }
 
