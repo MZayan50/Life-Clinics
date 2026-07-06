@@ -227,6 +227,17 @@ async function initFirebase(cfg){
         window._usersCache = usersObj;
         // حدّث localStorage كنسخة احتياطية offline فقط
         try { localStorage.setItem(USERS_KEY, JSON.stringify(usersObj)); } catch(e){}
+        // 🔒 كشف فوري لطرد الجلسة — لو activeSessionToken بتاع المستخدم
+        // الحالي اتغيّر (جهاز تاني ورث الجلسة، أو الأدمن ضغط "إنهاء
+        // الجلسات الأخرى")، نطرد نفسنا فورًا من غير ما نستنى heartbeat
+        // الدقيقة القادمة في 01-app.js.
+        if (window._session && usersObj[window._session.username]) {
+          const mine = usersObj[window._session.username];
+          if (mine.activeSessionToken && mine.activeSessionToken !== window._session.token
+              && typeof forceLogoutKicked === 'function') {
+            forceLogoutKicked();
+          }
+        }
         // ✅ FIX (مزامنة لحظية — مرحلة 3): لو شاشة المستخدمين مفتوحة وقت
         // التغيير (مثلاً جهاز تاني ضاف موظف جديد)، حدّثها فورًا من غير ما
         // تحتاج تقفل التاب وتفتحه تاني.
@@ -1200,11 +1211,28 @@ EventBus.on('auth:resolved', ({role, perms, screens}) => applyPermissions(role, 
 const ROLE_LABELS = {admin:'مدير النظام',branch_manager:'مدير فرع',doctor:'طبيب',receptionist:'استقبال',accountant:'محاسب'};
 const ROLE_COLORS = {admin:'var(--gold)',branch_manager:'var(--purple)',doctor:'var(--teal)',receptionist:'var(--emerald)',accountant:'var(--amber)'};
 
+// 🔒 إنهاء الجلسة النشطة لمستخدم من شاشة إدارة المستخدمين — يخلّي أي
+// جهاز تاني يقدر يدخل بنفس اليوزر فورًا من غير ما يستنى 5 دقايق،
+// وكمان بيطرد الجهاز الشغال دلوقتي (عبر الـ realtime listener اللي
+// بيقارن activeSessionToken بتاعه بالقيمة الجديدة null ويلاقيها مختلفة).
+async function endUserSession(username){
+  if(!confirm(`تأكيد إنهاء الجلسة الحالية لـ ${username}؟ الجهاز اللي داخل بيه دلوقتي هيتسجّل خروج تلقائيًا.`)) return;
+  if(!window._firestore){ showToast('warning','⚠️ غير متصل بـ Firebase حاليًا'); return; }
+  try {
+    await window._firestore.collection('users').doc(username)
+      .set({ activeSessionToken: null, activeSessionHeartbeat: null }, { merge: true });
+    showToast('success', `✅ اتنهت جلسة ${username} — يقدر يدخل من أي جهاز تاني دلوقتي`);
+  } catch(e){
+    showToast('error', '❌ فشل إنهاء الجلسة', e.message);
+  }
+}
+
 function renderUsers(){
   const db = getUsersDB();
   const tbody = document.getElementById('users-tbody');
   if(!tbody) return;
   const allUsers = Object.values(db);
+  const now = Date.now();
   const rows = allUsers.map(u => {
     const screenCount = u.screens ? (u.screens.includes('all') ? 'الكل' : u.screens.length + ' شاشة') : '—';
     const roleColor = ROLE_COLORS[u.role] || 'var(--text-secondary)';
@@ -1212,6 +1240,16 @@ function renderUsers(){
     const migBadge = migrated
       ? `<span style="background:rgba(34,197,94,.15);color:#22C55E;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:600;">✅ مُهاجَر</span>`
       : `<span style="background:rgba(234,179,8,.15);color:#EAB308;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:600;">⏳ لسه مش داخل</span>`;
+    // 🔒 حالة الجلسة الحالية — هل المستخدم شغال فعليًا على جهاز دلوقتي؟
+    // (heartbeat جاي من كل دقيقة، فأي حاجة أقدم من 5 دقايق تعتبر منتهية)
+    const hb = u.activeSessionHeartbeat || 0;
+    const isActive = hb && (now - hb) <= 5 * 60 * 1000;
+    const sessionBadge = isActive
+      ? `<span style="background:rgba(59,130,246,.15);color:#3B82F6;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:600;">🟢 شغّال دلوقتي</span>`
+      : `<span style="background:var(--glass);color:var(--text-muted);padding:3px 8px;border-radius:6px;font-size:12px;">⚪ غير متصل</span>`;
+    const endSessionBtn = isActive
+      ? `<button class="btn btn-ghost btn-sm" style="color:var(--rose);" onclick="endUserSession('${escJsAttr(u.username)}')" title="هينهي جلسته الحالية ويقدر يدخل تاني من أي جهاز فورًا">🔌 إنهاء الجلسة</button>`
+      : '';
     return `<tr>
       <td><span style="font-family:monospace;font-size:12px;background:var(--glass);padding:3px 8px;border-radius:6px;direction:ltr;display:inline-block;">${escapeHtml(u.username)}</span></td>
       <td style="font-weight:600;">${escapeHtml(u.name)}</td>
@@ -1219,12 +1257,14 @@ function renderUsers(){
       <td>${u.branch==='all'?'كل الفروع':escapeHtml(u.branch)||'—'}</td>
       <td><span style="background:var(--glass);padding:3px 8px;border-radius:6px;font-size:12px;">${screenCount}</span></td>
       <td>${migBadge}</td>
-      <td>
+      <td>${sessionBadge}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm" onclick="openUserModal('${escJsAttr(u.username)}')">✏️ تعديل</button>
+        ${endSessionBtn}
       </td>
     </tr>`;
   }).join('');
-  tbody.innerHTML = rows || '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">لا يوجد مستخدمون</td></tr>';
+  tbody.innerHTML = rows || '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);">لا يوجد مستخدمون</td></tr>';
 
   // ── بانر ملخّص: هل كل المستخدمين اتهاجروا لـ Firebase Auth ولا لأ؟ ──
   // ده عشان تعرف بنظرة واحدة (من غير ما تفتح Firebase Console وتدور

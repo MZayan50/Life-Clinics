@@ -1383,6 +1383,7 @@ function _parseSession(raw) {
       window.location.href = 'login.html'; return;
     }
     window._session = s;
+    if (typeof startSessionHeartbeat === 'function') startSessionHeartbeat();
     // getUsersDB قد تكون معرّفة في 11-settings.js — نستخدمها بأمان
     const _udb = (typeof getUsersDB === 'function') ? getUsersDB() : (()=>{ try{return JSON.parse(localStorage.getItem('ha_users_db')||'{}');}catch(e){return{};} })();
     const _usr = _udb[s.username];
@@ -1414,9 +1415,58 @@ function _parseSession(raw) {
 
 function doLogout(){
   if(confirm('هل تريد تسجيل الخروج؟')){
+    // 🔒 نفضّي الجلسة النشطة في Firestore فورًا — عشان لو حد حاول يدخل
+    // بنفس اليوزر من جهاز تاني بعد كده يقدر يدخل على طول من غير ما
+    // يستنى الـ 5 دقايق (heartbeat timeout).
+    try {
+      if (window._firestore && window._session && window._session.username) {
+        window._firestore.collection('users').doc(window._session.username)
+          .set({ activeSessionToken: null, activeSessionHeartbeat: null }, { merge: true })
+          .catch(e => console.warn('clear session on logout failed:', e.message));
+      }
+    } catch(e){}
     localStorage.removeItem('ha_session');
     window.location.href = 'login.html';
   }
+}
+
+// ══════════════════════════════════════════
+// 🔒 نبضة الجلسة (Session Heartbeat) — منع الدخول بنفس المستخدم من جهازين
+// ══════════════════════════════════════════
+// كل دقيقة، نحدّث activeSessionHeartbeat في Firestore عشان نأكّد إن الجهاز
+// ده لسه فعليًا مفتوح وشغال. لو لقينا activeSessionToken في Firestore
+// اتغيّر (يعني جهاز تاني "ورث" الجلسة بعد انقطاع النبضات 5 دقايق، أو
+// الأدمن ضغط "إنهاء الجلسات الأخرى")، بنطرد نفسنا فورًا من هنا.
+const SESSION_HEARTBEAT_INTERVAL_MS = 60 * 1000; // دقيقة
+let _sessionHeartbeatTimer = null;
+
+function startSessionHeartbeat(){
+  if (_sessionHeartbeatTimer) return; // اتشغّل قبل كده، متبقاش تشغّله تاني
+  _sessionHeartbeatTimer = setInterval(async () => {
+    if (!window._fbReady || !window._firestore || !window._session) return;
+    try {
+      const ref = window._firestore.collection('users').doc(window._session.username);
+      const snap = await ref.get();
+      const data = snap.exists ? snap.data() : null;
+      if (data && data.activeSessionToken && data.activeSessionToken !== window._session.token) {
+        forceLogoutKicked();
+        return;
+      }
+      await ref.update({ activeSessionHeartbeat: Date.now() });
+    } catch(e) {
+      console.warn('session heartbeat failed:', e.message);
+    }
+  }, SESSION_HEARTBEAT_INTERVAL_MS);
+}
+
+let _sessionKickedHandled = false;
+function forceLogoutKicked(){
+  if (_sessionKickedHandled) return;
+  _sessionKickedHandled = true;
+  if (_sessionHeartbeatTimer) { clearInterval(_sessionHeartbeatTimer); _sessionHeartbeatTimer = null; }
+  localStorage.removeItem('ha_session');
+  alert('⚠️ تم تسجيل الدخول بحسابك من جهاز آخر، فتم إنهاء هذه الجلسة تلقائيًا.');
+  window.location.href = 'login.html';
 }
 
 function renewSession(){
