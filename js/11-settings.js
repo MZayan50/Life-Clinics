@@ -13,15 +13,15 @@ function saveSettings(){
     fiscalYearStartMonth: parseInt(gv('s-fy-start-month'), 10) || 1};
   // renderSvcs() يعتمد على الحدين الجديدين — أعد رسم شاشة الخدمات لو كانت مفتوحة
   if(typeof renderSvcs === 'function') renderSvcs();
-  // تحديث الاسم/الدور فورًا على الشاشة الرئيسية والشريط الجانبي
-  if(s.managerName){txt('user-name',s.managerName);txt('dash-uname',s.managerName);}
-  if(s.managerRole)txt('user-role',s.managerRole);
-  // حفظ الاسم الجديد في حساب المستخدم الحالي
-  if(window._session && window._session.username){
-    const udb=getUsersDB();
-    const cu=udb[window._session.username];
-    if(cu && s.managerName){ cu.name=s.managerName; saveUsersDB(udb); }
-  }
+  // ✅ FIX أمني/منطقي: "اسم المدير" هنا بيان عام عن العيادة (زي اسم العيادة
+  // والهاتف) — مالوش أي علاقة بهوية المستخدم الحالي المسجّل دخوله. كان في
+  // كود قديم هنا بيكتب قيمة الحقل ده فوق اسم المستخدم في الشريط الجانبي
+  // (#user-name/#dash-uname) وكمان بيحفظه كاسم فعلي لحساب أي مستخدم يكون
+  // داخل وقت الحفظ (udb[session.username].name = managerName) — ده كان
+  // بيسبب استبدال اسم أي مستخدم باسم افتراضي/قديم بمجرد ما يحفظ إعدادات
+  // عامة مالهاش دعوة بحسابه. الاسم اللي بيبان في الشريط الجانبي بقى معتمد
+  // حصريًا على بيانات الجلسة/حساب المستخدم نفسه (انظر checkAuth في
+  // 01-app.js) — مفيش أي مصدر تاني يقدر يغيّره.
   // Firestore هو مصدر الحقيقة — احفظ فيه أولاً
   if(window._firestore){
     window._firestore.collection('config').doc('settings').set(s)
