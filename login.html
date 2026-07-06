@@ -371,6 +371,45 @@ window.resetAdminPassword = async function() {
   }
 };
 
+// ══════════════════════════════════════════════════════════
+// 🔒 منع الدخول بنفس المستخدم من أكتر من جهاز في نفس الوقت
+//
+// كل مستخدم عنده activeSessionToken + activeSessionHeartbeat في مستنده
+// بـ Firestore. لما يسجّل دخول من جهاز، بنكتب توكن عشوائي جديد + وقت
+// الدخول. الجهاز اللي داخل بيه فعليًا بيبعت "نبضة" (heartbeat) كل دقيقة
+// تحدّث الوقت ده طول ما التاب مفتوح (انظر startSessionHeartbeat في
+// 01-app.js). لو حد حاول يدخل بنفس اليوزر من جهاز تاني والجلسة القديمة
+// لسه بتبعت نبضات (يعني الجهاز الأول لسه مفتوح فعليًا)، بنرفض الدخول
+// الجديد. لو مرت 5 دقايق من غير أي نبضة (مثلاً الموبايل قفل بطاريته أو
+// المتصفح اتقفل فجأة من غير تسجيل خروج)، نعتبر الجلسة منتهية ونسمح
+// بالدخول من الجهاز الجديد عادي (يـ"يرث" مكانها).
+// ══════════════════════════════════════════════════════════
+const SESSION_STALE_MS = 5 * 60 * 1000; // 5 دقايق
+
+async function claimSession(usernameInput, firestoreUser) {
+  const now = Date.now();
+  const heartbeat = firestoreUser.activeSessionHeartbeat || 0;
+  const isStale = (now - heartbeat) > SESSION_STALE_MS;
+  if (heartbeat && !isStale) {
+    return { claimed: false };
+  }
+  const sessionToken = await sha256(usernameInput + ':' + now + ':' + Math.random());
+  try {
+    const docRef = doc(db, 'users', firestoreUser._docId || usernameInput);
+    await setDoc(docRef, { activeSessionToken: sessionToken, activeSessionHeartbeat: now }, { merge: true });
+  } catch (e) {
+    console.warn('claimSession write failed (login still proceeds):', e.message);
+  }
+  return { claimed: true, sessionToken };
+}
+
+function showSessionBlockedError(errEl, btn, loader) {
+  loader.style.display = 'none';
+  btn.style.display = 'block';
+  errEl.textContent = '⚠️ هذا المستخدم مسجّل دخول بالفعل من جهاز آخر حاليًا. حاول تاني بعد كذا دقيقة، أو اطلب من الأدمن "إنهاء الجلسات الأخرى" من شاشة إدارة المستخدمين.';
+  errEl.classList.add('show');
+}
+
 window.doLogin = async function() {
   if (!auth || !db) { alert('⚠️ لم يتم إعداد Firebase بعد. من فضلك أدخل بيانات Firebase أولاً.'); return; }
   const usernameInput = document.getElementById('username').value.trim().toLowerCase();
@@ -427,13 +466,21 @@ window.doLogin = async function() {
       // ✅ حساب مُهاجَر بالفعل — نتحقق حصريًا عبر Firebase Auth الحقيقي
       try {
         await signInWithEmailAndPassword(auth, fakeEmail, password);
+        // 🔒 فحص/حجز الجلسة — قبل ما نكمّل، نتأكد إن مفيش جهاز تاني شغال بنفس اليوزر
+        const claim = await claimSession(usernameInput, firestoreUser);
+        if (!claim.claimed) {
+          await auth.signOut().catch(() => {});
+          showSessionBlockedError(errEl, btn, loader);
+          return;
+        }
         resetAttempts();
         loginSuccess(
           usernameInput,
           firestoreUser.name || usernameInput,
           firestoreUser.role || 'user',
           firestoreUser.branch || 'all',
-          firestoreUser.screens || firestoreUser.permissions || ['all']
+          firestoreUser.screens || firestoreUser.permissions || ['all'],
+          claim.sessionToken
         );
         return;
       } catch (authErr) {
@@ -476,6 +523,12 @@ window.doLogin = async function() {
     }
 
     if (matched) {
+      // 🔒 فحص/حجز الجلسة الأول — قبل حتى ما نبدأ الهجرة لـ Firebase Auth
+      const claim = await claimSession(usernameInput, firestoreUser);
+      if (!claim.claimed) {
+        showSessionBlockedError(errEl, btn, loader);
+        return;
+      }
       // ✅ نجاح بالطريقة القديمة — الآن نهاجر لحساب Firebase Auth حقيقي
       try {
         await createUserWithEmailAndPassword(auth, fakeEmail, password);
@@ -493,7 +546,8 @@ window.doLogin = async function() {
         firestoreUser.name || usernameInput,
         firestoreUser.role || 'user',
         firestoreUser.branch || 'all',
-        firestoreUser.screens || firestoreUser.permissions || ['all']
+        firestoreUser.screens || firestoreUser.permissions || ['all'],
+        claim.sessionToken
       );
       return;
     }
@@ -513,10 +567,11 @@ window.doLogin = async function() {
 // ============================================================
 // نجاح تسجيل الدخول — بناء Session وانتقال
 // ============================================================
-async function loginSuccess(username, name, role, branch, screens) {
+async function loginSuccess(username, name, role, branch, screens, sessionToken) {
   resetAttempts();
-  const tokenRaw = username + ':' + Date.now() + ':' + Math.random();
-  const sessionToken = await sha256(tokenRaw);
+  // ملحوظة: sessionToken هنا هو نفسه اللي اتكتب في Firestore (activeSessionToken)
+  // أثناء claimSession — لازم يفضلوا متطابقين عشان heartbeat/كشف الطرد
+  // (في 01-app.js) يقدروا يتحققوا إن الجلسة دي لسه هي "المالكة" الشرعية.
   const session = {
     username, name, role, branch,
     screens,
