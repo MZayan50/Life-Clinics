@@ -1204,21 +1204,51 @@ function renderUsers(){
   const db = getUsersDB();
   const tbody = document.getElementById('users-tbody');
   if(!tbody) return;
-  const rows = Object.values(db).map(u => {
+  const allUsers = Object.values(db);
+  const rows = allUsers.map(u => {
     const screenCount = u.screens ? (u.screens.includes('all') ? 'الكل' : u.screens.length + ' شاشة') : '—';
     const roleColor = ROLE_COLORS[u.role] || 'var(--text-secondary)';
+    const migrated = !!u.fbAuthMigrated;
+    const migBadge = migrated
+      ? `<span style="background:rgba(34,197,94,.15);color:#22C55E;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:600;">✅ مُهاجَر</span>`
+      : `<span style="background:rgba(234,179,8,.15);color:#EAB308;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:600;">⏳ لسه مش داخل</span>`;
     return `<tr>
       <td><span style="font-family:monospace;font-size:12px;background:var(--glass);padding:3px 8px;border-radius:6px;direction:ltr;display:inline-block;">${escapeHtml(u.username)}</span></td>
       <td style="font-weight:600;">${escapeHtml(u.name)}</td>
       <td><span style="color:${roleColor};font-weight:600;font-size:12px;">${escapeHtml(ROLE_LABELS[u.role]||u.role)}</span></td>
       <td>${u.branch==='all'?'كل الفروع':escapeHtml(u.branch)||'—'}</td>
       <td><span style="background:var(--glass);padding:3px 8px;border-radius:6px;font-size:12px;">${screenCount}</span></td>
+      <td>${migBadge}</td>
       <td>
         <button class="btn btn-ghost btn-sm" onclick="openUserModal('${escJsAttr(u.username)}')">✏️ تعديل</button>
       </td>
     </tr>`;
   }).join('');
-  tbody.innerHTML = rows || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">لا يوجد مستخدمون</td></tr>';
+  tbody.innerHTML = rows || '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">لا يوجد مستخدمون</td></tr>';
+
+  // ── بانر ملخّص: هل كل المستخدمين اتهاجروا لـ Firebase Auth ولا لأ؟ ──
+  // ده عشان تعرف بنظرة واحدة (من غير ما تفتح Firebase Console وتدور
+  // مستند مستند) هل ممكن تقفل firestore.rules دلوقتي (request.auth != null)
+  // من غير ما تقفل الباب قدام حد لسه معملش أول دخول بعد التحديث.
+  const banner = document.getElementById('users-migration-banner');
+  if(banner){
+    const total = allUsers.length;
+    const migratedCount = allUsers.filter(u => u.fbAuthMigrated).length;
+    const pending = allUsers.filter(u => !u.fbAuthMigrated);
+    if(total === 0){
+      banner.innerHTML = '';
+    } else if(migratedCount === total){
+      banner.innerHTML = `<div style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.35);color:#16A34A;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;">
+        ✅ كل المستخدمين (${total}/${total}) اتهاجروا لـ Firebase Auth — تقدر تقفل firestore.rules دلوقتي.
+      </div>`;
+    } else {
+      const names = pending.map(u => escapeHtml(u.name || u.username)).join('، ');
+      banner.innerHTML = `<div style="background:rgba(234,179,8,.12);border:1px solid rgba(234,179,8,.35);color:#B45309;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;">
+        ⏳ لسه فيه ${pending.length} من ${total} مستخدمين معملوش أول دخول بعد التحديث: ${names}.
+        <br><span style="font-weight:400;">متقفلش firestore.rules دلوقتي — لو قفلتها، دول مش هيقدروا يدخلوا خالص.</span>
+      </div>`;
+    }
+  }
 }
 
 function buildScreensGrid(selected=[]){
