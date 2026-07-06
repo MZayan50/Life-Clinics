@@ -1072,13 +1072,14 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
       <div class="fg">
         <div class="fgrp full"><label class="flbl">ملاحظات الاستشارة</label><textarea class="fctl ta" id="cd-notes" placeholder="تشخيص، توصيات، ملاحظات..."></textarea></div>
         <div class="fgrp full"><label class="flbl">الخدمات المُنفَّذة</label><select class="fctl" id="cd-svc" onchange="onCdSvcChange()"></select></div>
-        <div class="fgrp"><label class="flbl">السعر (ج)</label><input class="fctl" type="number" id="cd-price" oninput="calcCdTotal()"></div>
-        <div class="fgrp"><label class="flbl">الخصم (ج)</label><input class="fctl" type="number" id="cd-disc" value="0" oninput="calcCdTotal()"></div>
+        <div class="fgrp full" id="cd-pkg-banner" style="display:none;background:rgba(45,212,191,.1);border:1px solid var(--teal);border-radius:10px;padding:12px;color:var(--teal);font-weight:700;text-align:center;"></div>
+        <div class="fgrp" id="cd-price-fgrp"><label class="flbl">السعر (ج)</label><input class="fctl" type="number" id="cd-price" oninput="calcCdTotal()"></div>
+        <div class="fgrp" id="cd-disc-fgrp"><label class="flbl">الخصم (ج)</label><input class="fctl" type="number" id="cd-disc" value="0" oninput="calcCdTotal()"></div>
         <div class="fgrp full" style="background:var(--glass);border:1px solid var(--glass-border);border-radius:10px;padding:12px;">
-          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;"><span style="color:var(--text-muted)">الصافي:</span><span id="cd-net" style="font-weight:800;color:var(--gold-light);">0 ج</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;" id="cd-net-row"><span style="color:var(--text-muted)">الصافي:</span><span id="cd-net" style="font-weight:800;color:var(--gold-light);">0 ج</span></div>
           <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--text-muted)">عمولة الطبيب:</span><span id="cd-comm-display" style="color:var(--teal);">0 ج</span></div>
         </div>
-        <div class="fgrp full"><label class="flbl">طريقة الدفع</label>
+        <div class="fgrp full" id="cd-pay-fgrp"><label class="flbl">طريقة الدفع</label>
           <div class="pay-g" style="grid-template-columns:repeat(5,1fr);">
             <div class="pay-m sel" onclick="selPay(this)"><div class="pay-ic">💵</div>كاش</div>
             <div class="pay-m" onclick="selPay(this)"><div class="pay-ic">💳</div>فيزا</div>
