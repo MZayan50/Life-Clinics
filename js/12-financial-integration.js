@@ -545,6 +545,14 @@ function _triggerFullSync() {
       // للجلسات المغطاة بباقة (راجع شرح الفكس فوق عند تعريف pkgSessionValue).
       const sessionRevenue     = coveredByPkg ? pkgSessionValue : net;
       const actualProfit       = sessionRevenue - actualMaterialCost;
+      // ✅ FIX: كان sessionNo بيتسجل ثابت على 1 دايمًا مهما كان ترتيب الجلسة
+      // الحقيقي جوه الباقة (لو دي الجلسة التالتة من عشرة، كانت بتتسجل 1 برضه)
+      // في session_completions — الجدول اللي بتعتمد عليه كروت "تكاليف وأرباح
+      // الجلسات" بالداشبورد/التقارير. نفس رقم الجلسة المحسوب والمخزَّن فعليًا
+      // في الفاتورة نفسها (sessionNumber، فيكس الفاتورة الأخير) بيتسجل هنا كمان
+      // عشان أي شاشة/تقرير مستقبلي يعتمد على session_completions.sessionNo
+      // ياخد الرقم الصحيح من نفس المصدر بالظبط، بدل قيمة وهمية ثابتة.
+      const _realSessionNo = coveredByPkg ? ((activePkgBefore.sessionsUsed||0)+1) : 1;
 
       DB.push('session_completions', {
         apptId,
@@ -554,7 +562,7 @@ function _triggerFullSync() {
         patName: a.patient || '',
         serviceId: svcRecord?.id || a.serviceId || null,
         serviceName: svcName || '—',
-        sessionNo: 1,
+        sessionNo: _realSessionNo,
         date: today,
         revenue: sessionRevenue,
         actualMaterialCost,

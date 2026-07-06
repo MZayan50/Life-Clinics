@@ -411,7 +411,19 @@ async function runAccountingBackfill(){
   });
 
   // ── COGS: استهلاك مواد الجلسات/الباقات (أفضل تقدير متاح تاريخيًا) ──
+  // ✅ FIX (ازدواج COGS): سجلات session_completions الجاية من شاشة الطبيب
+  // (finalizeConsultation → _patchFinalizeConsultation، وعلامتها الحصرية هي
+  // وجود apptId) بيتغطى تكلفة موادها بالفعل *حيًّا* لحظة إنشاء الفاتورة نفسها
+  // عبر hook الفواتير فوق (sourceType:'invoice', sourceId: inv.id — نفس
+  // inv.materialCost). لو تركنا هذه الحلقة تعالجها كمان، هتترحّل بمفتاح مختلف
+  // (sourceType:'package', sourceId: pkgId) فـ hasCOGSEntry() مش هيكتشف
+  // التكرار (مفتاح مختلف تمامًا) وهيتقيّد قيد COGS تاني لنفس التكلفة —
+  // مضاعفة وهمية لتكلفة المواد وتقليل صافي الربح الحقيقي في التقارير.
+  // الحل: نتجاهل هنا أي سجل معاه apptId (مصدره فاتورة أصلاً)، ونقتصر على
+  // السجلات القديمة الجاية من usePackageSession/addSessionProgress اللي
+  // مالهاش فاتورة مرتبطة من الأساس.
   (DB.get('session_completions')||[]).forEach(rec=>{
+    if(rec.apptId) return; // ✅ اتغطى بالفعل عبر قيد الفاتورة (sourceType:'invoice')
     const cost = rec.cogsAmount || rec.actualMaterialCost || rec.materialCost || 0;
     const sourceType = rec.sessionPlanId ? 'session' : (rec.pkgId ? 'package' : null);
     const sourceId = rec.sessionPlanId || rec.pkgId || null;
@@ -427,6 +439,7 @@ async function runAccountingBackfill(){
       ]
     })});
   });
+
 
   // ── حملات إعلانية قديمة مالهاش مصروف مرتبط بعد ──
   (DB.get('campaigns')||[]).forEach(c=>{
